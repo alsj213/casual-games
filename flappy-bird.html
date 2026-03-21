@@ -39,8 +39,8 @@
             width: 40,
             height: 30,
             velocity: 0,
-            gravity: 0.6,
-            jump: -10,
+            gravity: 0.4,
+            jump: -8,
             rotation: 0,
             draw() {
                 ctx.save();
@@ -93,9 +93,9 @@
         // 管道
         const pipes = [];
         const pipeWidth = 70;
-        const pipeGap = 160;
+        const pipeGap = 180;
         let pipeTimer = 0;
-        const pipeInterval = 100;
+        const pipeInterval = 150;
 
         function createPipe() {
             const minHeight = 80;
@@ -139,7 +139,7 @@
                 pipeTimer = 0;
             }
             pipes.forEach((pipe, index) => {
-                pipe.x -= 3;
+                pipe.x -= 2;
                 // 得分
                 if (!pipe.scored && pipe.x + pipeWidth < bird.x) {
                     pipe.scored = true;

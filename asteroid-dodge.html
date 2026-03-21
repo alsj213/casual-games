@@ -35,7 +35,7 @@
     const ctx = canvas.getContext('2d');
     const W = canvas.width = Math.min(window.innerWidth - 20, 400);
     const H = canvas.height = 600;
-    const ship = { x: W/2, y: H-50, w: 30, h: 30, speed: 8 };
+    const ship = { x: W/2, y: H-50, w: 30, h: 30, speed: 5 };
     let asteroids = [], stars = [], score = 0, lives = 3, running = true, keys = {};
     let lastTime = 0, difficulty = 1;
     const asteroidColors = ['#ff6b6b', '#feca57', '#48dbfb', '#ff9ff3', '#54a0ff'];
@@ -79,7 +79,7 @@
         x: Math.random()*(W-size),
         y: -size,
         size: size,
-        speed: (2 + Math.random()*2) * difficulty,
+        speed: (1.2 + Math.random()*1.5) * difficulty,
         rotation: 0,
         rotSpeed: (Math.random()-0.5)*0.1,
         color: asteroidColors[Math.floor(Math.random()*asteroidColors.length)]
@@ -120,14 +120,14 @@
     function update(deltaTime) {
       if(!running) return;
       score += deltaTime / 1000;
-      difficulty = 1 + Math.floor(score / 10) * 0.2;
+      difficulty = 1 + Math.floor(score / 15) * 0.15;
       document.getElementById('score').textContent = `得分: ${Math.floor(score)}`;
       
       if(keys['ArrowLeft']) ship.x -= ship.speed;
       if(keys['ArrowRight']) ship.x += ship.speed;
       ship.x = Math.max(ship.w/2, Math.min(W-ship.w/2, ship.x));
       
-      if(Math.random() < 0.02*difficulty) createAsteroid();
+      if(Math.random() < 0.015*difficulty) createAsteroid();
       drawStars();
       drawShip();
       drawAsteroids();

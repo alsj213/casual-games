@@ -99,7 +99,7 @@
             height: 80,
             leftY: canvas.height / 2 - 40,
             rightY: canvas.height / 2 - 40,
-            speed: 8
+            speed: 5
         };
 
         // 球
@@ -163,7 +163,7 @@
             ball.y = canvas.height / 2;
             const angle = (Math.random() * Math.PI / 3) - Math.PI / 6;
             const direction = Math.random() > 0.5 ? 1 : -1;
-            ball.speed = 5;
+            ball.speed = 3.5;
             ball.vx = direction * ball.speed * Math.cos(angle);
             ball.vy = ball.speed * Math.sin(angle);
         }

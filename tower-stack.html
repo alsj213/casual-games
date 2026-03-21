@@ -105,7 +105,7 @@ function placeBlock() {
 
 function update() {
   if (!gameRunning) return;
-  currentBlock.y += 3;
+  currentBlock.y += 2;
   if (currentBlock.y >= canvas.height - (blocks.length + 1) * BLOCK_HEIGHT) {
     placeBlock();
   }
