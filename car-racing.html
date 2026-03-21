@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>简易赛车</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: #1a1a1a;
+            font-family: Arial, sans-serif;
+        }
+        canvas {
+            border: 3px solid #333;
+            background: #444;
+        }
+        #info {
+            color: white;
+            margin-bottom: 10px;
+            font-size: 18px;
+        }
+        #gameOver {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 30px;
+            border-radius: 10px;
+            text-align: center;
+            display: none;
+        }
+        #gameOver h1 {
+            margin: 0 0 10px 0;
+            color: #ff4444;
+        }
+        #restart {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+        #restart:hover {
+            background: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <div id="info">
+        得分: <span id="score">0</span> | 速度: <span id="speed">1</span>x
+    </div>
+    <canvas id="gameCanvas" width="400" height="600"></canvas>
+    <div id="gameOver">
+        <h1>游戏结束!</h1>
+        <p>最终得分: <span id="finalScore">0</span></p>
+        <button id="restart" onclick="restartGame()">重新开始</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreEl = document.getElementById('score');
+        const speedEl = document.getElementById('speed');
+        const gameOverEl = document.getElementById('gameOver');
+        const finalScoreEl = document.getElementById('finalScore');
+
+        // 游戏状态
+        let gameRunning = true;
+        let score = 0;
+        let baseSpeed = 2;
+        let speed = baseSpeed;
+        let maxSpeed = 8;
+        let speedIncreaseRate = 0.001;
+
+        // 车道定义 - 3条车道
+        const lanes = [canvas.width * 0.25, canvas.width * 0.5, canvas.width * 0.75];
+        const laneWidth = canvas.width / 3;
+
+        // 玩家车辆
+        const player = {
+            lane: 1, // 中间车道
+            width: 50,
+            height: 80,
+            x: 0,
+            y: canvas.height - 120,
+            color: '#00ff00'
+        };
+
+        // 其他车辆数组
+        let cars = [];
+        const carSpawnRate = 60; // 帧数间隔
+        let frameCount = 0;
+
+        // 更新玩家位置
+        function updatePlayerPosition() {
+            player.x = lanes[player.lane] - player.width / 2;
+        }
+
+        // 生成新车
+        function spawnCar() {
+            const lane = Math.floor(Math.random() * 3);
+            const car = {
+                lane: lane,
+                width: 50,
+                height: 80,
+                x: 0,
+                y: -100,
+                color: `hsl(${Math.random() * 360}, 70%, 50%)`
+            };
+            car.x = lanes[car.lane] - car.width / 2;
+            cars.push(car);
+        }
+
+        // 碰撞检测
+        function checkCollision(car1, car2) {
+            return car1.x < car2.x + car2.width &&
+                   car1.x + car1.width > car2.x &&
+                   car1.y < car2.y + car2.height &&
+                   car1.y + car1.height > car2.y;
+        }
+
+        // 游戏循环
+        function gameLoop() {
+            if (!gameRunning) return;
+
+            // 清空画布
+            ctx.fillStyle = '#444';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 画车道分隔线
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 3;
+            ctx.setLineDash([30, 30]);
+            for (let i = 1; i < 3; i++) {
+                ctx.beginPath();
+                ctx.moveTo(i * laneWidth, 0);
+                ctx.lineTo(i * laneWidth, canvas.height);
+                ctx.stroke();
+            }
+            ctx.setLineDash([]);
+
+            // 增加速度和分数
+            if (speed < maxSpeed) {
+                speed += speedIncreaseRate;
+            }
+            score += speed / 10;
+            scoreEl.textContent = Math.floor(score);
+            speedEl.textContent = (speed / baseSpeed).toFixed(1);
+
+            // 生成新车
+            frameCount++;
+            if (frameCount >= carSpawnRate / (speed / baseSpeed)) {
+                spawnCar();
+                frameCount = 0;
+            }
+
+            // 更新和绘制其他车辆
+            for (let i = cars.length - 1; i >= 0; i--) {
+                const car = cars[i];
+                car.y += speed;
+
+                // 绘制车辆
+                ctx.fillStyle = car.color;
+                ctx.fillRect(car.x, car.y, car.width, car.height);
+                // 车辆细节
+                ctx.fillStyle = '#333';
+                ctx.fillRect(car.x + 5, car.y + 10, car.width - 10, 15);
+                ctx.fillRect(car.x + 5, car.y + car.height - 25, car.width - 10, 15);
+
+                // 碰撞检测
+                if (checkCollision(player, car)) {
+                    endGame();
+                    return;
+                }
+
+                // 移除超出屏幕的车
+                if (car.y > canvas.height) {
+                    cars.splice(i, 1);
+                }
+            }
+
+            // 绘制玩家车辆
+            ctx.fillStyle = player.color;
+            ctx.fillRect(player.x, player.y, player.width, player.height);
+            // 玩家车辆细节
+            ctx.fillStyle = '#222';
+            ctx.fillRect(player.x + 5, player.y + 10, player.width - 10, 15);
+            ctx.fillRect(player.x + 5, player.y + player.height - 25, player.width - 10, 15);
+            // 挡风玻璃
+            ctx.fillStyle = '#111';
+            ctx.fillRect(player.x + 10, player.y + 30, player.width - 20, 30);
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // 结束游戏
+        function endGame() {
+            gameRunning = false;
+            finalScoreEl.textContent = Math.floor(score);
+            gameOverEl.style.display = 'block';
+        }
+
+        // 重新开始游戏
+        function restartGame() {
+            gameRunning = true;
+            score = 0;
+            speed = baseSpeed;
+            cars = [];
+            frameCount = 0;
+            player.lane = 1;
+            updatePlayerPosition();
+            gameOverEl.style.display = 'none';
+            gameLoop();
+        }
+
+        // 键盘控制
+        document.addEventListener('keydown', (e) => {
+            if (!gameRunning) return;
+            if (e.key === 'ArrowLeft' && player.lane > 0) {
+                player.lane--;
+                updatePlayerPosition();
+            } else if (e.key === 'ArrowRight' && player.lane < 2) {
+                player.lane++;
+                updatePlayerPosition();
+            }
+        });
+
+        // 触摸控制（支持手机）
+        let touchStartX = 0;
+        canvas.addEventListener('touchstart', (e) => {
+            touchStartX = e.touches[0].clientX;
+            e.preventDefault();
+        });
+        canvas.addEventListener('touchend', (e) => {
+            if (!gameRunning) return;
+            const touchEndX = e.changedTouches[0].clientX;
+            const diff = touchEndX - touchStartX;
+            if (diff > 30 && player.lane < 2) {
+                player.lane++;
+                updatePlayerPosition();
+            } else if (diff < -30 && player.lane > 0) {
+                player.lane--;
+                updatePlayerPosition();
+            }
+            e.preventDefault();
+        });
+
+        // 点击控制
+        canvas.addEventListener('click', (e) => {
+            if (!gameRunning) return;
+            const rect = canvas.getBoundingClientRect();
+            const clickX = e.clientX - rect.left;
+            if (clickX < canvas.width / 2 && player.lane > 0) {
+                player.lane--;
+                updatePlayerPosition();
+            } else if (clickX >= canvas.width / 2 && player.lane < 2) {
+                player.lane++;
+                updatePlayerPosition();
+            }
+        });
+
+        // 初始化游戏
+        updatePlayerPosition();
+        gameLoop();
+    </script>
+</body>
+</html>

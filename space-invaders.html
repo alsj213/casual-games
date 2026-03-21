@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Space Invaders</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-family: Arial, sans-serif;
+        }
+        canvas {
+            border: 2px solid #33ff33;
+            background: #000;
+        }
+        #info {
+            color: #33ff33;
+            margin-bottom: 10px;
+            font-size: 18px;
+        }
+        #controls {
+            color: #33ff33;
+            margin-top: 10px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div id="info">
+        Score: <span id="score">0</span> | Level: <span id="level">1</span>
+    </div>
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    <div id="controls">
+        ← → arrows to move | Space to shoot
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreEl = document.getElementById('score');
+        const levelEl = document.getElementById('level');
+
+        // Game state
+        let score = 0;
+        let level = 1;
+        let gameRunning = true;
+        let keys = {};
+
+        // Player
+        const player = {
+            x: canvas.width / 2 - 25,
+            y: canvas.height - 60,
+            width: 50,
+            height: 30,
+            speed: 5
+        };
+
+        // Bullets
+        let playerBullets = [];
+        let enemyBullets = [];
+        const bulletSpeed = 7;
+        const enemyBulletSpeed = 4;
+
+        // Invaders
+        let invaders = [];
+        let invaderRows = 5;
+        let invaderCols = 10;
+        let invaderDirection = 1;
+        let invaderSpeed = 1;
+        let invaderStepDown = 20;
+
+        // Barriers
+        let barriers = [];
+        const barrierCount = 4;
+        const barrierHealth = 10;
+
+        // Initialize game
+        function initGame() {
+            createInvaders();
+            createBarriers();
+        }
+
+        function createInvaders() {
+            invaders = [];
+            const startX = 80;
+            const startY = 50;
+            const spacing = 60;
+            for (let row = 0; row < invaderRows; row++) {
+                for (let col = 0; col < invaderCols; col++) {
+                    invaders.push({
+                        x: startX + col * spacing,
+                        y: startY + row * 40,
+                        width: 40,
+                        height: 30,
+                        alive: true
+                    });
+                }
+            }
+        }
+
+        function createBarriers() {
+            barriers = [];
+            const spacing = canvas.width / (barrierCount + 1);
+            for (let i = 0; i < barrierCount; i++) {
+                const x = spacing * (i + 1) - 40;
+                const y = canvas.height - 120;
+                barriers.push({
+                    x: x,
+                    y: y,
+                    width: 80,
+                    height: 40,
+                    blocks: createBarrierBlocks(x, y)
+                });
+            }
+        }
+
+        function createBarrierBlocks(x, y) {
+            const blocks = [];
+            for (let row = 0; row < 4; row++) {
+                for (let col = 0; col < 8; col++) {
+                    blocks.push({
+                        x: x + col * 10,
+                        y: y + row * 10,
+                        width: 10,
+                        height: 10,
+                        health: barrierHealth
+                    });
+                }
+            }
+            return blocks.filter(() => Math.random() > 0.1); // slight randomness
+        }
+
+        // Input handling
+        document.addEventListener('keydown', (e) => {
+            keys[e.key] = true;
+            if (e.key === ' ' && gameRunning) {
+                shoot();
+            }
+        });
+        document.addEventListener('keyup', (e) => {
+            keys[e.key] = false;
+        });
+
+        function shoot() {
+            if (playerBullets.length < 3) {
+                playerBullets.push({
+                    x: player.x + player.width / 2 - 2,
+                    y: player.y,
+                    width: 4,
+                    height: 12
+                });
+            }
+        }
+
+        // Enemy shooting
+        function enemyShoot() {
+            const aliveInvaders = invaders.filter(i => i.alive);
+            if (aliveInvaders.length > 0 && Math.random() < 0.03 + level * 0.01) {
+                const shooter = aliveInvaders[Math.floor(Math.random() * aliveInvaders.length)];
+                enemyBullets.push({
+                    x: shooter.x + shooter.width / 2 - 2,
+                    y: shooter.y + shooter.height,
+                    width: 4,
+                    height: 12
+                });
+            }
+        }
+
+        // Update game
+        function update() {
+            if (!gameRunning) return;
+
+            // Player movement
+            if (keys['ArrowLeft'] && player.x > 0) {
+                player.x -= player.speed;
+            }
+            if (keys['ArrowRight'] && player.x < canvas.width - player.width) {
+                player.x += player.speed;
+            }
+
+            // Update player bullets
+            playerBullets = playerBullets.filter(bullet => {
+                bullet.y -= bulletSpeed;
+                return bullet.y > 0;
+            });
+
+            // Update enemy bullets
+            enemyBullets = enemyBullets.filter(bullet => {
+                bullet.y += enemyBulletSpeed;
+                return bullet.y < canvas.height;
+            });
+
+            // Move invaders
+            let moveDown = false;
+            for (const invader of invaders) {
+                if (invader.alive) {
+                    invader.x += invaderSpeed * invaderDirection;
+                    if (invader.x <= 0 || invader.x + invader.width >= canvas.width) {
+                        moveDown = true;
+                    }
+                    // Check if invader reached player
+                    if (invader.y + invader.height >= player.y) {
+                        gameOver();
+                        return;
+                    }
+                }
+            }
+            if (moveDown) {
+                invaderDirection *= -1;
+                for (const invader of invaders) {
+                    if (invader.alive) {
+                        invader.y += invaderStepDown;
+                    }
+                }
+            }
+
+            // Enemy shooting
+            enemyShoot();
+
+            // Collision detection
+            checkCollisions();
+
+            // Check if level complete
+            const aliveInvaders = invaders.filter(i => i.alive);
+            if (aliveInvaders.length === 0) {
+                nextLevel();
+            }
+
+            updateUI();
+        }
+
+        function checkCollisions() {
+            // Player bullets vs invaders
+            for (const bullet of playerBullets) {
+                for (const invader of invaders) {
+                    if (invader.alive && collide(bullet, invader)) {
+                        invader.alive = false;
+                        bullet.y = -10; // remove bullet
+                        score += 10 * level;
+                    }
+                }
+            }
+
+            // Player bullets vs barriers
+            for (const bullet of playerBullets) {
+                for (const barrier of barriers) {
+                    for (const block of barrier.blocks) {
+                        if (block.health > 0 && collide(bullet, block)) {
+                            block.health--;
+                            bullet.y = -10;
+                        }
+                    }
+                }
+            }
+
+            // Enemy bullets vs barriers
+            for (const bullet of enemyBullets) {
+                for (const barrier of barriers) {
+                    for (const block of barrier.blocks) {
+                        if (block.health > 0 && collide(bullet, block)) {
+                            block.health--;
+                            bullet.y = canvas.height + 10;
+                        }
+                    }
+                }
+            }
+
+            // Enemy bullets vs player
+            for (const bullet of enemyBullets) {
+                if (collide(bullet, player)) {
+                    gameOver();
+                    return;
+                }
+            }
+        }
+
+        function collide(a, b) {
+            return a.x < b.x + b.width &&
+                   a.x + a.width > b.x &&
+                   a.y < b.y + b.height &&
+                   a.y + a.height > b.y;
+        }
+
+        function nextLevel() {
+            level++;
+            invaderSpeed += 0.5;
+            createInvaders();
+            playerBullets = [];
+            enemyBullets = [];
+            createBarriers();
+        }
+
+        function gameOver() {
+            gameRunning = false;
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+            ctx.fillRect(0, canvas.height / 2 - 40, canvas.width, 80);
+            ctx.fillStyle = '#33ff33';
+            ctx.font = '48px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('GAME OVER', canvas.width / 2, canvas.height / 2 + 16);
+            ctx.font = '24px Arial';
+            ctx.fillText(`Final Score: ${score}`, canvas.width / 2, canvas.height / 2 + 50);
+        }
+
+        function updateUI() {
+            scoreEl.textContent = score;
+            levelEl.textContent = level;
+        }
+
+        // Draw everything
+        function draw() {
+            // Clear canvas
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw player
+            ctx.fillStyle = '#33ff33';
+            ctx.fillRect(player.x, player.y, player.width, player.height);
+            // Draw player cockpit
+            ctx.fillStyle = '#000';
+            ctx.fillRect(player.x + player.width / 2 - 5, player.y, 10, 10);
+
+            // Draw invaders
+            for (const invader of invaders) {
+                if (invader.alive) {
+                    ctx.fillStyle = '#ff3333';
+                    drawInvader(invader);
+                }
+            }
+
+            // Draw barriers
+            for (const barrier of barriers) {
+                for (const block of barrier.blocks) {
+                    if (block.health > 0) {
+                        const alpha = block.health / barrierHealth;
+                        ctx.fillStyle = `rgba(51, 153, 255, ${alpha})`;
+                        ctx.fillRect(block.x, block.y, block.width, block.height);
+                    }
+                }
+            }
+
+            // Draw bullets
+            ctx.fillStyle = '#ffff00';
+            for (const bullet of playerBullets) {
+                ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+            }
+            ctx.fillStyle = '#ff6666';
+            for (const bullet of enemyBullets) {
+                ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+            }
+        }
+
+        function drawInvader(invader) {
+            ctx.fillRect(invader.x, invader.y, invader.width, invader.height);
+            // Eyes
+            ctx.fillStyle = '#000';
+            ctx.fillRect(invader.x + 5, invader.y + 8, 8, 8);
+            ctx.fillRect(invader.x + invader.width - 13, invader.y + 8, 8, 8);
+            ctx.fillStyle = '#ff3333';
+        }
+
+        // Game loop
+        function gameLoop() {
+            update();
+            draw();
+            if (gameRunning) {
+                requestAnimationFrame(gameLoop);
+            }
+        }
+
+        // Start game
+        initGame();
+        gameLoop();
+    </script>
+</body>
+</html>

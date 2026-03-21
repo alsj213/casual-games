@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>单词拼写游戏 - Word Scramble</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; display: flex; justify-content: center; align-items: center; padding: 20px; }
+        .container { background: white; border-radius: 20px; padding: 30px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); max-width: 600px; width: 100%; }
+        h1 { text-align: center; color: #333; margin-bottom: 20px; }
+        .stats { display: flex; justify-content: space-between; margin-bottom: 20px; font-size: 18px; }
+        .stat { background: #f0f0f0; padding: 10px 20px; border-radius: 10px; }
+        .category { margin-bottom: 15px; }
+        select { padding: 10px 20px; border-radius: 10px; border: 2px solid #667eea; font-size: 16px; width: 100%; cursor: pointer; }
+        .word-display { font-size: 32px; text-align: center; margin: 20px 0; color: #667eea; font-weight: bold; min-height: 50px; }
+        .letters-container { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin: 20px 0; }
+        .letter-tile { width: 60px; height: 60px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 10px; display: flex; justify-content: center; align-items: center; font-size: 28px; font-weight: bold; cursor: grab; user-select: none; transition: transform 0.2s, box-shadow 0.2s; }
+        .letter-tile:hover { transform: scale(1.1); box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
+        .letter-tile.dragging { opacity: 0.5; cursor: grabbing; }
+        .drop-zone { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; min-height: 60px; border: 3px dashed #ccc; border-radius: 15px; padding: 15px; margin: 20px 0; transition: border-color 0.3s, background 0.3s; }
+        .drop-zone.drag-over { border-color: #667eea; background: rgba(102, 126, 234, 0.1); }
+        .buttons { display: flex; gap: 10px; justify-content: center; margin-top: 20px; }
+        button { padding: 12px 30px; font-size: 16px; border: none; border-radius: 10px; cursor: pointer; transition: transform 0.2s; font-weight: bold; }
+        button:hover { transform: scale(1.05); }
+        .btn-hint { background: #ffd43b; color: #333; }
+        .btn-check { background: #51cf66; color: white; }
+        .btn-skip { background: #ff6b6b; color: white; }
+        .message { text-align: center; font-size: 20px; margin: 15px 0; min-height: 30px; }
+        .message.correct { color: #51cf66; }
+        .message.wrong { color: #ff6b6b; }
+        .hint-text { color: #ffd43b; font-size: 14px; text-align: center; margin: 10px 0; }
+        .game-over { text-align: center; margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎮 单词拼写游戏</h1>
+        <div class="stats">
+            <div class="stat">⏱️ 时间: <span id="timer">00:00</span></div>
+            <div class="stat">🏆 分数: <span id="score">0</span></div>
+        </div>
+        <div class="category">
+            <select id="categorySelect">
+                <option value="animals">🐾 动物 Animals</option>
+                <option value="fruits">🍎 水果 Fruits</option>
+                <option value="food">🍽️ 食物 Food</option>
+                <option value="technology">💻 科技 Technology</option>
+            </select>
+        </div>
+        <div class="word-display">提示: <span id="hint">?</span></div>
+        <div class="letters-container" id="lettersContainer"></div>
+        <div class="drop-zone" id="dropZone">拖拽字母到这里</div>
+        <div class="hint-text">💡 提示功能消耗 5 分</div>
+        <div class="message" id="message"></div>
+        <div class="buttons">
+            <button class="btn-hint" onclick="showHint()">💡 提示</button>
+            <button class="btn-check" onclick="checkWord()">✓ 检查</button>
+            <button class="btn-skip" onclick="skipWord()">⏭️ 跳过</button>
+        </div>
+        <div class="game-over" id="gameOver" style="display: none;">
+            <h2>🎉 游戏结束！</h2>
+            <p>最终分数: <span id="finalScore">0</span></p>
+            <p>所用时间: <span id="finalTime">00:00</span></p>
+            <button class="btn-check" onclick="restartGame()">🔄 重新开始</button>
+        </div>
+    </div>
+
+    <script>
+        const wordLibrary = {
+            animals: [
+                { word: 'APPLE', hint: '🍎 苹果' },
+                { word: 'BIRD', hint: '🐦 鸟' },
+                { word: 'CAT', hint: '🐱 猫' },
+                { word: 'DOG', hint: '🐕 狗' },
+                { word: 'ELEPHANT', hint: '🐘 大象' },
+                { word: 'FISH', hint: '🐟 鱼' },
+                { word: 'LION', hint: '🦁 狮子' },
+                { word: 'MONKEY', hint: '🐒 猴子' },
+                { word: 'PANDA', hint: '🐼 熊猫' },
+                { word: 'TIGER', hint: '🐯 老虎' }
+            ],
+            fruits: [
+                { word: 'BANANA', hint: '🍌 香蕉' },
+                { word: 'GRAPE', hint: '🍇 葡萄' },
+                { word: 'MANGO', hint: '🥭 芒果' },
+                { word: 'PEAR', hint: '🍐 梨' },
+                { word: 'ORANGE', hint: '🍊 橘子' },
+                { word: 'PEACH', hint: '🍑 桃子' },
+                { word: 'STRAWBERRY', hint: '🍓 草莓' },
+                { word: 'WATERMELON', hint: '🍉 西瓜' }
+            ],
+            food: [
+                { word: 'BREAD', hint: '🍞 面包' },
+                { word: 'CAKE', hint: '🎂 蛋糕' },
+                { word: 'RICE', hint: '🍚 米饭' },
+                { word: 'NOODLE', hint: '🍝 面条' },
+                { word: 'PIZZA', hint: '🍕 披萨' },
+                { word: 'BURGER', hint: '🍔 汉堡' },
+                { word: 'SUSHI', hint: '🍣 寿司' }
+            ],
+            technology: [
+                { word: 'PHONE', hint: '📱 手机' },
+                { word: 'LAPTOP', hint: '💻 笔记本电脑' },
+                { word: 'MOUSE', hint: '🖱️ 鼠标' },
+                { word: 'SCREEN', hint: '🖥️ 屏幕' },
+                { word: 'KEYBOARD', hint: '⌨️ 键盘' },
+                { word: 'WIFI', hint: '📶 无线网络' },
+                { word: 'ROBOT', hint: '🤖 机器人' }
+            ]
+        };
+
+        let currentWord = null;
+        let shuffledLetters = [];
+        let score = 0;
+        let timerSeconds = 0;
+        let timerInterval = null;
+        let wordsSolved = 0;
+        const maxWords = 10;
+
+        function shuffleArray(array) {
+            const arr = [...array];
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+            return arr;
+        }
+
+        function startGame() {
+            score = 0;
+            timerSeconds = 0;
+            wordsSolved = 0;
+            document.getElementById('score').textContent = score;
+            document.getElementById('gameOver').style.display = 'none';
+            startTimer();
+            loadWord();
+        }
+
+        function loadWord() {
+            const category = document.getElementById('categorySelect').value;
+            const words = wordLibrary[category];
+            currentWord = words[Math.floor(Math.random() * words.length)];
+            shuffledLetters = shuffleArray(currentWord.word.split(''));
+            
+            document.getElementById('hint').textContent = '?';
+            document.getElementById('message').textContent = '';
+            document.getElementById('message').className = 'message';
+            
+            renderLetters();
+        }
+
+        function renderLetters() {
+            const container = document.getElementById('lettersContainer');
+            const dropZone = document.getElementById('dropZone');
+            container.innerHTML = '';
+            dropZone.innerHTML = '拖拽字母到这里';
+            dropZone.classList.remove('drag-over');
+
+            shuffledLetters.forEach((letter, index) => {
+                const tile = createLetterTile(letter, index);
+                container.appendChild(tile);
+            });
+        }
+
+        function createLetterTile(letter, index) {
+            const tile = document.createElement('div');
+            tile.className = 'letter-tile';
+            tile.draggable = true;
+            tile.textContent = letter;
+            tile.dataset.index = index;
+            tile.dataset.original = letter;
+
+            tile.addEventListener('dragstart', handleDragStart);
+            tile.addEventListener('dragend', handleDragEnd);
+            tile.addEventListener('touchstart', handleTouchStart, { passive: false });
+            tile.addEventListener('touchmove', handleTouchMove, { passive: false });
+            tile.addEventListener('touchend', handleTouchEnd);
+
+            return tile;
+        }
+
+        function setupDropZone() {
+            const dropZone = document.getElementById('dropZone');
+            dropZone.addEventListener('dragover', handleDragOver);
+            dropZone.addEventListener('dragleave', handleDragLeave);
+            dropZone.addEventListener('drop', handleDrop);
+        }
+
+        function handleDragStart(e) {
+            e.dataTransfer.setData('text/plain', e.target.dataset.index);
+            e.target.classList.add('dragging');
+        }
+
+        function handleDragEnd(e) {
+            e.target.classList.remove('dragging');
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.currentTarget.classList.add('drag-over');
+        }
+
+        function handleDragLeave(e) {
+            e.currentTarget.classList.remove('drag-over');
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            e.currentTarget.classList.remove('drag-over');
+            
+            const index = e.dataTransfer.getData('text/plain');
+            const container = document.getElementById('lettersContainer');
+            const dropZone = document.getElementById('dropZone');
+            const tile = container.querySelector(`[data-index="${index}"]`);
+            
+            if (tile) {
+                if (dropZone.textContent === '拖拽字母到这里') {
+                    dropZone.innerHTML = '';
+                }
+                dropZone.appendChild(tile);
+            }
+        }
+
+        let draggedElement = null;
+        
+        function handleTouchStart(e) {
+            draggedElement = e.target;
+            draggedElement.classList.add('dragging');
+            e.preventDefault();
+        }
+
+        function handleTouchMove(e) {
+            e.preventDefault();
+            const touch = e.touches[0];
+            draggedElement.style.position = 'fixed';
+            draggedElement.style.left = touch.clientX - 30 + 'px';
+            draggedElement.style.top = touch.clientY - 30 + 'px';
+            draggedElement.style.zIndex = '1000';
+        }
+
+        function handleTouchEnd(e) {
+            draggedElement.style.position = '';
+            draggedElement.style.left = '';
+            draggedElement.style.top = '';
+            draggedElement.style.zIndex = '';
+            draggedElement.classList.remove('dragging');
+            
+            const touch = e.changedTouches[0];
+            const dropZone = document.getElementById('dropZone');
+            const rect = dropZone.getBoundingClientRect();
+            
+            if (touch.clientX >= rect.left && touch.clientX <= rect.right &&
+                touch.clientY >= rect.top && touch.clientY <= rect.bottom) {
+                if (dropZone.textContent === '拖拽字母到这里') {
+                    dropZone.innerHTML = '';
+                }
+                dropZone.appendChild(draggedElement);
+            }
+            draggedElement = null;
+        }
+
+        function startTimer() {
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                timerSeconds++;
+                const minutes = Math.floor(timerSeconds / 60).toString().padStart(2, '0');
+                const seconds = (timerSeconds % 60).toString().padStart(2, '0');
+                document.getElementById('timer').textContent = `${minutes}:${seconds}`;
+            }, 1000);
+        }
+
+        function showHint() {
+            if (score >= 5) {
+                score -= 5;
+                document.getElementById('score').textContent = score;
+                document.getElementById('hint').textContent = currentWord.hint;
+            } else {
+                document.getElementById('message').textContent = '⚠️ 分数不足！';
+                document.getElementById('message').className = 'message wrong';
+            }
+        }
+
+        function checkWord() {
+            const dropZone = document.getElementById('dropZone');
+            const tiles = dropZone.querySelectorAll('.letter-tile');
+            let userWord = '';
+            
+            tiles.forEach(tile => {
+                userWord += tile.textContent;
+            });
+
+            if (userWord === currentWord.word) {
+                score += 10;
+                wordsSolved++;
+                document.getElementById('score').textContent = score;
+                document.getElementById('message').textContent = '🎉 正确！+10分';
+                document.getElementById('message').className = 'message correct';
+                
+                if (wordsSolved >= maxWords) {
+                    endGame();
+                } else {
+                    setTimeout(loadWord, 1500);
+                }
+            } else {
+                document.getElementById('message').textContent = '❌ 不正确，重试！';
+                document.getElementById('message').className = 'message wrong';
+            }
+        }
+
+        function skipWord() {
+            loadWord();
+        }
+
+        function endGame() {
+            clearInterval(timerInterval);
+            document.getElementById('finalScore').textContent = score;
+            document.getElementById('finalTime').textContent = document.getElementById('timer').textContent;
+            document.getElementById('gameOver').style.display = 'block';
+        }
+
+        function restartGame() {
+            document.getElementById('gameOver').style.display = 'none';
+            startGame();
+        }
+
+        document.getElementById('categorySelect').addEventListener('change', loadWord);
+        setupDropZone();
+        startGame();
+    </script>
+</body>
+</html>

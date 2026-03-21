@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>贪吃蛇华容道 - Snake Puzzle</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 600px;
+            width: 100%;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 2em;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 25px;
+            font-size: 0.9em;
+        }
+
+        .info-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 10px 15px;
+            background: #f5f5f5;
+            border-radius: 10px;
+        }
+
+        .level-info {
+            font-weight: bold;
+            color: #333;
+        }
+
+        .moves {
+            color: #667eea;
+            font-weight: bold;
+        }
+
+        #game-board {
+            display: grid;
+            gap: 4px;
+            background: #ddd;
+            padding: 4px;
+            border-radius: 10px;
+            margin: 0 auto 20px;
+            width: fit-content;
+        }
+
+        .cell {
+            width: 40px;
+            height: 40px;
+            background: #fff;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .cell:hover {
+            background: #f0f0f0;
+        }
+
+        .cell.selected {
+            background: #e3f2fd;
+            box-shadow: inset 0 0 0 2px #667eea;
+        }
+
+        .cell.snake-head {
+            background: #4caf50;
+            border-radius: 8px;
+        }
+
+        .cell.snake-body {
+            background: #81c784;
+            border-radius: 4px;
+        }
+
+        .cell.food {
+            background: #ff5252;
+            border-radius: 50%;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(0.9); }
+            50% { transform: scale(1.1); }
+        }
+
+        .cell.block {
+            background: #757575;
+            cursor: pointer;
+            transition: transform 0.2s ease, background 0.2s ease;
+        }
+
+        .cell.block:hover {
+            background: #616161;
+            transform: scale(0.95);
+        }
+
+        .cell.block.selected-block {
+            background: #424242;
+            box-shadow: inset 0 0 0 2px #fff;
+        }
+
+        .cell.empty {
+            background: #fafafa;
+        }
+
+        .cell.wall {
+            background: #424242;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 12px 24px;
+            font-size: 1em;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-weight: 600;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5a6fd6;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+
+        .instructions {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            color: #555;
+            font-size: 0.9em;
+            line-height: 1.6;
+        }
+
+        .instructions h3 {
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        .win-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .win-modal.show {
+            display: flex;
+        }
+
+        .win-content {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            text-align: center;
+            animation: popIn 0.3s ease;
+        }
+
+        @keyframes popIn {
+            0% { transform: scale(0.8); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .win-content h2 {
+            color: #4caf50;
+            margin-bottom: 15px;
+            font-size: 2em;
+        }
+
+        .win-content p {
+            color: #666;
+            margin-bottom: 25px;
+        }
+
+        @media (max-width: 500px) {
+            .cell {
+                width: 35px;
+                height: 35px;
+            }
+            
+            .container {
+                padding: 20px;
+            }
+            
+            h1 {
+                font-size: 1.5em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🐍 贪吃蛇华容道</h1>
+        <p class="subtitle">移动障碍物，让贪吃蛇吃到食物</p>
+        
+        <div class="info-bar">
+            <div class="level-info">关卡: <span id="current-level">1</span></div>
+            <div class="moves">步数: <span id="move-count">0</span></div>
+        </div>
+
+        <div id="game-board"></div>
+
+        <div class="controls">
+            <button class="btn-secondary" onclick="restartLevel()">重新开始</button>
+            <button class="btn-primary" onclick="nextLevel()" id="next-btn" style="display: none;">下一关</button>
+        </div>
+
+        <div class="instructions">
+            <h3>游戏规则</h3>
+            <p>1. 点击灰色障碍物选中它，然后点击空白位置移动</p>
+            <p>2. 障碍物只能向相邻的空位移动，不能穿墙</p>
+            <p>3. 为贪吃蛇开辟一条通路，让蛇头能够到达食物处自动获胜</p>
+        </div>
+    </div>
+
+    <div class="win-modal" id="win-modal">
+        <div class="win-content">
+            <h2>🎉 恭喜过关！</h2>
+            <p>你用了 <span id="final-moves">0</span> 步完成了挑战</p>
+            <button class="btn-primary" onclick="nextLevelAndClose()">进入下一关</button>
+        </div>
+    </div>
+
+    <script>
+        // 关卡定义
+        const levels = [
+            // 第1关 - 入门
+            {
+                size: {width: 6, height: 6},
+                snake: [{x: 1, y: 2}], // 蛇头位置
+                food: {x: 4, y: 2},
+                blocks: [
+                    {x: 2, y: 2},
+                    {x: 3, y: 2}
+                ]
+            },
+            // 第2关 - 简单障碍
+            {
+                size: {width: 7, height: 7},
+                snake: [{x: 1, y: 3}],
+                food: {x: 5, y: 3},
+                blocks: [
+                    {x: 2, y: 2},
+                    {x: 2, y: 3},
+                    {x: 2, y: 4},
+                    {x: 3, y: 3}
+                ]
+            },
+            // 第3关 - L形阻挡
+            {
+                size: {width: 7, height: 7},
+                snake: [{x: 1, y: 2}],
+                food: {x: 5, y: 4},
+                blocks: [
+                    {x: 2, y: 1},
+                    {x: 2, y: 2},
+                    {x: 2, y: 3},
+                    {x: 3, y: 3},
+                    {x: 4, y: 3}
+                ]
+            },
+            // 第4关 - 环绕
+            {
+                size: {width: 8, height: 8},
+                snake: [{x: 2, y: 3}],
+                food: {x: 6, y: 3},
+                blocks: [
+                    {x: 3, y: 2},
+                    {x: 3, y: 3},
+                    {x: 3, y: 4},
+                    {x: 4, y: 2},
+                    {x: 5, y: 2},
+                    {x: 5, y: 3},
+                    {x: 5, y: 4}
+                ]
+            },
+            // 第5关 - 复杂迷宫
+            {
+                size: {width: 8, height: 8},
+                snake: [{x: 1, y: 4}],
+                food: {x: 6, y: 4},
+                blocks: [
+                    {x: 2, y: 2},
+                    {x: 2, y: 3},
+                    {x: 2, y: 4},
+                    {x: 3, y: 2},
+                    {x: 4, y: 2},
+                    {x: 4, y: 3},
+                    {x: 4, y: 4},
+                    {x: 5, y: 4}
+                ]
+            },
+            // 第6关 - 终极挑战
+            {
+                size: {width: 9, height: 9},
+                snake: [{x: 2, y: 4}],
+                food: {x: 6, y: 4},
+                blocks: [
+                    {x: 3, y: 2},
+                    {x: 3, y: 3},
+                    {x: 3, y: 4},
+                    {x: 3, y: 5},
+                    {x: 3, y: 6},
+                    {x: 4, y: 2},
+                    {x: 5, y: 2},
+                    {x: 5, y: 3},
+                    {x: 5, y: 5},
+                    {x: 5, y: 6},
+                    {x: 4, y: 6}
+                ]
+            }
+        ];
+
+        let currentLevelIndex = 0;
+        let currentLevel;
+        let moveCount = 0;
+        let selectedBlock = null;
+        let gameBoard = document.getElementById('game-board');
+        let currentLevelEl = document.getElementById('current-level');
+        let moveCountEl = document.getElementById('move-count');
+        let winModal = document.getElementById('win-modal');
+        let finalMovesEl = document.getElementById('final-moves');
+
+        // 初始化当前关卡
+        function initLevel() {
+            currentLevel = JSON.parse(JSON.stringify(levels[currentLevelIndex]));
+            moveCount = 0;
+            selectedBlock = null;
+            updateDisplay();
+            renderBoard();
+            winModal.classList.remove('show');
+            document.getElementById('next-btn').style.display = 
+                currentLevelIndex < levels.length - 1 ? 'inline-block' : 'none';
+        }
+
+        // 更新显示信息
+        function updateDisplay() {
+            currentLevelEl.textContent = currentLevelIndex + 1;
+            moveCountEl.textContent = moveCount;
+        }
+
+        // 渲染游戏板
+        function renderBoard() {
+            const {width, height} = currentLevel.size;
+            gameBoard.style.gridTemplateColumns = `repeat(${width}, 1fr)`;
+            gameBoard.innerHTML = '';
+
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    cell.dataset.x = x;
+                    cell.dataset.y = y;
+
+                    // 检查单元格类型
+                    const isSnakeHead = currentLevel.snake.some(s => s.x === x && s.y === y);
+                    const isFood = currentLevel.food.x === x && currentLevel.food.y === y;
+                    const isBlock = currentLevel.blocks.some(b => b.x === x && b.y === y);
+                    const isSelected = selectedBlock && selectedBlock.x === x && selectedBlock.y === y;
+
+                    if (isSnakeHead) {
+                        cell.classList.add('snake-head');
+                    } else if (isFood) {
+                        cell.classList.add('food');
+                    } else if (isBlock) {
+                        cell.classList.add('block');
+                        if (isSelected) {
+                            cell.classList.add('selected-block');
+                        }
+                    } else {
+                        cell.classList.add('empty');
+                    }
+
+                    cell.addEventListener('click', () => handleCellClick(x, y));
+                    gameBoard.appendChild(cell);
+                }
+            }
+
+            // 检查是否已经胜利
+            if (checkWin()) {
+                showWinModal();
+            }
+        }
+
+        // 处理单元格点击
+        function handleCellClick(x, y) {
+            // 点击的是障碍物
+            const blockIndex = currentLevel.blocks.findIndex(b => b.x === x && b.y === y);
+            if (blockIndex !== -1) {
+                selectedBlock = currentLevel.blocks[blockIndex];
+                renderBoard();
+                return;
+            }
+
+            // 如果已经选中了障碍物且点击的是空位
+            if (selectedBlock && isCellEmpty(x, y)) {
+                // 检查是否相邻
+                if (isAdjacent(selectedBlock.x, selectedBlock.y, x, y)) {
+                    // 移动障碍物
+                    selectedBlock.x = x;
+                    selectedBlock.y = y;
+                    moveCount++;
+                    selectedBlock = null;
+                    updateDisplay();
+                    renderBoard();
+                }
+                return;
+            }
+
+            // 点击空地，取消选择
+            selectedBlock = null;
+            renderBoard();
+        }
+
+        // 检查单元格是否为空
+        function isCellEmpty(x, y) {
+            if (x < 0 || x >= currentLevel.size.width || y < 0 || y >= currentLevel.size.height) {
+                return false;
+            }
+            const hasBlock = currentLevel.blocks.some(b => b.x === x && b.y === y);
+            const hasSnake = currentLevel.snake.some(s => s.x === x && s.y === y);
+            const hasFood = currentLevel.food.x === x && currentLevel.food.y === y;
+            return !hasBlock && !hasSnake && !hasFood;
+        }
+
+        // 检查两个位置是否相邻
+        function isAdjacent(x1, y1, x2, y2) {
+            const dx = Math.abs(x1 - x2);
+            const dy = Math.abs(y1 - y2);
+            return (dx === 1 && dy === 0) || (dx === 0 && dy === 1);
+        }
+
+        // BFS 检查蛇是否能到达食物
+        function checkWin() {
+            const start = currentLevel.snake[0];
+            const end = currentLevel.food;
+            
+            // 如果已经相邻，直接获胜
+            if (isAdjacent(start.x, start.y, end.x, end.y)) {
+                return true;
+            }
+
+            // BFS找路径
+            const visited = new Set();
+            const queue = [{x: start.x, y: start.y}];
+            visited.add(`${start.x},${start.y}`);
+
+            const dirs = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+
+            while (queue.length > 0) {
+                const current = queue.shift();
+                
+                for (const [dx, dy] of dirs) {
+                    const nx = current.x + dx;
+                    const ny = current.y + dy;
+                    
+                    if (nx === end.x && ny === end.y) {
+                        return true; // 找到了路径！
+                    }
+
+                    if (nx >= 0 && nx < currentLevel.size.width && 
+                        ny >= 0 && ny < currentLevel.size.height &&
+                        !visited.has(`${nx},${ny}`) &&
+                        isCellEmpty(nx, ny)) {
+                        visited.add(`${nx},${ny}`);
+                        queue.push({x: nx, y: ny});
+                    }
+                }
+            }
+
+            return false; // 没找到路径
+        }
+
+        // 显示胜利弹窗
+        function showWinModal() {
+            finalMovesEl.textContent = moveCount;
+            winModal.classList.add('show');
+        }
+
+        // 重新开始当前关卡
+        function restartLevel() {
+            initLevel();
+        }
+
+        // 进入下一关
+        function nextLevel() {
+            if (currentLevelIndex < levels.length - 1) {
+                currentLevelIndex++;
+                initLevel();
+            } else {
+                // 已经通关所有关卡
+                alert('🎉 恭喜你通关了所有关卡！');
+                currentLevelIndex = 0;
+                initLevel();
+            }
+        }
+
+        // 下一关并关闭弹窗
+        function nextLevelAndClose() {
+            winModal.classList.remove('show');
+            setTimeout(() => {
+                nextLevel();
+            }, 300);
+        }
+
+        // 页面加载完成后初始化
+        window.addEventListener('load', () => {
+            initLevel();
+        });
+    </script>
+</body>
+</html>

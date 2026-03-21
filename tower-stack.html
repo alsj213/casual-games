@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>堆叠方块</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: 'Segoe UI', sans-serif; overflow: hidden; }
+#gameTitle { color: #fff; font-size: 28px; margin-bottom: 10px; text-shadow: 0 3px 10px rgba(0,0,0,0.3); }
+#score { color: #ffd700; font-size: 18px; margin-bottom: 10px; }
+#gameContainer { position: relative; border-radius: 10px; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,0.5); }
+canvas { display: block; background: linear-gradient(180deg, #87CEEB 0%, #E0F6FF 100%); }
+#overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.7); color: #fff; font-size: 24px; text-align: center; }
+#overlay button { margin-top: 20px; padding: 15px 40px; font-size: 18px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; border: none; border-radius: 30px; cursor: pointer; transition: transform 0.3s; }
+#overlay button:hover { transform: scale(1.1); }
+.hidden { display: none !important; }
+#controls { color: #aaa; font-size: 14px; margin-top: 15px; text-align: center; }
+</style>
+</head>
+<body>
+<h1 id="gameTitle">🏗️ 堆叠方块</h1>
+<div id="score">层数: 0</div>
+<div id="gameContainer">
+  <canvas id="gameCanvas" width="320" height="480"></canvas>
+  <div id="overlay">
+    <div id="message">点击开始游戏</div>
+    <button onclick="startGame()">开始游戏</button>
+  </div>
+</div>
+<div id="controls">← → 键或触摸左右两侧</div>
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const overlay = document.getElementById('overlay');
+const message = document.getElementById('message');
+const scoreEl = document.getElementById('score');
+
+let blocks = [];
+let currentBlock = null;
+let score = 0;
+let gameRunning = false;
+let animationId = null;
+const MIN_BLOCK_SIZE = 15;
+const BLOCK_HEIGHT = 25;
+const COLORS = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#98D8C8'];
+
+function createBlock(y, width = 150, x = (320 - 150) / 2) {
+  return { x, y, width, height: BLOCK_HEIGHT, color: COLORS[score % COLORS.length] };
+}
+
+function startGame() {
+  blocks = [];
+  score = 0;
+  scoreEl.textContent = '层数: 0';
+  overlay.classList.add('hidden');
+  gameRunning = true;
+  blocks.push(createBlock(canvas.height - BLOCK_HEIGHT));
+  spawnNewBlock();
+  gameLoop();
+}
+
+function spawnNewBlock() {
+  const baseBlock = blocks[blocks.length - 1];
+  currentBlock = createBlock(50, baseBlock.width, 50 + Math.random() * 150);
+}
+
+function gameOver() {
+  gameRunning = false;
+  cancelAnimationFrame(animationId);
+  message.textContent = `游戏结束！\n达到 ${score} 层`;
+  overlay.classList.remove('hidden');
+}
+
+function placeBlock() {
+  const below = blocks[blocks.length - 1];
+  const overlapStart = Math.max(currentBlock.x, below.x);
+  const overlapEnd = Math.min(currentBlock.x + currentBlock.width, below.x + below.width);
+  const overlapWidth = overlapEnd - overlapStart;
+
+  if (overlapWidth < MIN_BLOCK_SIZE) {
+    gameOver();
+    return;
+  }
+
+  const cutOff = currentBlock.width - overlapWidth;
+  if (cutOff > 0) {
+    below.width = overlapWidth;
+    below.x = overlapStart;
+  }
+
+  currentBlock.x = overlapStart;
+  currentBlock.width = overlapWidth;
+  currentBlock.y = canvas.height - (blocks.length + 1) * BLOCK_HEIGHT;
+  blocks.push(currentBlock);
+  score++;
+  scoreEl.textContent = '层数: ' + score;
+
+  if (overlapWidth < MIN_BLOCK_SIZE) {
+    gameOver();
+  } else {
+    spawnNewBlock();
+  }
+}
+
+function update() {
+  if (!gameRunning) return;
+  currentBlock.y += 3;
+  if (currentBlock.y >= canvas.height - (blocks.length + 1) * BLOCK_HEIGHT) {
+    placeBlock();
+  }
+}
+
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  blocks.forEach(block => {
+    ctx.fillStyle = block.color;
+    ctx.fillRect(block.x, block.y, block.width, block.height);
+    ctx.strokeStyle = 'rgba(0,0,0,0.2)';
+    ctx.strokeRect(block.x, block.y, block.width, block.height);
+  });
+  if (currentBlock && gameRunning) {
+    ctx.fillStyle = currentBlock.color;
+    ctx.fillRect(currentBlock.x, currentBlock.y, currentBlock.width, currentBlock.height);
+    ctx.strokeStyle = 'rgba(0,0,0,0.2)';
+    ctx.strokeRect(currentBlock.x, currentBlock.y, currentBlock.width, currentBlock.height);
+  }
+}
+
+function gameLoop() {
+  if (!gameRunning) return;
+  update();
+  draw();
+  animationId = requestAnimationFrame(gameLoop);
+}
+
+document.addEventListener('keydown', (e) => {
+  if (!gameRunning || !currentBlock) return;
+  if (e.key === 'ArrowLeft') currentBlock.x -= 20;
+  if (e.key === 'ArrowRight') currentBlock.x += 20;
+  currentBlock.x = Math.max(0, Math.min(canvas.width - currentBlock.width, currentBlock.x));
+});
+
+canvas.addEventListener('touchstart', handleTouch);
+canvas.addEventListener('touchmove', handleTouch);
+
+function handleTouch(e) {
+  e.preventDefault();
+  if (!gameRunning || !currentBlock) return;
+  const touch = e.touches[0];
+  const rect = canvas.getBoundingClientRect();
+  const x = touch.clientX - rect.left;
+  const centerX = rect.width / 2;
+  const speed = 25;
+  if (x < centerX) currentBlock.x -= speed;
+  else currentBlock.x += speed;
+  currentBlock.x = Math.max(0, Math.min(canvas.width - currentBlock.width, currentBlock.x));
+}
+</script>
+</body>
+</html>

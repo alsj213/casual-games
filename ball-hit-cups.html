@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>套圈游戏</title>
+    <style>
+        body { margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; background: #1a1a2e; font-family: Arial, sans-serif; }
+        #game-container { position: relative; }
+        canvas { border-radius: 10px; box-shadow: 0 0 30px rgba(0,0,0,0.5); cursor: crosshair; }
+        #score { position: absolute; top: 20px; left: 20px; color: #fff; font-size: 24px; text-shadow: 2px 2px 4px rgba(0,0,0,0.5); }
+        #power { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); width: 200px; height: 20px; background: rgba(255,255,255,0.2); border-radius: 10px; overflow: hidden; }
+        #power-bar { height: 100%; width: 0%; background: linear-gradient(90deg, #00ff88, #ffff00, #ff4444); transition: width 0.05s; }
+        #msg { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #fff; font-size: 32px; text-shadow: 2px 2px 4px rgba(0,0,0,0.8); pointer-events: none; opacity: 0; transition: opacity 0.3s; }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="game" width="800" height="600"></canvas>
+        <div id="score">得分: 0</div>
+        <div id="power"><div id="power-bar"></div></div>
+        <div id="msg"></div>
+    </div>
+    <script>
+        const canvas = document.getElementById('game');
+        const ctx = canvas.getContext('2d');
+        const powerBar = document.getElementById('power-bar');
+        const scoreDiv = document.getElementById('score');
+        const msgDiv = document.getElementById('msg');
+
+        let score = 0;
+        let ball = { x: 100, y: 500, r: 15, vx: 0, vy: 0, thrown: false };
+        let cups = [
+            { x: 600, y: 500, r: 35, points: 10, color: '#ff6b6b' },
+            { x: 700, y: 480, r: 30, points: 20, color: '#4ecdc4' },
+            { x: 750, y: 440, r: 25, points: 30, color: '#ffe66d' },
+            { x: 650, y: 420, r: 28, points: 15, color: '#95e1d3' },
+            { x: 580, y: 380, r: 22, points: 40, color: '#f38181' },
+            { x: 710, y: 360, r: 20, points: 50, color: '#aa96da' }
+        ];
+        let isCharging = false;
+        let chargeStart = 0;
+        let gravity = 0.4;
+
+        function drawBall() {
+            ctx.beginPath();
+            ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2);
+            ctx.fillStyle = '#fff';
+            ctx.fill();
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+
+        function drawCups() {
+            cups.forEach(cup => {
+                ctx.beginPath();
+                ctx.arc(cup.x, cup.y, cup.r, 0, Math.PI * 2);
+                ctx.fillStyle = cup.color;
+                ctx.fill();
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+                
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 14px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(cup.points + '分', cup.x, cup.y + 5);
+            });
+        }
+
+        function drawAim() {
+            if (isCharging && !ball.thrown) {
+                const power = Math.min((Date.now() - chargeStart) / 1500, 1);
+                const angle = -0.3 - power * 0.4;
+                const length = 50 + power * 150;
+                const endX = ball.x + Math.cos(angle) * length;
+                const endY = ball.y + Math.sin(angle) * length;
+                
+                ctx.beginPath();
+                ctx.moveTo(ball.x, ball.y);
+                ctx.lineTo(endX, endY);
+                ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+                ctx.lineWidth = 3;
+                ctx.setLineDash([5, 5]);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+        }
+
+        function showMessage(text) {
+            msgDiv.textContent = text;
+            msgDiv.style.opacity = 1;
+            setTimeout(() => msgDiv.style.opacity = 0, 1000);
+        }
+
+        function update() {
+            if (ball.thrown) {
+                ball.vy += gravity;
+                ball.x += ball.vx;
+                ball.y += ball.vy;
+
+                // Check cup collision
+                cups.forEach(cup => {
+                    const dx = ball.x - cup.x;
+                    const dy = ball.y - cup.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (dist < cup.r - ball.r/2 && ball.vy > 0) {
+                        ball.vx *= 0.3;
+                        ball.vy *= -0.3;
+                        
+                        if (dist < cup.r * 0.5 && Math.abs(ball.vy) < 2) {
+                            score += cup.points;
+                            scoreDiv.textContent = '得分: ' + score;
+                            showMessage('+' + cup.points + '分!');
+                            resetBall();
+                        }
+                    }
+                });
+
+                // Reset if out of bounds
+                if (ball.y > 650 || ball.x > 850 || ball.x < -50) {
+                    resetBall();
+                }
+            }
+        }
+
+        function resetBall() {
+            ball.x = 100;
+            ball.y = 500;
+            ball.vx = 0;
+            ball.vy = 0;
+            ball.thrown = false;
+            powerBar.style.width = '0%';
+        }
+
+        function draw() {
+            ctx.fillStyle = '#1a1a2e';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            drawCups();
+            drawBall();
+            drawAim();
+        }
+
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        canvas.addEventListener('mousedown', (e) => {
+            if (!ball.thrown) {
+                const rect = canvas.getBoundingClientRect();
+                const mx = e.clientX - rect.left;
+                const my = e.clientY - rect.top;
+                const dist = Math.sqrt((mx - ball.x) ** 2 + (my - ball.y) ** 2);
+                if (dist < 100) {
+                    isCharging = true;
+                    chargeStart = Date.now();
+                }
+            }
+        });
+
+        canvas.addEventListener('mousemove', () => {
+            if (isCharging) {
+                const power = Math.min((Date.now() - chargeStart) / 1500, 1) * 100;
+                powerBar.style.width = power + '%';
+            }
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            if (isCharging && !ball.thrown) {
+                const power = Math.min((Date.now() - chargeStart) / 1500, 1);
+                const angle = -0.3 - power * 0.4;
+                const force = 8 + power * 12;
+                
+                ball.vx = Math.cos(angle) * force;
+                ball.vy = Math.sin(angle) * force;
+                ball.thrown = true;
+                isCharging = false;
+            }
+        });
+
+        gameLoop();
+    </script>
+</body>
+</html>

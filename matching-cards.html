@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>对对碰卡牌</title>
+<style>
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+}
+h1 {
+  color: white;
+  margin-bottom: 15px;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+.controls {
+  background: rgba(255,255,255,0.95);
+  padding: 15px 25px;
+  border-radius: 12px;
+  margin-bottom: 20px;
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  flex-wrap: wrap;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+}
+select, button {
+  padding: 8px 16px;
+  border: 2px solid #667eea;
+  border-radius: 8px;
+  font-size: 14px;
+  background: white;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+select:hover, button:hover {
+  background: #667eea;
+  color: white;
+}
+.stats {
+  display: flex;
+  gap: 20px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+}
+.game-board {
+  display: grid;
+  gap: 10px;
+  background: rgba(255,255,255,0.95);
+  padding: 15px;
+  border-radius: 12px;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+}
+.card {
+  width: 70px;
+  height: 70px;
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform 0.5s;
+  cursor: pointer;
+}
+.card.flipped {
+  transform: rotateY(180deg);
+}
+.card.matched {
+  opacity: 0.5;
+  pointer-events: none;
+}
+.card-face {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+.back {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+}
+.front {
+  background: white;
+  transform: rotateY(180deg);
+}
+@media (max-width: 600px) {
+  .card {
+    width: 55px;
+    height: 55px;
+  }
+  .card-face {
+    font-size: 24px;
+  }
+}
+</style>
+</head>
+<body>
+<h1>对对碰卡牌</h1>
+<div class="controls">
+  <select id="size">
+    <option value="4">4x4</option>
+    <option value="6">6x6</option>
+  </select>
+  <select id="theme">
+    <option value="emoji">表情主题</option>
+    <option value="animals">动物主题</option>
+    <option value="food">食物主题</option>
+  </select>
+  <button onclick="startGame()">重新开始</button>
+  <div class="stats">
+    <div>步数: <span id="moves">0</span></div>
+    <div>时间: <span id="time">0</span>s</div>
+  </div>
+</div>
+<div id="gameBoard" class="game-board"></div>
+
+<script>
+const themes = {
+  emoji: ['🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼', '🦁', '🐯', '🐨', '🐮', '🐷', '🐸', '🐵', '🦄', '🐙', '🐳'],
+  animals: ['🦁', '🐯', '🐻', '🐼', '🐨', '🐮', '🐷', '🐸', '🐵', '🦊', '🐶', '🐱', '🐭', '🐹', '🐰', '🦄', '🐳', '🐊'],
+  food: ['🍎', '🍐', '🍊', '🍋', '🍌', '🍉', '🍇', '🍓', '🫐', '🍒', '🍑', '🥭', '🥝', '🍍', '🥑', '🍔', '🍕', '🌭']
+};
+
+let size = 4;
+let theme = 'emoji';
+let cards = [];
+let flippedCards = [];
+let matchedPairs = 0;
+let moves = 0;
+let seconds = 0;
+let timer = null;
+let canClick = true;
+
+function initBoard() {
+  const board = document.getElementById('gameBoard');
+  board.style.gridTemplateColumns = `repeat(${size}, 1fr)`;
+}
+
+function generateCards() {
+  const icons = themes[theme];
+  const pairs = (size * size) / 2;
+  const selected = icons.slice(0, pairs);
+  let deck = [...selected, ...selected];
+  // Shuffle
+  for (let i = deck.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [deck[i], deck[j]] = [deck[j], deck[i]];
+  }
+  return deck;
+}
+
+function render() {
+  const board = document.getElementById('gameBoard');
+  board.innerHTML = '';
+  cards.forEach((icon, index) => {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.dataset.index = index;
+    card.innerHTML = `
+      <div class="card-face back"></div>
+      <div class="card-face front">${icon}</div>
+    `;
+    card.addEventListener('click', () => flipCard(index));
+    board.appendChild(card);
+  });
+}
+
+function flipCard(index) {
+  if (!canClick || flippedCards.includes(index)) return;
+  const cardEl = document.querySelector(`[data-index="${index}"]`);
+  if (cardEl.classList.contains('matched')) return;
+
+  cardEl.classList.add('flipped');
+  flippedCards.push(index);
+
+  if (flippedCards.length === 2) {
+    moves++;
+    document.getElementById('moves').textContent = moves;
+    canClick = false;
+    checkMatch();
+  }
+}
+
+function checkMatch() {
+  const [i1, i2] = flippedCards;
+  if (cards[i1] === cards[i2]) {
+    document.querySelector(`[data-index="${i1}"]`).classList.add('matched');
+    document.querySelector(`[data-index="${i2}"]`).classList.add('matched');
+    matchedPairs++;
+    flippedCards = [];
+    canClick = true;
+    if (matchedPairs === (size * size) / 2) {
+      clearInterval(timer);
+      setTimeout(() => {
+        alert(`恭喜你完成了！\n步数：${moves}\n时间：${seconds}秒`);
+      }, 500);
+    }
+  } else {
+    setTimeout(() => {
+      document.querySelector(`[data-index="${i1}"]`).classList.remove('flipped');
+      document.querySelector(`[data-index="${i2}"]`).classList.remove('flipped');
+      flippedCards = [];
+      canClick = true;
+    }, 800);
+  }
+}
+
+function startTimer() {
+  clearInterval(timer);
+  seconds = 0;
+  document.getElementById('time').textContent = seconds;
+  timer = setInterval(() => {
+    seconds++;
+    document.getElementById('time').textContent = seconds;
+  }, 1000);
+}
+
+function startGame() {
+  size = parseInt(document.getElementById('size').value);
+  theme = document.getElementById('theme').value;
+  flippedCards = [];
+  matchedPairs = 0;
+  moves = 0;
+  document.getElementById('moves').textContent = '0';
+  initBoard();
+  cards = generateCards();
+  render();
+  startTimer();
+  canClick = true;
+}
+
+window.onload = () => {
+  startGame();
+};
+</script>
+</body>
+</html>

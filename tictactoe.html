@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>井字棋 - Tic-Tac-Toe</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 2rem;
+        }
+
+        .score-board {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 25px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 12px;
+        }
+
+        .score-item {
+            text-align: center;
+            flex: 1;
+        }
+
+        .score-item .label {
+            font-size: 0.9rem;
+            color: #666;
+            margin-bottom: 5px;
+            display: block;
+        }
+
+        .score-item .value {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .score-item.player .value {
+            color: #667eea;
+        }
+
+        .score-item.ai .value {
+            color: #764ba2;
+        }
+
+        .score-item.draw .value {
+            color: #999;
+        }
+
+        .status {
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 1.2rem;
+            color: #555;
+            min-height: 28px;
+        }
+
+        .status .player-x {
+            color: #667eea;
+            font-weight: bold;
+        }
+
+        .status .player-o {
+            color: #764ba2;
+            font-weight: bold;
+        }
+
+        .game-board {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-bottom: 25px;
+            aspect-ratio: 1/1;
+        }
+
+        .cell {
+            background: #f8f9fa;
+            border-radius: 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem;
+            font-weight: bold;
+            transition: all 0.2s ease;
+            border: 3px solid transparent;
+        }
+
+        .cell:hover:not(.filled) {
+            background: #e9ecef;
+            border-color: #667eea;
+            transform: scale(1.05);
+        }
+
+        .cell.filled.x {
+            color: #667eea;
+        }
+
+        .cell.filled.o {
+            color: #764ba2;
+        }
+
+        .cell.winning {
+            background: #d4edda;
+            border-color: #28a745;
+            animation: pulse 0.6s ease-in-out;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.08); }
+        }
+
+        .controls {
+            display: flex;
+            gap: 12px;
+            flex-direction: column;
+        }
+
+        .difficulty {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .diff-btn {
+            padding: 8px 16px;
+            border: 2px solid #dee2e6;
+            background: white;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.9rem;
+        }
+
+        .diff-btn:hover {
+            border-color: #667eea;
+        }
+
+        .diff-btn.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        #restartBtn {
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        #restartBtn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+        }
+
+        #restartBtn:active {
+            transform: translateY(0);
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 25px;
+            }
+
+            h1 {
+                font-size: 1.5rem;
+            }
+
+            .game-board {
+                gap: 8px;
+            }
+
+            .cell {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>井字棋 🎮</h1>
+        
+        <div class="score-board">
+            <div class="score-item player">
+                <span class="label">你 (X)</span>
+                <span class="value" id="playerScore">0</span>
+            </div>
+            <div class="score-item draw">
+                <span class="label">平局</span>
+                <span class="value" id="drawScore">0</span>
+            </div>
+            <div class="score-item ai">
+                <span class="label">AI (O)</span>
+                <span class="value" id="aiScore">0</span>
+            </div>
+        </div>
+
+        <div class="status" id="status">
+            <span>轮到你走，<span class="player-x">X</span></span>
+        </div>
+
+        <div class="game-board" id="gameBoard">
+            <div class="cell" data-index="0"></div>
+            <div class="cell" data-index="1"></div>
+            <div class="cell" data-index="2"></div>
+            <div class="cell" data-index="3"></div>
+            <div class="cell" data-index="4"></div>
+            <div class="cell" data-index="5"></div>
+            <div class="cell" data-index="6"></div>
+            <div class="cell" data-index="7"></div>
+            <div class="cell" data-index="8"></div>
+        </div>
+
+        <div class="controls">
+            <div class="difficulty">
+                <button class="diff-btn active" data-difficulty="hard">无敌难度</button>
+                <button class="diff-btn" data-difficulty="easy">简单难度</button>
+            </div>
+            <button id="restartBtn">重新开始游戏</button>
+        </div>
+    </div>
+
+    <script>
+        class TicTacToe {
+            constructor() {
+                this.board = Array(9).fill(null);
+                this.currentPlayer = 'X'; // X is human, O is AI
+                this.gameActive = true;
+                this.scores = {
+                    player: 0,
+                    draw: 0,
+                    ai: 0
+                };
+                this.difficulty = 'hard'; // hard = unbeatable, easy = random moves
+                
+                this.winningCombos = [
+                    [0, 1, 2], [3, 4, 5], [6, 7, 8], // rows
+                    [0, 3, 6], [1, 4, 7], [2, 5, 8], // columns
+                    [0, 4, 8], [2, 4, 6] // diagonals
+                ];
+
+                this.init();
+            }
+
+            init() {
+                this.cells = document.querySelectorAll('.cell');
+                this.statusElement = document.getElementById('status');
+                this.playerScoreElement = document.getElementById('playerScore');
+                this.drawScoreElement = document.getElementById('drawScore');
+                this.aiScoreElement = document.getElementById('aiScore');
+                this.restartBtn = document.getElementById('restartBtn');
+                this.diffBtns = document.querySelectorAll('.diff-btn');
+
+                this.cells.forEach(cell => {
+                    cell.addEventListener('click', () => this.handleCellClick(cell));
+                });
+
+                this.restartBtn.addEventListener('click', () => this.restartGame());
+
+                this.diffBtns.forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        this.diffBtns.forEach(b => b.classList.remove('active'));
+                        btn.classList.add('active');
+                        this.difficulty = btn.dataset.difficulty;
+                        this.restartGame();
+                    });
+                });
+
+                this.loadScores();
+                this.updateScoreDisplay();
+            }
+
+            handleCellClick(cell) {
+                const index = parseInt(cell.dataset.index);
+                
+                if (this.board[index] !== null || !this.gameActive || this.currentPlayer !== 'X') {
+                    return;
+                }
+
+                this.makeMove(index, 'X');
+                
+                if (this.checkGameOver()) {
+                    return;
+                }
+
+                // AI's turn
+                setTimeout(() => this.aiMove(), 500);
+            }
+
+            makeMove(index, player) {
+                this.board[index] = player;
+                const cell = this.cells[index];
+                cell.textContent = player;
+                cell.classList.add('filled');
+                cell.classList.add(player.toLowerCase());
+            }
+
+            aiMove() {
+                let index;
+                
+                if (this.difficulty === 'hard') {
+                    index = this.findBestMove();
+                } else {
+                    index = this.findRandomMove();
+                }
+
+                this.makeMove(index, 'O');
+                this.checkGameOver();
+            }
+
+            findRandomMove() {
+                const availableMoves = this.getAvailableMoves();
+                return availableMoves[Math.floor(Math.random() * availableMoves.length)];
+            }
+
+            getAvailableMoves() {
+                return this.board.map((val, idx) => val === null ? idx : null).filter(val => val !== null);
+            }
+
+            checkWinner(player) {
+                for (const combo of this.winningCombos) {
+                    const [a, b, c] = combo;
+                    if (this.board[a] === player && 
+                        this.board[b] === player && 
+                        this.board[c] === player) {
+                        return combo;
+                    }
+                }
+                return null;
+            }
+
+            isBoardFull() {
+                return this.board.every(cell => cell !== null);
+            }
+
+            checkGameOver() {
+                const winningCombo = this.checkWinner(this.currentPlayer);
+                
+                if (winningCombo) {
+                    this.gameActive = false;
+                    winningCombo.forEach(index => {
+                        this.cells[index].classList.add('winning');
+                    });
+
+                    if (this.currentPlayer === 'X') {
+                        this.statusElement.innerHTML = '<span class="player-x">你赢了！🎉</span>';
+                        this.scores.player++;
+                    } else {
+                        this.statusElement.innerHTML = '<span class="player-o">AI赢了 😔</span>';
+                        this.scores.ai++;
+                    }
+                    this.updateScoreDisplay();
+                    this.saveScores();
+                    return true;
+                }
+
+                if (this.isBoardFull()) {
+                    this.gameActive = false;
+                    this.statusElement.innerHTML = '<span>平局 🤝</span>';
+                    this.scores.draw++;
+                    this.updateScoreDisplay();
+                    this.saveScores();
+                    return true;
+                }
+
+                this.currentPlayer = this.currentPlayer === 'X' ? 'O' : 'X';
+                
+                if (this.currentPlayer === 'X') {
+                    this.statusElement.innerHTML = '<span>轮到你走，<span class="player-x">X</span></span>';
+                } else {
+                    this.statusElement.innerHTML = '<span>轮到AI走，<span class="player-o">O</span></span>';
+                }
+
+                return false;
+            }
+
+            // Minimax algorithm for unbeatable AI
+            minimax(depth, isMaximizing) {
+                const winner = this.checkWinner('O');
+                if (winner) return 10 - depth;
+                
+                const winnerX = this.checkWinner('X');
+                if (winnerX) return depth - 10;
+                
+                if (this.isBoardFull()) return 0;
+
+                if (isMaximizing) {
+                    let maxEval = -Infinity;
+                    const availableMoves = this.getAvailableMoves();
+                    
+                    for (const move of availableMoves) {
+                        this.board[move] = 'O';
+                        const evaluation = this.minimax(depth + 1, false);
+                        this.board[move] = null;
+                        maxEval = Math.max(maxEval, evaluation);
+                    }
+                    
+                    return maxEval;
+                } else {
+                    let minEval = Infinity;
+                    const availableMoves = this.getAvailableMoves();
+                    
+                    for (const move of availableMoves) {
+                        this.board[move] = 'X';
+                        const evaluation = this.minimax(depth + 1, true);
+                        this.board[move] = null;
+                        minEval = Math.min(minEval, evaluation);
+                    }
+                    
+                    return minEval;
+                }
+            }
+
+            findBestMove() {
+                let bestScore = -Infinity;
+                let bestMove = null;
+                const availableMoves = this.getAvailableMoves();
+
+                for (const move of availableMoves) {
+                    this.board[move] = 'O';
+                    const score = this.minimax(0, false);
+                    this.board[move] = null;
+                    
+                    if (score > bestScore) {
+                        bestScore = score;
+                        bestMove = move;
+                    }
+                }
+
+                return bestMove;
+            }
+
+            restartGame() {
+                this.board = Array(9).fill(null);
+                this.currentPlayer = 'X';
+                this.gameActive = true;
+
+                this.cells.forEach(cell => {
+                    cell.textContent = '';
+                    cell.classList.remove('filled', 'x', 'o', 'winning');
+                });
+
+                this.statusElement.innerHTML = '<span>轮到你走，<span class="player-x">X</span></span>';
+            }
+
+            updateScoreDisplay() {
+                this.playerScoreElement.textContent = this.scores.player;
+                this.drawScoreElement.textContent = this.scores.draw;
+                this.aiScoreElement.textContent = this.scores.ai;
+            }
+
+            saveScores() {
+                localStorage.setItem('tictactoeScores', JSON.stringify(this.scores));
+            }
+
+            loadScores() {
+                const saved = localStorage.getItem('tictactoeScores');
+                if (saved) {
+                    this.scores = JSON.parse(saved);
+                }
+            }
+        }
+
+        // Start the game when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            new TicTacToe();
+        });
+    </script>
+</body>
+</html>

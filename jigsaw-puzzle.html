@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>拼图游戏</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: Arial, sans-serif;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+  min-height: 100vh;
+}
+h1 { color: white; margin-bottom: 15px; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); }
+.controls {
+  background: rgba(255,255,255,0.95);
+  padding: 15px 25px;
+  border-radius: 10px;
+  margin-bottom: 20px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+select, button {
+  padding: 8px 16px;
+  font-size: 16px;
+  border: 2px solid #667eea;
+  border-radius: 5px;
+  background: white;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+select:hover, button:hover {
+  background: #667eea;
+  color: white;
+}
+.timer {
+  font-size: 18px;
+  font-weight: bold;
+  color: #667eea;
+  min-width: 80px;
+}
+.game-container {
+  background: rgba(255,255,255,0.95);
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+}
+canvas {
+  border: 3px solid #333;
+  border-radius: 5px;
+  cursor: pointer;
+}
+.preview-container {
+  margin-top: 15px;
+  text-align: center;
+}
+#previewBtn {
+  margin-bottom: 10px;
+}
+#previewImage {
+  max-width: 200px;
+  max-height: 150px;
+  border-radius: 5px;
+  border: 2px solid #667eea;
+  display: none;
+}
+</style>
+</head>
+<body>
+<h1>🧩 拼图游戏</h1>
+<div class="controls">
+  <label>难度:</label>
+  <select id="difficulty">
+    <option value="3">3 x 3</option>
+    <option value="4">4 x 4</option>
+  </select>
+  <button id="startBtn">开始游戏</button>
+  <button id="previewBtn">预览原图</button>
+  <div class="timer">⏱️ <span id="timer">00:00</span></div>
+</div>
+<div class="game-container">
+  <canvas id="canvas"></canvas>
+  <div class="preview-container">
+    <img id="previewImage" alt="预览">
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const difficultySelect = document.getElementById('difficulty');
+const startBtn = document.getElementById('startBtn');
+const previewBtn = document.getElementById('previewBtn');
+const previewImage = document.getElementById('previewImage');
+const timerEl = document.getElementById('timer');
+
+const CANVAS_SIZE = 450;
+let gridSize = 3;
+let pieceSize = CANVAS_SIZE / gridSize;
+let pieces = [];
+let selectedPiece = null;
+let startTime = null;
+let timerInterval = null;
+let isCompleted = false;
+
+// 使用图片生成拼图
+const img = new Image();
+img.crossOrigin = 'anonymous';
+img.src = 'https://picsum.photos/seed/jigsaw456/450/450.jpg';
+img.onload = initGame;
+
+function initGame() {
+  canvas.width = CANVAS_SIZE;
+  canvas.height = CANVAS_SIZE;
+  pieceSize = CANVAS_SIZE / gridSize;
+  createPieces();
+  shufflePieces();
+  drawPieces();
+  startTimer();
+  isCompleted = false;
+  previewImage.style.display = 'none';
+}
+
+function createPieces() {
+  pieces = [];
+  for (let row = 0; row < gridSize; row++) {
+    for (let col = 0; col < gridSize; col++) {
+      pieces.push({
+        row, col,
+        currentRow: row,
+        currentCol: col,
+        sx: col * pieceSize,
+        sy: row * pieceSize
+      });
+    }
+  }
+}
+
+function shufflePieces() {
+  for (let i = pieces.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pieces[i].currentRow, pieces[j].currentRow] = 
+    [pieces[j].currentRow, pieces[i].currentRow];
+    [pieces[i].currentCol, pieces[j].currentCol] = 
+    [pieces[j].currentCol, pieces[i].currentCol];
+  }
+}
+
+function drawPieces() {
+  ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 2;
+  
+  for (const piece of pieces) {
+    const x = piece.currentCol * pieceSize;
+    const y = piece.currentRow * pieceSize;
+    ctx.drawImage(img, 
+      piece.sx, piece.sy, pieceSize, pieceSize,
+      x, y, pieceSize, pieceSize);
+    ctx.strokeRect(x, y, pieceSize, pieceSize);
+  }
+}
+
+canvas.addEventListener('click', handleClick);
+
+function handleClick(e) {
+  if (isCompleted) return;
+  
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+  const col = Math.floor(x / pieceSize);
+  const row = Math.floor(y / pieceSize);
+  
+  const clicked = pieces.find(p => 
+    p.currentRow === row && p.currentCol === col);
+  
+  if (!selectedPiece) {
+    selectedPiece = clicked;
+    highlightSelected();
+  } else if (selectedPiece === clicked) {
+    selectedPiece = null;
+    drawPieces();
+  } else {
+    // 交换位置
+    [selectedPiece.currentRow, clicked.currentRow] = 
+    [clicked.currentRow, selectedPiece.currentRow];
+    [selectedPiece.currentCol, clicked.currentCol] = 
+    [clicked.currentCol, selectedPiece.currentCol];
+    
+    selectedPiece = null;
+    drawPieces();
+    checkCompletion();
+  }
+}
+
+function highlightSelected() {
+  drawPieces();
+  if (!selectedPiece) return;
+  ctx.strokeStyle = '#ff0000';
+  ctx.lineWidth = 4;
+  ctx.strokeRect(
+    selectedPiece.currentCol * pieceSize,
+    selectedPiece.currentRow * pieceSize,
+    pieceSize, pieceSize
+  );
+}
+
+function checkCompletion() {
+  const correct = pieces.every(p => 
+    p.row === p.currentRow && p.col === p.currentCol);
+  
+  if (correct) {
+    isCompleted = true;
+    stopTimer();
+    setTimeout(() => {
+      alert(`🎉 恭喜你完成拼图！\n用时: ${timerEl.textContent}`);
+    }, 100);
+  }
+}
+
+function startTimer() {
+  if (timerInterval) clearInterval(timerInterval);
+  startTime = Date.now();
+  timerInterval = setInterval(updateTimer, 1000);
+}
+
+function stopTimer() {
+  clearInterval(timerInterval);
+}
+
+function updateTimer() {
+  const elapsed = Math.floor((Date.now() - startTime) / 1000);
+  const minutes = Math.floor(elapsed / 60);
+  const seconds = elapsed % 60;
+  timerEl.textContent = 
+    `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+}
+
+startBtn.addEventListener('click', () => {
+  gridSize = parseInt(difficultySelect.value);
+  initGame();
+});
+
+previewBtn.addEventListener('click', () => {
+  if (previewImage.style.display === 'none') {
+    previewImage.src = img.src;
+    previewImage.style.display = 'block';
+    previewBtn.textContent = '隐藏预览';
+  } else {
+    previewImage.style.display = 'none';
+    previewBtn.textContent = '预览原图';
+  }
+});
+
+canvas.addEventListener('mousemove', handleDrag);
+let isDragging = false;
+let dragStart = { x: 0, y: 0 };
+
+canvas.addEventListener('mousedown', (e) => {
+  if (isCompleted || !selectedPiece) return;
+  isDragging = true;
+  const rect = canvas.getBoundingClientRect();
+  dragStart.x = e.clientX - rect.left;
+  dragStart.y = e.clientY - rect.top;
+});
+
+canvas.addEventListener('mouseup', () => {
+  if (!isDragging) return;
+  isDragging = false;
+  selectedPiece = null;
+  checkCompletion();
+});
+
+function handleDrag(e) {
+  if (!isDragging || !selectedPiece) return;
+  
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+  
+  const dx = x - dragStart.x;
+  const dy = y - dragStart.y;
+  
+  if (Math.abs(dx) > pieceSize / 2) {
+    const newCol = selectedPiece.currentCol + (dx > 0 ? 1 : -1);
+    if (newCol >= 0 && newCol < gridSize) {
+      const other = pieces.find(p => 
+        p.currentRow === selectedPiece.currentRow && 
+        p.currentCol === newCol);
+      if (other) {
+        [selectedPiece.currentCol, other.currentCol] = 
+        [other.currentCol, selectedPiece.currentCol];
+      }
+      dragStart.x = x;
+      drawPieces();
+    }
+  }
+  
+  if (Math.abs(dy) > pieceSize / 2) {
+    const newRow = selectedPiece.currentRow + (dy > 0 ? 1 : -1);
+    if (newRow >= 0 && newRow < gridSize) {
+      const other = pieces.find(p => 
+        p.currentCol === selectedPiece.currentCol && 
+        p.currentRow === newRow);
+      if (other) {
+        [selectedPiece.currentRow, other.currentRow] = 
+        [other.currentRow, selectedPiece.currentRow];
+      }
+      dragStart.y = y;
+      drawPieces();
+    }
+  }
+}
+</script>
+</body>
+</html>

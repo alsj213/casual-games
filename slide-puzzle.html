@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>滑块拼图游戏</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 600px;
+            width: 100%;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 2em;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .difficulty-select {
+            display: flex;
+            gap: 10px;
+        }
+
+        .diff-btn {
+            padding: 8px 16px;
+            border: 2px solid #667eea;
+            background: white;
+            color: #667eea;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: bold;
+        }
+
+        .diff-btn:hover {
+            background: #667eea;
+            color: white;
+        }
+
+        .diff-btn.active {
+            background: #667eea;
+            color: white;
+        }
+
+        .stats {
+            display: flex;
+            gap: 20px;
+            font-size: 1.1em;
+            color: #555;
+        }
+
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .game-container {
+            position: relative;
+            margin: 0 auto;
+            background: #f0f0f0;
+            border-radius: 10px;
+            padding: 10px;
+            display: inline-block;
+        }
+
+        #puzzle-board {
+            display: grid;
+            gap: 5px;
+            background: #ccc;
+            border-radius: 5px;
+            padding: 5px;
+        }
+
+        .puzzle-piece {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2em;
+            font-weight: bold;
+            color: white;
+            cursor: pointer;
+            transition: transform 0.2s;
+            user-select: none;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .puzzle-piece:hover {
+            transform: scale(0.98);
+        }
+
+        .puzzle-piece.empty {
+            background: #ddd;
+            cursor: default;
+            box-shadow: none;
+        }
+
+        .buttons {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+
+        .preview {
+            margin-top: 15px;
+            text-align: center;
+        }
+
+        .preview h3 {
+            color: #555;
+            margin-bottom: 10px;
+            font-size: 1em;
+        }
+
+        .preview-image {
+            display: inline-block;
+            border: 3px solid #eee;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .preview-image img {
+            display: block;
+            max-width: 150px;
+            height: auto;
+        }
+
+        .win-message {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 10px 50px rgba(0, 0, 0, 0.3);
+            text-align: center;
+            display: none;
+            z-index: 1000;
+        }
+
+        .win-message h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 2em;
+        }
+
+        .win-message p {
+            color: #555;
+            margin-bottom: 20px;
+            font-size: 1.2em;
+        }
+
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            z-index: 999;
+        }
+
+        .win-message.show,
+        .overlay.show {
+            display: block;
+        }
+
+        @media (max-width: 500px) {
+            .container {
+                padding: 20px;
+            }
+
+            h1 {
+                font-size: 1.5em;
+            }
+
+            .controls {
+                flex-direction: column;
+            }
+
+            .stats {
+                width: 100%;
+                justify-content: space-around;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧩 滑块拼图</h1>
+        
+        <div class="controls">
+            <div class="difficulty-select">
+                <button class="diff-btn active" data-size="3">3×3</button>
+                <button class="diff-btn" data-size="4">4×4</button>
+                <button class="diff-btn" data-size="5">5×5</button>
+            </div>
+            <div class="stats">
+                <div class="stat-item">步数: <span id="moves">0</span></div>
+                <div class="stat-item">时间: <span id="time">0</span>s</div>
+            </div>
+        </div>
+
+        <div class="game-container">
+            <div id="puzzle-board"></div>
+        </div>
+
+        <div class="buttons">
+            <button class="btn btn-primary" id="new-game">新游戏</button>
+            <button class="btn btn-secondary" id="show-preview">查看原图</button>
+        </div>
+
+        <div class="preview" id="preview-container" style="display: none;">
+            <h3>原图预览</h3>
+            <div class="preview-image">
+                <div id="preview-content"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="overlay" id="overlay"></div>
+    <div class="win-message" id="win-message">
+        <h2>🎉 恭喜通关!</h2>
+        <p>步数: <span id="final-moves">0</span> | 时间: <span id="final-time">0</span>s</p>
+        <button class="btn btn-primary" id="play-again">再来一局</button>
+    </div>
+
+    <script>
+        class SlidePuzzle {
+            constructor() {
+                this.board = document.getElementById('puzzle-board');
+                this.movesDisplay = document.getElementById('moves');
+                this.timeDisplay = document.getElementById('time');
+                this.previewContainer = document.getElementById('preview-container');
+                this.previewContent = document.getElementById('preview-content');
+                this.winMessage = document.getElementById('win-message');
+                this.overlay = document.getElementById('overlay');
+                this.finalMoves = document.getElementById('final-moves');
+                this.finalTime = document.getElementById('final-time');
+                
+                this.size = 3;
+                this.moves = 0;
+                this.time = 0;
+                this.timer = null;
+                this.boardSize = 400;
+                this.isGameStarted = false;
+                this.emptyPos = { row: 0, col: 0 };
+                this.pieces = [];
+                
+                this.colorPalette = [
+                    '#f5576c', '#f093fb', '#4facfe', '#00f2fe', 
+                    '#43e97b', '#38f9d7', '#fa709a', '#fee140',
+                    '#a18cd1', '#fbc2eb', '#667eea', '#764ba2',
+                    '#f857a6', '#ff5858', '#4b6cb7', '#182848',
+                    '#fc5c7d', '#6a82fb', '#f6d365', '#fda085',
+                    '#96fbc4', '#f9f586', '#a6c0fe', '#f68084'
+                ];
+                
+                this.initEventListeners();
+                this.startNewGame();
+            }
+            
+            initEventListeners() {
+                document.querySelectorAll('.diff-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        document.querySelector('.diff-btn.active').classList.remove('active');
+                        e.target.classList.add('active');
+                        this.size = parseInt(e.target.dataset.size);
+                        this.startNewGame();
+                    });
+                });
+                
+                document.getElementById('new-game').addEventListener('click', () => {
+                    this.startNewGame();
+                });
+                
+                document.getElementById('show-preview').addEventListener('click', () => {
+                    this.togglePreview();
+                });
+                
+                document.getElementById('play-again').addEventListener('click', () => {
+                    this.hideWinMessage();
+                    this.startNewGame();
+                });
+                
+                this.overlay.addEventListener('click', () => {
+                    this.hideWinMessage();
+                });
+            }
+            
+            startNewGame() {
+                this.moves = 0;
+                this.time = 0;
+                this.isGameStarted = false;
+                this.updateStats();
+                this.stopTimer();
+                this.createPuzzle();
+                this.shuffle();
+                this.render();
+                this.startTimer();
+                this.previewContainer.style.display = 'none';
+            }
+            
+            createPuzzle() {
+                this.pieces = [];
+                const totalPieces = this.size * this.size;
+                
+                for (let i = 0; i < this.size; i++) {
+                    this.pieces[i] = [];
+                    for (let j = 0; j < this.size; j++) {
+                        const number = i * this.size + j + 1;
+                        if (number === totalPieces) {
+                            this.pieces[i][j] = null;
+                            this.emptyPos = { row: i, col: j };
+                        } else {
+                            this.pieces[i][j] = number;
+                        }
+                    }
+                }
+            }
+            
+            shuffle() {
+                for (let i = this.size - 1; i > 0; i--) {
+                    for (let j = this.size - 1; j > 0; j--) {
+                        const randomRow = Math.floor(Math.random() * (i + 1));
+                        const randomCol = Math.floor(Math.random() * (j + 1));
+                        
+                        if (this.pieces[i][j] !== null && this.pieces[randomRow][randomCol] !== null) {
+                            [this.pieces[i][j], this.pieces[randomRow][randomCol]] = 
+                            [this.pieces[randomRow][randomCol], this.pieces[i][j]];
+                        }
+                    }
+                }
+                
+                if (!this.isSolvable()) {
+                    this.swapTwoPieces();
+                }
+                
+                this.findEmptyPosition();
+            }
+            
+            findEmptyPosition() {
+                for (let i = 0; i < this.size; i++) {
+                    for (let j = 0; j < this.size; j++) {
+                        if (this.pieces[i][j] === null) {
+                            this.emptyPos = { row: i, col: j };
+                            return;
+                        }
+                    }
+                }
+            }
+            
+            isSolvable() {
+                const arr = [];
+                let emptyRowFromBottom = 0;
+                
+                for (let i = 0; i < this.size; i++) {
+                    for (let j = 0; j < this.size; j++) {
+                        if (this.pieces[i][j] === null) {
+                            emptyRowFromBottom = this.size - i;
+                        } else {
+                            arr.push(this.pieces[i][j]);
+                        }
+                    }
+                }
+                
+                let inversions = 0;
+                for (let i = 0; i < arr.length; i++) {
+                    for (let j = i + 1; j < arr.length; j++) {
+                        if (arr[i] > arr[j]) {
+                            inversions++;
+                        }
+                    }
+                }
+                
+                if (this.size % 2 === 1) {
+                    return inversions % 2 === 0;
+                } else {
+                    return (inversions + emptyRowFromBottom) % 2 === 1;
+                }
+            }
+            
+            swapTwoPieces() {
+                let first = null;
+                let second = null;
+                
+                for (let i = 0; i < this.size; i++) {
+                    for (let j = 0; j < this.size; j++) {
+                        if (this.pieces[i][j] !== null) {
+                            if (first === null) {
+                                first = { row: i, col: j };
+                            } else if (second === null) {
+                                second = { row: i, col: j };
+                                break;
+                            }
+                        }
+                    }
+                    if (second !== null) break;
+                }
+                
+                if (first && second) {
+                    [this.pieces[first.row][first.col], this.pieces[second.row][second.col]] = 
+                    [this.pieces[second.row][second.col], this.pieces[first.row][first.col]];
+                }
+            }
+            
+            render() {
+                this.board.innerHTML = '';
+                this.board.style.gridTemplateColumns = `repeat(${this.size}, 1fr)`;
+                const pieceSize = Math.floor((this.boardSize - (this.size + 1) * 5) / this.size);
+                
+                for (let i = 0; i < this.size; i++) {
+                    for (let j = 0; j < this.size; j++) {
+                        const piece = document.createElement('div');
+                        piece.style.width = `${pieceSize}px`;
+                        piece.style.height = `${pieceSize}px`;
+                        
+                        if (this.pieces[i][j] === null) {
+                            piece.className = 'puzzle-piece empty';
+                        } else {
+                            piece.className = 'puzzle-piece';
+                            piece.textContent = this.pieces[i][j];
+                            const colorIndex = (this.pieces[i][j] - 1) % this.colorPalette.length;
+                            piece.style.background = this.colorPalette[colorIndex];
+                            
+                            piece.addEventListener('click', () => {
+                                this.movePiece(i, j);
+                            });
+                        }
+                        
+                        this.board.appendChild(piece);
+                    }
+                }
+                
+                this.generatePreview();
+            }
+            
+            generatePreview() {
+                const previewSize = 150;
+                const container = document.createElement('div');
+                container.style.display = 'grid';
+                container.style.gridTemplateColumns = `repeat(${this.size}, 1fr)`;
+                container.style.gap = '2px';
+                container.style.width = `${previewSize}px`;
+                container.style.height = `${previewSize}px`;
+                container.style.background = '#ccc';
+                container.style.padding = '2px';
+                
+                const previewPieceSize = Math.floor((previewSize - (this.size + 1) * 2) / this.size);
+                
+                for (let i = 0; i < this.size; i++) {
+                    for (let j = 0; j < this.size; j++) {
+                        const number = i * this.size + j + 1;
+                        const piece = document.createElement('div');
+                        piece.style.width = `${previewPieceSize}px`;
+                        piece.style.height = `${previewPieceSize}px`;
+                        piece.style.display = 'flex';
+                        piece.style.alignItems = 'center';
+                        piece.style.justifyContent = 'center';
+                        piece.style.fontSize = `${Math.max(12, 24 - this.size * 3)}px`;
+                        piece.style.fontWeight = 'bold';
+                        piece.style.color = 'white';
+                        piece.style.borderRadius = '3px';
+                        
+                        const colorIndex = (number - 1) % this.colorPalette.length;
+                        piece.style.background = this.colorPalette[colorIndex];
+                        piece.textContent = number;
+                        
+                        container.appendChild(piece);
+                    }
+                }
+                
+                this.previewContent.innerHTML = '';
+                this.previewContent.appendChild(container);
+            }
+            
+            isAdjacent(row, col) {
+                return (Math.abs(this.emptyPos.row - row) === 1 && this.emptyPos.col === col) ||
+                       (Math.abs(this.emptyPos.col - col) === 1 && this.emptyPos.row === row);
+            }
+            
+            movePiece(row, col) {
+                if (!this.isAdjacent(row, col)) return;
+                
+                this.pieces[this.emptyPos.row][this.emptyPos.col] = this.pieces[row][col];
+                this.pieces[row][col] = null;
+                this.emptyPos = { row, col };
+                this.moves++;
+                this.updateStats();
+                this.render();
+                
+                if (this.checkWin()) {
+                    this.gameWin();
+                }
+            }
+            
+            checkWin() {
+                let count = 1;
+                for (let i = 0; i < this.size; i++) {
+                    for (let j = 0; j < this.size; j++) {
+                        if (this.pieces[i][j] !== null && this.pieces[i][j] !== count) {
+                            return false;
+                        }
+                        count++;
+                    }
+                }
+                return true;
+            }
+            
+            gameWin() {
+                this.stopTimer();
+                this.finalMoves.textContent = this.moves;
+                this.finalTime.textContent = this.time;
+                this.showWinMessage();
+            }
+            
+            updateStats() {
+                this.movesDisplay.textContent = this.moves;
+                this.timeDisplay.textContent = this.time;
+            }
+            
+            startTimer() {
+                this.stopTimer();
+                this.isGameStarted = true;
+                this.timer = setInterval(() => {
+                    this.time++;
+                    this.updateStats();
+                }, 1000);
+            }
+            
+            stopTimer() {
+                if (this.timer) {
+                    clearInterval(this.timer);
+                    this.timer = null;
+                }
+            }
+            
+            togglePreview() {
+                if (this.previewContainer.style.display === 'none') {
+                    this.previewContainer.style.display = 'block';
+                } else {
+                    this.previewContainer.style.display = 'none';
+                }
+            }
+            
+            showWinMessage() {
+                this.winMessage.classList.add('show');
+                this.overlay.classList.add('show');
+            }
+            
+            hideWinMessage() {
+                this.winMessage.classList.remove('show');
+                this.overlay.classList.remove('show');
+            }
+        }
+
+        // 启动游戏
+        document.addEventListener('DOMContentLoaded', () => {
+            new SlidePuzzle();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>光线反射</title>
+    <style>
+        *{margin:0;padding:0;box-sizing:border-box;}
+        body{background:#1a1a2e;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:'Segoe UI',sans-serif;}
+        h1{color:#fff;margin:10px 0;text-shadow:0 0 10px #0f3460;}
+        #info{color:#e94560;margin-bottom:10px;}
+        canvas{border:3px solid #16213e;border-radius:10px;box-shadow:0 0 20px rgba(15,52,96,0.5)cursor:crosshair;}
+        #controls{margin-top:15px;display:flex;gap:10px;flex-wrap:wrap;justify-content:center;}
+        button{padding:10px 25px;background:#e94560;color:#fff;border:none;border-radius:25px;cursor:pointer;font-size:16px;transition:0.3s;}
+        button:hover{background:#ff6b6b;transform:scale(1.05);}
+        button:disabled{background:#555;cursor:not-allowed;transform:none;}
+        #levelDisplay{color:#0f3460;font-size:18px;margin-bottom:5px;}
+        .success{animation:pulse 0.5s infinite alternate;}
+        @keyframes pulse{from{box-shadow:0 0 20px rgba(233,69,96,0.5);}to{box-shadow:0 0 40px rgba(0,255,100,0.8);}}
+    </style>
+</head>
+<body>
+    <h1>🔦 光线反射</h1>
+    <div id="levelDisplay">关卡: <span id="level">1</span></div>
+    <div id="info">激光(红) → 放置并点击旋转镜子 → 击中目标(绿)</div>
+    <canvas id="game" width="600" height="500"></canvas>
+    <div id="controls">
+        <button onclick="resetLevel()">重置</button>
+        <button onclick="prevLevel()">上一关</button>
+        <button onclick="nextLevel()">下一关</button>
+    </div>
+    <script>
+        const canvas=document.getElementById('game');
+        const ctx=canvas.getContext('2d');
+        const CELL=50;
+        let level=1,mirrors=[],selected=null,isDragging=false,dragOffset={};
+        
+        const levels=[
+            {laser:{x:2,y:5,dir:1},target:{x:8,y:5},maxMirrors:2,walls:[]},
+            {laser:{x:2,y:2,dir:1},target:{x:8,y:8},maxMirrors:3,walls:[]},
+            {laser:{x:1,y:5,dir:1},target:{x:9,y:5},maxMirrors:3,walls:[{x:5,y:1,h:true,w:8},{x:5,y:9,h:true,w:8}]},
+            {laser:{x:1,y:9,dir:0},target:{x:1,y:1},maxMirrors:4,walls:[{x:5,y:1,h:true,w:8},{x:5,y:9,h:true,w:8}]},
+            {laser:{x:1,y:5,dir:1},target:{x:9,y:5},maxMirrors:5,walls:[{x:5,y:2,h:true,w:6},{x:5,y:8,h:true,w:6},{x:2,y:5,v:true,h:6},{x:8,y:5,v:true,h:6}]}
+        ];
+        
+        function resetLevel(){mirrors=[];selected=null;checkWin()}
+        function nextLevel(){level=(level%levels.length)+1;resetLevel()}
+        function prevLevel(){level=level===1?levels.length:level-1;resetLevel()}
+        
+        function drawGrid(){
+            ctx.strokeStyle='#2d3436';
+            for(let x=0;x<=canvas.width;x+=CELL){
+                ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,canvas.height);ctx.stroke();
+            }
+            for(let y=0;y<=canvas.height;y+=CELL){
+                ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(canvas.width,y);ctx.stroke();
+            }
+        }
+        
+        function drawLaser(){
+            const l=levels[level-1].laser;
+            let px=l.x*CELL+CELL/2,py=l.y*CELL+CELL/2;
+            let dx=[0,1,0,-1][l.dir],dy=[-1,0,1,0][l.dir];
+            
+            ctx.strokeStyle='#ff6b6b';
+            ctx.lineWidth=3;
+            ctx.shadowColor='#ff6b6b';
+            ctx.shadowBlur=15;
+            ctx.beginPath();ctx.moveTo(px,py);
+            
+            const visited=new Set();
+            for(let step=0;step<50;step++){
+                let hit=false;
+                for(let m of mirrors){
+                    const mx=m.x*CELL+CELL/2,my=m.y*CELL+CELL/2;
+                    if(Math.abs(px-mx)<25&&Math.abs(py-my)<25&&m.active){
+                        const d=dx*m.sx+dy*m.sy;
+                        if(Math.abs(d)>0.9){
+                            const ndx=dx-2*d*m.sx,ndy=dy-2*d*m.sy;
+                            dx=ndx;dy=ndy;
+                            hit=true;
+                            if(m.frozen){m.active=false;}
+                            break;
+                        }
+                    }
+                    if(hit)break;
+                }
+                px+=dx*CELL;py+=dy*CELL;
+                if(px<0||px>canvas.width||py<0||py>canvas.height)break;
+                ctx.lineTo(px,py);
+                const t=levels[level-1].target;
+                if(Math.abs(px-t.x*CELL-CELL/2)<20&&Math.abs(py-t.y*CELL-CELL/2)<20)
+                    document.getElementById('game').classList.add('success');
+                else document.getElementById('game').classList.remove('success');
+                for(let w of levels[level-1].walls){
+                    if(w.h&&Math.abs(py-w.y*CELL-CELL/2)<15&&px>=(w.x-2)*CELL&&px<=(w.x+w.w)*CELL)hit=true;
+                    if(w.v&&Math.abs(px-w.x*CELL-CELL/2)<15&&py>=(w.y-2)*CELL&&py<=(w.y+w.h)*CELL)hit=true;
+                }
+                if(hit)break;
+            }
+            ctx.stroke();
+            ctx.shadowBlur=0;
+        }
+        
+        function drawMirror(m){
+            ctx.save();
+            ctx.translate(m.x*CELL+CELL/2,m.y*CELL+CELL/2);
+            ctx.rotate(m.angle*Math.PI/180);
+            
+            ctx.fillStyle=singleBitableCreateField?'ffd700':'#ffd700';
+            ctx.shadowColor='#ffd700';
+            ctx.shadowBlur=m===selected?20:10;
+            ctx.fillRect(-22,-5,44,10);
+            
+            ctx.fillStyle='#fff';
+            ctx.font='12px Arial';
+            ctx.textAlign='center';
+            ctx.fillText(m.frozen?'冻结':m.angle+'°',0,20);
+            ctx.restore();
+        }
+        
+        function draw(){
+            ctx.fillStyle='#1a1a2e';
+            ctx.fillRect(0,0,canvas.width,canvas.height);
+            drawGrid();
+            
+            const l=levels[level-1].laser;
+            ctx.fillStyle='#ff4757';
+            ctx.beginPath();
+            ctx.arc(l.x*CELL+CELL/2,l.y*CELL+CELL/2,15,0,Math.PI*2);
+            ctx.fill();
+            ctx.fillStyle='#fff';
+            ctx.font='20px Arial';
+            ctx.textAlign='center';
+            ctx.fillText('LASER',l.x*CELL+CELL/2,l.y*CELL-25);
+            
+            const t=levels[level-1].target;
+            ctx.fillStyle='#2ed573';
+            ctx.shadowColor='#2ed573';
+            ctx.shadowBlur=20;
+            ctx.beginPath();
+            ctx.arc(t.x*CELL+CELL/2,t.y*CELL+CELL/2,12,0,Math.PI*2);
+            ctx.fill();
+            ctx.shadowBlur=0;
+            
+            for(let w of levels[level-1].walls){
+                ctx.fillStyle='#636e72';
+                if(w.h)ctx.fillRect((w.x-2)*CELL,w.y*CELL-5,w.w*CELL,10);
+                if(w.v)ctx.fillRect(w.x*CELL-5,(w.y-2)*CELL,10,w.h*CELL);
+            }
+            
+            for(let m of mirrors)drawMirror(m);
+            drawLaser();
+            document.getElementById('level').textContent=level;
+            
+            ctx.fillStyle='#fff';
+            ctx.font='14px Arial';
+            ctx.textAlign='left';
+            ctx.fillText(`镜子: ${mirrors.length}/${levels[level-1].maxMirrors}`,10,20);
+        }
+        
+        function checkWin(){
+            const t=levels[level-1].target;
+            let px=levels[level-1].laser.x*CELL+CELL/2;
+            let py=levels[level-1].laser.y*CELL+CELL/2;
+            let dx=[0,1,0,-1][levels[level-1].laser.dir];
+            let dy=[-1,0,1,0][levels[level-1].laser.dir];
+            
+            for(let step=0;step<50;step++){
+                for(let m of mirrors){
+                    const mx=m.x*CELL+CELL/2,my=m.y*CELL+CELL/2;
+                    if(Math.abs(px-mx)<25&&Math.abs(py-my)<25&&m.active){
+                        const d=dx*m.sx+dy*m.sy;
+                        if(Math.abs(d)>0.9){
+                            const ndx=dx-2*d*m.sx,ndy=dy-2*d*m.sy;
+                            dx=ndx;dy=ndy;
+                            break;
+                        }
+                    }
+                }
+                px+=dx*CELL;py+=dy*CELL;
+                if(Math.abs(px-t.x*CELL-CELL/2)<20&&Math.abs(py-t.y*CELL-CELL/2)<20){
+                    setTimeout(()=>{alert('过关！关卡 '+level);nextLevel();},300);
+                    return;
+                }
+                if(px<0||px>canvas.width||py<0||py>canvas.height)break;
+                for(let w of levels[level-1].walls){
+                    if(w.h&&Math.abs(py-w.y*CELL-CELL/2)<15&&px>=(w.x-2)*CELL&&px<=(w.x+w.w)*CELL)return;
+                    if(w.v&&Math.abs(px-w.x*CELL-CELL/2)<15&&py>=(w.y-2)*CELL&&py<=(w.y+w.h)*CELL)return;
+                }
+            }
+        }
+        
+        function getPos(e){
+            const rect=canvas.getBoundingClientRect();
+            return{x:Math.floor((e.clientX-rect.left)/CELL),y:Math.floor((e.clientY-rect.top)/CELL)};
+        }
+        
+        canvas.onmousedown=e=>{
+            const p=getPos(e);
+            if(p.x<0||p.x>11||p.y<0||p.y>9)return;
+            
+            for(let m of mirrors){
+                if(m.x===p.x&&m.y===p.y){
+                    if(selected===m){m.angle=(m.angle+45)%360;}
+                    selected=m;
+                    isDragging=true;
+                    dragOffset={};
+                    return;
+                }
+            }
+            
+            if(mirrors.length<levels[level-1].maxMirrors){
+                mirrors.push({x:p.x,y:p.y,angle:45,sx:Math.cos(Math.PI/4),sy:Math.sin(Math.PI/4),active:true,frozen:false});
+                selected=mirrors[mirrors.length-1];
+                checkWin();
+            }
+        };
+        
+        canvas.onmousemove=e=>{
+            if(isDragging&&selected){
+                const p=getPos(e);
+                if(p.x>=0&&p.x<=11&&p.y>=0&&p.y<=9){
+                    selected.x=p.x;
+                    selected.y=p.y;
+                }
+            }
+        };
+        
+        canvas.onmouseup=()=>{isDragging=false;checkWin();};
+        canvas.ondblclick=e=>{
+            const p=getPos(e);
+            for(let i=0;i<mirrors.length;i++){
+                if(mirrors[i].x===p.x&&mirrors[i].y===p.y){
+                    mirrors.splice(i,1);
+                    if(selected===mirrors[i])selected=null;
+                    checkWin();
+                    break;
+                }
+            }
+        };
+        setInterval(draw,30);
+    </script>
+</body>
+</html>

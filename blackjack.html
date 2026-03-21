@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>21点 - BlackJack</title>
+<style>
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+body {
+  font-family: Arial, sans-serif;
+  background: #1a5f2e;
+  color: white;
+  min-height: 100vh;
+  padding: 20px;
+}
+.container {
+  max-width: 800px;
+  margin: 0 auto;
+}
+h1 {
+  text-align: center;
+  margin-bottom: 20px;
+}
+.score-board {
+  display: flex;
+  justify-content: space-around;
+  font-size: 1.2rem;
+  margin-bottom: 20px;
+  padding: 10px;
+  background: rgba(0,0,0,0.2);
+  border-radius: 8px;
+}
+.table {
+  background: rgba(0,0,0,0.15);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+.section {
+  margin-bottom: 20px;
+}
+.section h3 {
+  margin-bottom: 10px;
+}
+.cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  min-height: 80px;
+}
+.card {
+  width: 60px;
+  height: 84px;
+  background: white;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: black;
+  box-shadow: 2px 2px 5px rgba(0,0,0,0.3);
+}
+.card.red {
+  color: #d40000;
+}
+.card.back {
+  background: #2c5aa0;
+  background-image: linear-gradient(45deg, rgba(255,255,255,0.1) 25%, transparent 25%, transparent 50%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0.1) 75%, transparent 75%, transparent);
+  background-size: 10px 10px;
+  color: transparent;
+}
+.buttons {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+button {
+  padding: 12px 24px;
+  font-size: 1.1rem;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  background: #f0c14b;
+  color: #111;
+  font-weight: bold;
+  transition: background 0.2s;
+}
+button:hover:not(:disabled) {
+  background: #f1b82d;
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.message {
+  text-align: center;
+  font-size: 1.3rem;
+  margin-top: 15px;
+  min-height: 30px;
+  font-weight: bold;
+}
+.bet-area {
+  text-align: center;
+  margin-bottom: 15px;
+}
+.bet-area button {
+  padding: 8px 16px;
+  font-size: 1rem;
+}
+#betAmount {
+  font-size: 1.2rem;
+  margin: 0 10px;
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>🃏 21点 BlackJack</h1>
+  <div class="score-board">
+    <div>玩家筹码: <span id="playerChips">1000</span></div>
+    <div>当前赌注: <span id="currentBet">0</span></div>
+  </div>
+  <div class="bet-area" id="betArea">
+    <button onclick="changeBet(-10)">-10</button>
+    <span id="betAmount">10</span>
+    <button onclick="changeBet(10)">+10</button>
+    <button onclick="startGame()">开始游戏</button>
+  </div>
+  <div class="table">
+    <div class="section">
+      <h3>庄家 (<span id="dealerScore">?</span>)</h3>
+      <div class="cards" id="dealerCards"></div>
+    </div>
+    <div class="section">
+      <h3>玩家 (<span id="playerScore">0</span>)</h3>
+      <div class="cards" id="playerCards"></div>
+    </div>
+  </div>
+  <div class="buttons">
+    <button id="hitBtn" onclick="hit()" disabled>要牌</button>
+    <button id="standBtn" onclick="stand()" disabled>停牌</button>
+    <button id="doubleBtn" onclick="doubleDown()" disabled>加倍</button>
+    <button id="newGameBtn" onclick="resetGame()" disabled>新局</button>
+  </div>
+  <div class="message" id="message"></div>
+</div>
+
+<script>
+let deck = [];
+let playerCards = [];
+let dealerCards = [];
+let playerScore = 0;
+let dealerScore = 0;
+let playerChips = 1000;
+let currentBet = 0;
+let betAmount = 10;
+let gameOver = false;
+
+const values = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+const suits = ['♠', '♥', '♦', '♣'];
+
+function createDeck() {
+  deck = [];
+  for (let suit of suits) {
+    for (let value of values) {
+      deck.push({value, suit});
+    }
+  }
+  shuffleDeck();
+}
+
+function shuffleDeck() {
+  for (let i = deck.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [deck[i], deck[j]] = [deck[j], deck[i]];
+  }
+}
+
+function drawCard() {
+  return deck.pop();
+}
+
+function getScore(cards) {
+  let score = 0;
+  let aces = 0;
+  for (let card of cards) {
+    if (card.value === 'A') {
+      aces++;
+      score += 11;
+    } else if (['K', 'Q', 'J', '10'].includes(card.value)) {
+      score += 10;
+    } else {
+      score += parseInt(card.value);
+    }
+  }
+  while (score > 21 && aces > 0) {
+    score -= 10;
+    aces--;
+  }
+  return score;
+}
+
+function renderCard(card, hidden = false) {
+  const div = document.createElement('div');
+  div.className = 'card';
+  if (hidden) {
+    div.classList.add('back');
+    div.textContent = '🂠';
+    return div;
+  }
+  if (['♥', '♦'].includes(card.suit)) {
+    div.classList.add('red');
+  }
+  div.textContent = card.value + card.suit;
+  return div;
+}
+
+function renderTable(hideDealerCard = true) {
+  const dealerEl = document.getElementById('dealerCards');
+  const playerEl = document.getElementById('playerCards');
+  dealerEl.innerHTML = '';
+  playerEl.innerHTML = '';
+  
+  dealerCards.forEach((card, i) => {
+    if (i === 1 && hideDealerCard && !gameOver) {
+      dealerEl.appendChild(renderCard(card, true));
+    } else {
+      dealerEl.appendChild(renderCard(card, false));
+    }
+  });
+  
+  playerCards.forEach(card => {
+    playerEl.appendChild(renderCard(card, false));
+  });
+  
+  document.getElementById('playerScore').textContent = getScore(playerCards);
+  if (hideDealerCard && !gameOver) {
+    document.getElementById('dealerScore').textContent = '?';
+  } else {
+    document.getElementById('dealerScore').textContent = getScore(dealerCards);
+  }
+  
+  document.getElementById('playerChips').textContent = playerChips;
+  document.getElementById('currentBet').textContent = currentBet;
+}
+
+function changeBet(amount) {
+  betAmount += amount;
+  if (betAmount < 10) betAmount = 10;
+  if (betAmount > playerChips) betAmount = playerChips - (playerChips % 10);
+  document.getElementById('betAmount').textContent = betAmount;
+}
+
+function startGame() {
+  if (betAmount > playerChips) {
+    showMessage('筹码不足！');
+    return;
+  }
+  currentBet = betAmount;
+  playerChips -= currentBet;
+  gameOver = false;
+  
+  createDeck();
+  playerCards = [drawCard(), drawCard()];
+  dealerCards = [drawCard(), drawCard()];
+  
+  renderTable(true);
+  
+  document.getElementById('betArea').style.display = 'none';
+  document.getElementById('hitBtn').disabled = false;
+  document.getElementById('standBtn').disabled = false;
+  document.getElementById('doubleBtn').disabled = false;
+  document.getElementById('newGameBtn').disabled = true;
+  showMessage('');
+  
+  playerScore = getScore(playerCards);
+  if (playerScore === 21) {
+    stand();
+  }
+}
+
+function hit() {
+  playerCards.push(drawCard());
+  playerScore = getScore(playerCards);
+  renderTable(true);
+  document.getElementById('doubleBtn').disabled = true;
+  
+  if (playerScore > 21) {
+    endGame();
+  }
+}
+
+function doubleDown() {
+  if (playerChips < currentBet) {
+    showMessage('筹码不够加倍');
+    return;
+  }
+  playerChips -= currentBet;
+  currentBet *= 2;
+  hit();
+  if (playerScore <= 21) {
+    stand();
+  }
+}
+
+function stand() {
+  gameOver = true;
+  dealerPlay();
+}
+
+function dealerPlay() {
+  let score = getScore(dealerCards);
+  while (score < 17) {
+    dealerCards.push(drawCard());
+    score = getScore(dealerCards);
+  }
+  dealerScore = score;
+  endGame();
+}
+
+function endGame() {
+  gameOver = true;
+  playerScore = getScore(playerCards);
+  dealerScore = getScore(dealerCards);
+  
+  renderTable(false);
+  
+  let result = '';
+  if (playerScore > 21) {
+    result = '爆牌！你输了 😔';
+  } else if (dealerScore > 21) {
+    result = '庄家爆牌！你赢了 🎉';
+    playerChips += currentBet * 2;
+  } else if (playerScore > dealerScore) {
+    result = '你赢了 🎉';
+    playerChips += currentBet * 2;
+  } else if (playerScore === dealerScore) {
+    result = '平局 🤝';
+    playerChips += currentBet;
+  } else {
+    result = '庄家赢了 😔';
+  }
+  
+  showMessage(result);
+  
+  document.getElementById('hitBtn').disabled = true;
+  document.getElementById('standBtn').disabled = true;
+  document.getElementById('doubleBtn').disabled = true;
+  document.getElementById('newGameBtn').disabled = false;
+  document.getElementById('betArea').style.display = 'block';
+  
+  if (playerChips <= 0) {
+    showMessage('游戏结束！你输光了所有筹码 😭');
+    document.getElementById('betArea').style.display = 'none';
+    document.getElementById('newGameBtn').disabled = true;
+  }
+}
+
+function resetGame() {
+  playerCards = [];
+  dealerCards = [];
+  gameOver = true;
+  document.getElementById('hitBtn').disabled = true;
+  document.getElementById('standBtn').disabled = true;
+  document.getElementById('doubleBtn').disabled = true;
+  document.getElementById('newGameBtn').disabled = true;
+  document.getElementById('betArea').style.display = 'block';
+  renderTable();
+  showMessage('');
+}
+
+function showMessage(msg) {
+  document.getElementById('message').textContent = msg;
+}
+
+window.onload = function() {
+  createDeck();
+  renderTable();
+};
+</script>
+</body>
+</html>

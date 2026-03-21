@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ultimate Tic-Tac-Toe</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { 
+            font-family: 'Arial', sans-serif; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            background: #1a1a2e; 
+            color: white;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        h1 { margin-bottom: 10px; font-size: 2.5rem; text-shadow: 2px 2px 4px rgba(0,0,0,0.5); }
+        .controls { margin-bottom: 20px; }
+        button { 
+            padding: 10px 20px; 
+            margin: 0 5px; 
+            font-size: 16px; 
+            border: none; 
+            border-radius: 5px; 
+            cursor: pointer; 
+            background: #16213e; 
+            color: white;
+            transition: background 0.3s;
+        }
+        button:hover, button.active { background: #0f3460; }
+        .board { 
+            display: grid; 
+            grid-template-columns: repeat(3, 1fr); 
+            gap: 8px; 
+            background: white; 
+            padding: 8px; 
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        .macro-cell {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 3px;
+            background: #16213e;
+            padding: 3px;
+            aspect-ratio: 1;
+            min-width: 80px;
+            min-height: 80px;
+            position: relative;
+        }
+        .macro-cell.won-x { background: rgba(255, 99, 71, 0.8); }
+        .macro-cell.won-o { background: rgba(100, 149, 237, 0.8); }
+        .macro-cell.disabled { opacity: 0.6; }
+        .macro-cell.winner {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 4rem;
+            font-weight: bold;
+            opacity: 0.3;
+        }
+        .cell {
+            background: #1a1a2e;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8rem;
+            font-weight: bold;
+            cursor: pointer;
+            aspect-ratio: 1;
+            transition: background 0.2s;
+        }
+        .cell:hover { background: #0f3460; }
+        .cell.x { color: #ff6347; }
+        .cell.o { color: #6495ed; }
+        .status { 
+            margin-top: 20px; 
+            font-size: 1.2rem; 
+            text-align: center;
+            min-height: 1.8em;
+        }
+        @media (max-width: 500px) {
+            .board { width: 90vw; height: 90vw; }
+            .macro-cell { min-width: unset; min-height: unset; }
+            .winner { font-size: 3rem; }
+        }
+    </style>
+</head>
+<body>
+    <h1>Ultimate Tic-Tac-Toe</h1>
+    <div class="controls">
+        <button id="twoPlayer" class="active">Two Player</button>
+        <button id="aiPlayer">Play vs AI</button>
+        <button id="reset">Reset Game</button>
+    </div>
+    <div class="board" id="board"></div>
+    <div class="status" id="status">X's turn</div>
+
+    <script>
+        const BOARD_SIZE = 3;
+        let currentPlayer = 'X';
+        let gameMode = 'two-player';
+        let bigBoard = Array(BOARD_SIZE).fill().map(() => Array(BOARD_SIZE).fill(null));
+        let macroBoard = Array(BOARD_SIZE).fill().map(() => Array(BOARD_SIZE).fill(null));
+        let nextMacroCell = null;
+        let gameOver = false;
+
+        const board = document.getElementById('board');
+        const status = document.getElementById('status');
+        const resetBtn = document.getElementById('reset');
+        const twoPlayerBtn = document.getElementById('twoPlayer');
+        const aiPlayerBtn = document.getElementById('aiPlayer');
+
+        function initGame() {
+            board.innerHTML = '';
+            currentPlayer = 'X';
+            gameOver = false;
+            nextMacroCell = null;
+            bigBoard = Array(BOARD_SIZE).fill().map(() => Array(BOARD_SIZE).fill(null));
+            macroBoard = Array(BOARD_SIZE).fill().map(() => Array(BOARD_SIZE).fill(null));
+
+            for (let i = 0; i < BOARD_SIZE; i++) {
+                for (let j = 0; j < BOARD_SIZE; j++) {
+                    const macroCell = document.createElement('div');
+                    macroCell.className = 'macro-cell';
+                    macroCell.dataset.i = i;
+                    macroCell.dataset.j = j;
+
+                    for (let k = 0; k < BOARD_SIZE; k++) {
+                        for (let l = 0; l < BOARD_SIZE; l++) {
+                            const cell = document.createElement('div');
+                            cell.className = 'cell';
+                            cell.dataset.mi = i;
+                            cell.dataset.mj = j;
+                            cell.dataset.ki = k;
+                            cell.dataset.kj = l;
+                            cell.addEventListener('click', () => handleCellClick(i, j, k, l));
+                            macroCell.appendChild(cell);
+                        }
+                    }
+                    board.appendChild(macroCell);
+                }
+            }
+            updateStatus();
+            highlightAllowedCells();
+        }
+
+        function handleCellClick(mi, mj, ki, kj) {
+            if (gameOver) return;
+            if (bigBoard[mi][mj] !== null) return;
+            if (macroBoard[mi][mj][ki][kj] !== null) return;
+            if (nextMacroCell !== null && (nextMacroCell.i !== mi || nextMacroCell.j !== mj)) return;
+
+            makeMove(mi, mj, ki, kj);
+
+            if (!gameOver && gameMode === 'ai') {
+                setTimeout(makeAiMove, 300);
+            }
+        }
+
+        function makeMove(mi, mj, ki, kj) {
+            macroBoard[mi][mj][ki][kj] = currentPlayer;
+            const cell = document.querySelector(`[data-mi="${mi}"][data-mj="${mj}"][data-ki="${ki}"][data-kj="${kj}"]`);
+            cell.textContent = currentPlayer;
+            cell.classList.add(currentPlayer.toLowerCase());
+
+            // Check if small board is won
+            const winner = checkWinner(macroBoard[mi][mj]);
+            if (winner) {
+                bigBoard[mi][mj] = winner;
+                const macroCell = document.querySelector(`[data-i="${mi}"][data-j="${mj}"]`);
+                macroCell.classList.add(`won-${winner.toLowerCase()}`);
+                const winnerText = document.createElement('div');
+                winnerText.className = 'winner';
+                winnerText.textContent = winner;
+                winnerText.classList.add(winner.toLowerCase());
+                macroCell.appendChild(winnerText);
+            } else if (isBoardFull(macroBoard[mi][mj])) {
+                bigBoard[mi][mj] = 'draw';
+            }
+
+            // Check if game is won
+            const gameWinner = checkWinner(bigBoard);
+            if (gameWinner) {
+                gameOver = true;
+                status.textContent = `${gameWinner} wins the game!`;
+                return;
+            } else if (isBoardFull(bigBoard)) {
+                gameOver = true;
+                status.textContent = "It's a draw!";
+                return;
+            }
+
+            // Set next allowed macro cell
+            nextMacroCell = bigBoard[ki][kj] !== null ? null : { i: ki, j: kj };
+            currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
+            updateStatus();
+            highlightAllowedCells();
+        }
+
+        function makeAiMove() {
+            const availableMoves = [];
+            
+            // Collect all valid moves
+            for (let mi = 0; mi < BOARD_SIZE; mi++) {
+                for (let mj = 0; mj < BOARD_SIZE; mj++) {
+                    if (nextMacroCell && (nextMacroCell.i !== mi || nextMacroCell.j !== mj)) continue;
+                    if (bigBoard[mi][mj] !== null) continue;
+                    
+                    for (let ki = 0; ki < BOARD_SIZE; ki++) {
+                        for (let kj = 0; kj < BOARD_SIZE; kj++) {
+                            if (macroBoard[mi][mj][ki][kj] === null) {
+                                availableMoves.push({mi, mj, ki, kj});
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (availableMoves.length === 0) return;
+
+            // Simple AI: try to win, then block, else random
+            let move = findWinningMove('O');
+            if (!move) move = findWinningMove('X');
+            if (!move) move = availableMoves[Math.floor(Math.random() * availableMoves.length)];
+
+            makeMove(move.mi, move.mj, move.ki, move.kj);
+        }
+
+        function findWinningMove(player) {
+            for (let mi = 0; mi < BOARD_SIZE; mi++) {
+                for (let mj = 0; mj < BOARD_SIZE; mj++) {
+                    if (nextMacroCell && (nextMacroCell.i !== mi || nextMacroCell.j !== mj)) continue;
+                    if (bigBoard[mi][mj] !== null) continue;
+
+                    for (let ki = 0; ki < BOARD_SIZE; ki++) {
+                        for (let kj = 0; kj < BOARD_SIZE; kj++) {
+                            if (macroBoard[mi][mj][ki][kj] === null) {
+                                macroBoard[mi][mj][ki][kj] = player;
+                                if (checkWinner(macroBoard[mi][mj]) === player) {
+                                    macroBoard[mi][mj][ki][kj] = null;
+                                    return {mi, mj, ki, kj};
+                                }
+                                macroBoard[mi][mj][ki][kj] = null;
+                            }
+                        }
+                    }
+                }
+            }
+            return null;
+        }
+
+        function checkWinner(board) {
+            const lines = [
+                [[0,0], [0,1], [0,2]],
+                [[1,0], [1,1], [1,2]],
+                [[2,0], [2,1], [2,2]],
+                [[0,0], [1,0], [2,0]],
+                [[0,1], [1,1], [2,1]],
+                [[0,2], [1,2], [2,2]],
+                [[0,0], [1,1], [2,2]],
+                [[0,2], [1,1], [2,0]]
+            ];
+
+            for (const line of lines) {
+                const [a, b, c] = line;
+                const val1 = board[a[0]][a[1]];
+                const val2 = board[b[0]][b[1]];
+                const val3 = board[c[0]][c[1]];
+                if (val1 && val1 === val2 && val1 === val3) {
+                    return val1;
+                }
+            }
+            return null;
+        }
+
+        function isBoardFull(board) {
+            for (let i = 0; i < BOARD_SIZE; i++) {
+                for (let j = 0; j < BOARD_SIZE; j++) {
+                    if (board[i][j] === null) return false;
+                }
+            }
+            return true;
+        }
+
+        function updateStatus() {
+            if (gameOver) return;
+            status.textContent = `${currentPlayer}'s turn`;
+        }
+
+        function highlightAllowedCells() {
+            document.querySelectorAll('.macro-cell').forEach(cell => {
+                cell.classList.remove('disabled');
+                if (nextMacroCell) {
+                    const mi = parseInt(cell.dataset.i);
+                    const mj = parseInt(cell.dataset.j);
+                    if (mi !== nextMacroCell.i || mj !== nextMacroCell.j) {
+                        cell.classList.add('disabled');
+                    }
+                }
+            });
+        }
+
+        resetBtn.addEventListener('click', initGame);
+        twoPlayerBtn.addEventListener('click', () => {
+            gameMode = 'two-player';
+            twoPlayerBtn.classList.add('active');
+            aiPlayerBtn.classList.remove('active');
+            initGame();
+        });
+        aiPlayerBtn.addEventListener('click', () => {
+            gameMode = 'ai';
+            aiPlayerBtn.classList.add('active');
+            twoPlayerBtn.classList.remove('active');
+            initGame();
+        });
+
+        // Initialize the macroBoard with empty boards
+        for (let i = 0; i < BOARD_SIZE; i++) {
+            for (let j = 0; j < BOARD_SIZE; j++) {
+                macroBoard[i][j] = Array(BOARD_SIZE).fill().map(() => Array(BOARD_SIZE).fill(null));
+            }
+        }
+
+        initGame();
+    </script>
+</body>
+</html>

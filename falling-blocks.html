@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>消除方块</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background: #1a1a2e;
+            font-family: Arial, sans-serif;
+        }
+        #game {
+            text-align: center;
+        }
+        canvas {
+            border: 3px solid #4a4a6a;
+            background: #0f0f1e;
+        }
+        #score {
+            color: #fff;
+            font-size: 24px;
+            margin: 10px 0;
+        }
+        #info {
+            color: #888;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div id="game">
+        <div id="score">得分: 0</div>
+        <canvas id="canvas" width="300" height="500"></canvas>
+        <div id="info">← → 移动 | ↓ 加速 | ↑ 旋转</div>
+    </div>
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const COLS = 10;
+        const ROWS = 15;
+        const BLOCK_SIZE = 30;
+        const COLORS = ['#ff6b6b', '#4ecdc4', '#ffe66d'];
+        let grid = [];
+        let score = 0;
+        let currentGroup = [];
+        let currentX = 3;
+        let currentY = 0;
+        let dropInterval = 500;
+        let lastDrop = 0;
+
+        function initGrid() {
+            grid = [];
+            for (let r = 0; r < ROWS; r++) {
+                grid[r] = new Array(COLS).fill(null);
+            }
+        }
+
+        function createGroup() {
+            const group = [];
+            for (let i = 0; i < 3; i++) {
+                group.push({
+                    color: COLORS[Math.floor(Math.random() * COLORS.length)],
+                    relX: 0,
+                    relY: -i
+                });
+            }
+            return group;
+        }
+
+        function drawBlock(x, y, color) {
+            ctx.fillStyle = color;
+            ctx.fillRect(x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE - 1, BLOCK_SIZE - 1);
+            ctx.strokeStyle = '#222';
+            ctx.strokeRect(x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE - 1, BLOCK_SIZE - 1);
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            for (let r = 0; r < ROWS; r++) {
+                for (let c = 0; c < COLS; c++) {
+                    if (grid[r][c]) {
+                        drawBlock(c, r, grid[r][c]);
+                    }
+                }
+            }
+            for (let b of currentGroup) {
+                const x = currentX + b.relX;
+                const y = currentY + b.relY;
+                if (y >= 0) {
+                    drawBlock(x, y, b.color);
+                }
+            }
+        }
+
+        function isValid(x, y, group) {
+            for (let b of group) {
+                const newX = x + b.relX;
+                const newY = y + b.relY;
+                if (newX < 0 || newX >= COLS || newY >= ROWS) return false;
+                if (newY >= 0 && grid[newY][newX]) return false;
+            }
+            return true;
+        }
+
+        function lockGroup() {
+            for (let b of currentGroup) {
+                const x = currentX + b.relX;
+                const y = currentY + b.relY;
+                if (y >= 0 && y < ROWS && x >= 0 && x < COLS) {
+                    grid[y][x] = b.color;
+                }
+            }
+            eliminate();
+            spawnGroup();
+        }
+
+        function eliminate() {
+            const colors = {};
+            for (let r = 0; r < ROWS; r++) {
+                for (let c = 0; c < COLS; c++) {
+                    if (grid[r][c]) {
+                        const key = grid[r][c];
+                        if (!colors[key]) colors[key] = [];
+                        colors[key].push({r, c});
+                    }
+                }
+            }
+            for (let color in colors) {
+                if (colors[color].length >= 3) {
+                    score += colors[color].length * 10;
+                    for (let pos of colors[color]) {
+                        grid[pos.r][pos.c] = null;
+                    }
+                }
+            }
+            document.getElementById('score').textContent = '得分: ' + score;
+        }
+
+        function spawnGroup() {
+            currentGroup = createGroup();
+            currentX = 3;
+            currentY = 0;
+            if (!isValid(currentX, currentY, currentGroup)) {
+                initGrid();
+                score = 0;
+                document.getElementById('score').textContent = '得分: 0';
+            }
+        }
+
+        function rotate() {
+            const newGroup = currentGroup.map(b => ({
+                color: b.color,
+                relX: -b.relY,
+                relY: b.relX
+            }));
+            if (isValid(currentX, currentY, newGroup)) {
+                currentGroup = newGroup;
+            }
+        }
+
+        function update(timestamp) {
+            if (timestamp - lastDrop > dropInterval) {
+                if (isValid(currentX, currentY + 1, currentGroup)) {
+                    currentY++;
+                } else {
+                    lockGroup();
+                }
+                lastDrop = timestamp;
+            }
+            draw();
+            requestAnimationFrame(update);
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft' && isValid(currentX - 1, currentY, currentGroup)) {
+                currentX--;
+            } else if (e.key === 'ArrowRight' && isValid(currentX + 1, currentY, currentGroup)) {
+                currentX++;
+            } else if (e.key === 'ArrowDown') {
+                if (isValid(currentX, currentY + 1, currentGroup)) {
+                    currentY++;
+                }
+            } else if (e.key === 'ArrowUp') {
+                rotate();
+            }
+            e.preventDefault();
+        });
+
+        initGrid();
+        spawnGroup();
+        requestAnimationFrame(update);
+    </script>
+</body>
+</html>

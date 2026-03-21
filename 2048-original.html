@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>经典 2048</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: #faf8ef;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .game-container {
+            width: 420px;
+            max-width: 90vw;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            font-size: 48px;
+            color: #776e65;
+        }
+
+        .score-box {
+            background: #bbada0;
+            padding: 10px 20px;
+            border-radius: 6px;
+            text-align: center;
+        }
+
+        .score-label {
+            font-size: 14px;
+            color: #eee4da;
+            text-transform: uppercase;
+        }
+
+        .score-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: white;
+        }
+
+        .game-board {
+            background: #bbada0;
+            border-radius: 10px;
+            padding: 15px;
+            position: relative;
+            touch-action: none;
+        }
+
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+        }
+
+        .grid-cell {
+            width: 80px;
+            height: 80px;
+            background: rgba(238, 228, 218, 0.35);
+            border-radius: 6px;
+        }
+
+        .tile-container {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            right: 15px;
+            bottom: 15px;
+        }
+
+        .tile {
+            position: absolute;
+            width: 80px;
+            height: 80px;
+            border-radius: 6px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 32px;
+            font-weight: bold;
+            transition: transform 100ms ease;
+        }
+
+        .tile-2 { background: #eee4da; color: #776e65; }
+        .tile-4 { background: #ede0c8; color: #776e65; }
+        .tile-8 { background: #f2b179; color: white; }
+        .tile-16 { background: #f59563; color: white; }
+        .tile-32 { background: #f67c5f; color: white; }
+        .tile-64 { background: #f65e3b; color: white; }
+        .tile-128 { background: #edcf72; color: white; font-size: 28px; }
+        .tile-256 { background: #edcc61; color: white; font-size: 28px; }
+        .tile-512 { background: #edc850; color: white; font-size: 28px; }
+        .tile-1024 { background: #edc53f; color: white; font-size: 24px; }
+        .tile-2048 { background: #edc22e; color: white; font-size: 24px; }
+        .tile-4096 { background: #3c3a32; color: white; font-size: 24px; }
+        .tile-8192 { background: #3c3a32; color: white; font-size: 24px; }
+
+        .game-over {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(238, 228, 218, 0.7);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            border-radius: 10px;
+        }
+
+        .game-over.show {
+            display: flex;
+        }
+
+        .game-over-text {
+            font-size: 36px;
+            font-weight: bold;
+            color: #776e65;
+            margin-bottom: 20px;
+        }
+
+        .restart-btn {
+            background: #8f7a66;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        .restart-btn:hover {
+            background: #9f8b77;
+        }
+
+        .instructions {
+            margin-top: 20px;
+            text-align: center;
+            color: #776e65;
+            font-size: 14px;
+        }
+
+        @media (max-width: 480px) {
+            .grid-cell, .tile {
+                width: 70px;
+                height: 70px;
+            }
+            .tile {
+                font-size: 26px;
+            }
+            .tile-128, .tile-256, .tile-512 {
+                font-size: 22px;
+            }
+            .tile-1024, .tile-2048 {
+                font-size: 20px;
+            }
+            h1 {
+                font-size: 36px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <div class="header">
+            <h1>2048</h1>
+            <div class="score-box">
+                <div class="score-label">得分</div>
+                <div class="score-value" id="score">0</div>
+            </div>
+        </div>
+        <div class="game-board" id="gameBoard">
+            <div class="grid-container">
+                <div class="grid-cell"></div>
+                <div class="grid-cell"></div>
+                <div class="grid-cell"></div>
+                <div class="grid-cell"></div>
+                <div class="grid-cell"></div>
+                <div class="grid-cell"></div>
+                <div class="grid-cell"></div>
+                <div class="grid-cell"></div>
+                <div class="grid-cell"></div>
+                <div class="grid-cell"></div>
+                <div class="grid-cell"></div>
+                <div class="grid-cell"></div>
+                <div class="grid-cell"></div>
+                <div class="grid-cell"></div>
+                <div class="grid-cell"></div>
+                <div class="grid-cell"></div>
+            </div>
+            <div class="tile-container" id="tileContainer"></div>
+            <div class="game-over" id="gameOver">
+                <div class="game-over-text">游戏结束</div>
+                <button class="restart-btn" onclick="restartGame()">重新开始</button>
+            </div>
+        </div>
+        <div class="instructions">
+            使用方向键 ←↑↓→ 或触摸滑动移动方块<br>
+            相同数字合并，目标：合成 2048！
+        </div>
+    </div>
+
+    <script>
+        let grid = [];
+        let score = 0;
+        let gameOver = false;
+        const size = 4;
+        const tileContainer = document.getElementById('tileContainer');
+        const scoreDisplay = document.getElementById('score');
+        const gameOverOverlay = document.getElementById('gameOver');
+
+        // 触摸滑动
+        let touchStartX = 0;
+        let touchStartY = 0;
+
+        function initGame() {
+            grid = Array(size).fill().map(() => Array(size).fill(0));
+            score = 0;
+            gameOver = false;
+            gameOverOverlay.classList.remove('show');
+            updateScore();
+            addRandomTile();
+            addRandomTile();
+            render();
+        }
+
+        function restartGame() {
+            tileContainer.innerHTML = '';
+            initGame();
+        }
+
+        function addRandomTile() {
+            const emptyCells = [];
+            for (let i = 0; i < size; i++) {
+                for (let j = 0; j < size; j++) {
+                    if (grid[i][j] === 0) {
+                        emptyCells.push({i, j});
+                    }
+                }
+            }
+            if (emptyCells.length === 0) return;
+            const {i, j} = emptyCells[Math.floor(Math.random() * emptyCells.length)];
+            grid[i][j] = Math.random() < 0.9 ? 2 : 4;
+        }
+
+        function getTilePosition(row, col) {
+            const cellSize = 80;
+            const gap = 15;
+            const top = row * (cellSize + gap);
+            const left = col * (cellSize + gap);
+            return {top, left};
+        }
+
+        function render() {
+            tileContainer.innerHTML = '';
+            for (let i = 0; i < size; i++) {
+                for (let j = 0; j < size; j++) {
+                    if (grid[i][j] !== 0) {
+                        const value = grid[i][j];
+                        const tile = document.createElement('div');
+                        const {top, left} = getTilePosition(i, j);
+                        tile.className = `tile tile-${value}`;
+                        tile.textContent = value;
+                        tile.style.top = `${top}px`;
+                        tile.style.left = `${left}px`;
+                        tileContainer.appendChild(tile);
+                    }
+                }
+            }
+        }
+
+        function updateScore() {
+            scoreDisplay.textContent = score;
+        }
+
+        function moveLeft() {
+            let moved = false;
+            for (let i = 0; i < size; i++) {
+                let row = grid[i].filter(x => x !== 0);
+                for (let j = 0; j < row.length - 1; j++) {
+                    if (row[j] === row[j + 1]) {
+                        row[j] *= 2;
+                        score += row[j];
+                        row.splice(j + 1, 1);
+                        moved = true;
+                    }
+                }
+                while (row.length < size) row.push(0);
+                if (JSON.stringify(grid[i]) !== JSON.stringify(row)) {
+                    grid[i] = row;
+                    moved = true;
+                }
+            }
+            return moved;
+        }
+
+        function moveRight() {
+            let moved = false;
+            for (let i = 0; i < size; i++) {
+                let row = grid[i].filter(x => x !== 0);
+                for (let j = row.length - 1; j > 0; j--) {
+                    if (row[j] === row[j - 1]) {
+                        row[j] *= 2;
+                        score += row[j];
+                        row.splice(j - 1, 1);
+                        j--;
+                        moved = true;
+                    }
+                }
+                while (row.length < size) row.unshift(0);
+                if (JSON.stringify(grid[i]) !== JSON.stringify(row)) {
+                    grid[i] = row;
+                    moved = true;
+                }
+            }
+            return moved;
+        }
+
+        function moveUp() {
+            let moved = false;
+            for (let j = 0; j < size; j++) {
+                let col = [];
+                for (let i = 0; i < size; i++) {
+                    if (grid[i][j] !== 0) col.push(grid[i][j]);
+                }
+                for (let i = 0; i < col.length - 1; i++) {
+                    if (col[i] === col[i + 1]) {
+                        col[i] *= 2;
+                        score += col[i];
+                        col.splice(i + 1, 1);
+                        moved = true;
+                    }
+                }
+                while (col.length < size) col.push(0);
+                for (let i = 0; i < size; i++) {
+                    if (grid[i][j] !== col[i]) {
+                        grid[i][j] = col[i];
+                        moved = true;
+                    }
+                }
+            }
+            return moved;
+        }
+
+        function moveDown() {
+            let moved = false;
+            for (let j = 0; j < size; j++) {
+                let col = [];
+                for (let i = 0; i < size; i++) {
+                    if (grid[i][j] !== 0) col.push(grid[i][j]);
+                }
+                for (let i = col.length - 1; i > 0; i--) {
+                    if (col[i] === col[i - 1]) {
+                        col[i] *= 2;
+                        score += col[i];
+                        col.splice(i - 1, 1);
+                        i--;
+                        moved = true;
+                    }
+                }
+                while (col.length < size) col.unshift(0);
+                for (let i = 0; i < size; i++) {
+                    if (grid[i][j] !== col[i]) {
+                        grid[i][j] = col[i];
+                        moved = true;
+                    }
+                }
+            }
+            return moved;
+        }
+
+        function isGameOver() {
+            for (let i = 0; i < size; i++) {
+                for (let j = 0; j < size; j++) {
+                    if (grid[i][j] === 0) return false;
+                    if (i < size - 1 && grid[i][j] === grid[i + 1][j]) return false;
+                    if (j < size - 1 && grid[i][j] === grid[i][j + 1]) return false;
+                }
+            }
+            return true;
+        }
+
+        function move(direction) {
+            if (gameOver) return;
+            let moved = false;
+            switch (direction) {
+                case 'left': moved = moveLeft(); break;
+                case 'right': moved = moveRight(); break;
+                case 'up': moved = moveUp(); break;
+                case 'down': moved = moveDown(); break;
+            }
+            if (moved) {
+                addRandomTile();
+                updateScore();
+                render();
+                if (isGameOver()) {
+                    gameOver = true;
+                    gameOverOverlay.classList.add('show');
+                }
+            }
+        }
+
+        // 键盘控制
+        document.addEventListener('keydown', e => {
+            switch (e.key) {
+                case 'ArrowLeft': move('left'); break;
+                case 'ArrowRight': move('right'); break;
+                case 'ArrowUp': move('up'); break;
+                case 'ArrowDown': move('down'); break;
+            }
+        });
+
+        // 触摸控制
+        document.getElementById('gameBoard').addEventListener('touchstart', e => {
+            touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
+        }, {passive: true});
+
+        document.getElementById('gameBoard').addEventListener('touchend', e => {
+            if (!touchStartX || !touchStartY) return;
+            const touchEndX = e.changedTouches[0].clientX;
+            const touchEndY = e.changedTouches[0].clientY;
+            const diffX = touchEndX - touchStartX;
+            const diffY = touchEndY - touchStartY;
+
+            if (Math.abs(diffX) > Math.abs(diffY)) {
+                if (Math.abs(diffX) > 20) {
+                    move(diffX > 0 ? 'right' : 'left');
+                }
+            } else {
+                if (Math.abs(diffY) > 20) {
+                    move(diffY > 0 ? 'down' : 'up');
+                }
+            }
+
+            touchStartX = 0;
+            touchStartY = 0;
+        }, {passive: true});
+
+        // 开始游戏
+        initGame();
+    </script>
+</body>
+</html>

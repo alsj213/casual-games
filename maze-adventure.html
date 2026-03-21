@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>迷宫探险</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#1a1a2e;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;font-family:'Microsoft YaHei',sans-serif;color:#fff}
+#gameContainer{background:#16213e;padding:20px;border-radius:15px;box-shadow:0 10px 30px rgba(0,0,0,0.5)}
+#info{display:flex;justify-content:space-between;margin-bottom:15px;font-size:18px}
+#timer{color:#e94560;font-weight:bold}
+#level{color:#0f3460;background:#e94560;padding:5px15px;border-radius:20px}
+canvas{display:block;border:3px solid #0f3460;border-radius:10px}
+#controls{margin-top:15px;display:grid;grid-template-columns:repeat(3,60px);gap:8px;justify-content:center}
+.btn{width:60px;height:60px;font-size:28px;border:none;border-radius:10px;background:#e94560;color:#fff;cursor:pointer;transition:all 0.2s;user-select:none;-webkit-user-select:none}
+.btn:active{transform:scale(0.95);background:#c33c53}
+.btn:hover{background:#ff6b6b}
+#btnUp{grid-column:2}
+#btnLeft{grid-column:1}
+#btnDown{grid-column:2}
+#btnRight{grid-column:3}
+#mobileTip{margin-top:10px;font-size:14px;color:#aaa;text-align:center}
+@media(min-width:768px){#controls,#mobileTip{display:none}#gameContainer{padding:30px}}
+</style>
+</head>
+<body>
+<div id="gameContainer">
+<div id="info">
+<span>⏱️ <span id="timer">0</span>秒</span>
+<span id="level">第1关</span>
+</div>
+<canvas id="gameCanvas"></canvas>
+<div id="controls">
+<button id="btnUp" class="btn">↑</button>
+<button id="btnLeft" class="btn">←</button>
+<button id="btnDown" class="btn">↓</button>
+<button id="btnRight" class="btn">→</button>
+</div>
+<div id="mobileTip">键盘方向键或点击按钮移动</div>
+</div>
+<script>
+const canvas=document.getElementById('gameCanvas');
+const ctx=canvas.getContext('2d');
+const timerEl=document.getElementById('timer');
+const levelEl=document.getElementById('level');
+const cellSize=25;
+let level=1,maze=[],player={x:0,y:0},exit={x:0,y:0},startTime=0,timerInterval;
+function initLevel(){
+const cols=level*3+7,rows=level*3+7;
+canvas.width=cols*cellSize;
+canvas.height=rows*cellSize;
+maze=Array(rows).fill().map(()=>Array(cols).fill(1));
+generateMaze(1,1,cols-2,rows-2);
+player={x:1,y:1};
+exit={x:cols-2,y:rows-2};
+maze[exit.y][exit.x]=0;
+startTime=Date.now();
+clearInterval(timerInterval);
+timerInterval=setInterval(()=>timerEl.textContent=Math.floor((Date.now()-startTime)/1000),1000);
+levelEl.textContent=`第${level}关`;
+draw();
+}
+function generateMaze(x1,y1,x2,y2){
+const stack=[[x1,y1]];
+maze[y1][x1]=0;
+const dirs=[[0,-2],[0,2],[-2,0],[2,0]];
+while(stack.length){
+const [cx,cy]=stack[stack.length-1];
+dirs.sort(()=>Math.random()-0.5);
+let found=false;
+for(const [dx,dy]of dirs){
+const nx=cx+dx,ny=cy+dy;
+if(nx>=x1&&nx<=x2&&ny>=y1&&ny<=y2&&maze[ny][nx]===1){
+maze[cy+dy/2][cx+dx/2]=0;
+maze[ny][nx]=0;
+stack.push([nx,ny]);
+found=true;
+break;
+}
+}
+if(!found)stack.pop();
+}
+}
+function draw(){
+ctx.fillStyle='#0f3460';
+ctx.fillRect(0,0,canvas.width,canvas.height);
+for(let y=0;y<maze.length;y++){
+for(let x=0;x<maze[0].length;x++){
+if(maze[y][x]===0){
+ctx.fillStyle='#1a1a2e';
+ctx.fillRect(x*cellSize,y*cellSize,cellSize,cellSize);
+}
+}
+}
+ctx.fillStyle='#ffd700';
+ctx.beginPath();
+ctx.arc(exit.x*cellSize+cellSize/2,exit.y*cellSize+cellSize/2,cellSize/3,0,Math.PI*2);
+ctx.fill();
+ctx.font='14px Arial';
+ctx.fillStyle='#ffd700';
+ctx.fillText('🚪',exit.x*cellSize+3,exit.y*cellSize+18);
+ctx.fillStyle='#00ff88';
+ctx.beginPath();
+ctx.arc(player.x*cellSize+cellSize/2,player.y*cellSize+cellSize/2,cellSize/2.5,0,Math.PI*2);
+ctx.fill();
+ctx.fillStyle='#fff';
+ctx.beginPath();
+ctx.arc(player.x*cellSize+cellSize/2-3,player.y*cellSize+cellSize/2-2,3,0,Math.PI*2);
+ctx.arc(player.x*cellSize+cellSize/2+3,player.y*cellSize+cellSize/2-2,3,0,Math.PI*2);
+ctx.fill();
+ctx.beginPath();
+ctx.arc(player.x*cellSize+cellSize/2,player.y*cellSize+cellSize/2+4,4,0,Math.PI);
+ctx.stroke();
+}
+function move(dx,dy){
+const nx=player.x+dx,ny=player.y+dy;
+if(maze[ny]&&maze[ny][nx]===0){
+player.x=nx;player.y=ny;
+draw();
+if(player.x===exit.x&&player.y===exit.y){
+level++;
+initLevel();
+alert(`🎉 恭喜通关！用时 ${timerEl.textContent} 秒`);
+}
+}
+}
+document.addEventListener('keydown',e=>{
+if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)){
+e.preventDefault();
+const mapping={ArrowUp:[0,-1],ArrowDown:[0,1],ArrowLeft:[-1,0],ArrowRight:[1,0]};
+move(...mapping[e.key]);
+}
+});
+document.getElementById('btnUp').onclick=()=>move(0,-1);
+document.getElementById('btnDown').onclick=()=>move(0,1);
+document.getElementById('btnLeft').onclick=()=>move(-1,0);
+document.getElementById('btnRight').onclick=()=>move(1,0);
+initLevel();
+</script>
+</body>
+</html>

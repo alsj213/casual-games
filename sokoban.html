@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>推箱子 Sokoban</title>
+<style>
+body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: #1a1a2e;
+  color: #eee;
+  font-family: Arial, sans-serif;
+  margin: 20px 0;
+}
+h1 { margin: 10px 0; }
+canvas { border: 3px solid #f1c40f; background: #16213e; }
+.controls { margin: 15px 0; }
+button {
+  background: #0f3460;
+  color: white;
+  border: 2px solid #f1c40f;
+  padding: 8px 16px;
+  font-size: 16px;
+  margin: 0 5px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+button:hover { background: #16537e; }
+#info { font-size: 18px; margin: 10px 0; }
+</style>
+</head>
+<body>
+<h1>推箱子 Sokoban</h1>
+<canvas id="game" width="480" height="480"></canvas>
+<div id="info">第 1 关</div>
+<div class="controls">
+  <button onclick="undo()">撤销 ↩</button>
+  <button onclick="restart()">重新开始 🔄</button>
+  <button onclick="nextLevel()">下一关 ➡️</button>
+</div>
+
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const cellSize = 48;
+
+// 关卡定义
+const levels = [
+  // 1
+  [
+    "########",
+    "#      #",
+    "#  $   #",
+    "#  @ . #",
+    "#      #",
+    "########"
+  ],
+  // 2
+  [
+    "  #####  ",
+    "###   ###",
+    "#  $ $  #",
+    "# .@.  #",
+    "#  $ $  #",
+    "###   ###",
+    "  #####  "
+  ],
+  // 3
+  [
+    "  ########",
+    "###      #",
+    "#   $ $@ #",
+    "# #  #   #",
+    "# .  .   #",
+    "########"
+  ],
+  // 4
+  [
+    "  ######  ",
+    "##    ### ",
+    "#  $   $ #",
+    "# .#@# . #",
+    "#  $   $ #",
+    " ###    ##",
+    "  ######  "
+  ],
+  // 5
+  [
+    "  ########",
+    "##      ##",
+    "#   $$  ##",
+    "#  .@. ###",
+    "##   #####",
+    "  ####  "
+  ]
+];
+
+let currentLevel = 0;
+let map = [];
+let player = { x: 0, y: 0 };
+let history = [];
+let boxes = [];
+
+// 颜色定义
+const colors = {
+  wall: '#2d4263',
+  floor: '#16213e',
+  target: '#e74c3c',
+  box: '#f39c12',
+  boxDone: '#2ecc71',
+  player: '#3498db'
+};
+
+// 初始化当前关卡
+function initLevel() {
+  const levelData = levels[currentLevel];
+  map = [];
+  boxes = [];
+  history = [];
+  for (let y = 0; y < levelData.length; y++) {
+    map[y] = [];
+    for (let x = 0; x < levelData[y].length; x++) {
+      const c = levelData[y][x];
+      if (c === '@') {
+        player.x = x;
+        player.y = y;
+        map[y][x] = ' ';
+      } else if (c === '$') {
+        boxes.push({x, y});
+        map[y][x] = ' ';
+      } else if (c === '.') {
+        map[y][x] = '.';
+      } else if (c === '#') {
+        map[y][x] = '#';
+      } else {
+        map[y][x] = ' ';
+      }
+    }
+  }
+  document.getElementById('info').textContent = `第 ${currentLevel + 1} 关`;
+  saveState();
+  draw();
+}
+
+// 保存状态用于撤销
+function saveState() {
+  const state = {
+    player: {x: player.x, y: player.y},
+    boxes: boxes.map(b => ({x: b.x, y: b.y}))
+  };
+  history.push(state);
+}
+
+// 撤销操作
+function undo() {
+  if (history.length > 1) {
+    history.pop();
+    const prev = history[history.length - 1];
+    player.x = prev.player.x;
+    player.y = prev.player.y;
+    boxes = prev.boxes.map(b => ({x: b.x, y: b.y}));
+    draw();
+  }
+}
+
+// 重新开始
+function restart() {
+  initLevel();
+}
+
+// 下一关
+function nextLevel() {
+  if (currentLevel < levels.length - 1) {
+    currentLevel++;
+    initLevel();
+  } else {
+    document.getElementById('info').textContent = "🎉 恭喜通关所有关卡！";
+  }
+}
+
+// 检测是否完成
+function checkWin() {
+  for (const box of boxes) {
+    if (map[box.y][box.x] !== '.') return false;
+  }
+  return true;
+}
+
+// 绘制
+function draw() {
+  const width = map[0].length;
+  const height = map.length;
+  canvas.width = width * cellSize;
+  canvas.height = height * cellSize;
+  
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const px = x * cellSize;
+      const py = y * cellSize;
+      
+      // 背景
+      ctx.fillStyle = map[y][x] === '#' ? colors.wall : colors.floor;
+      ctx.fillRect(px, py, cellSize, cellSize);
+      
+      // 目标点
+      if (map[y][x] === '.') {
+        ctx.fillStyle = colors.target;
+        ctx.beginPath();
+        ctx.arc(px + cellSize/2, py + cellSize/2, 10, 0, Math.PI*2);
+        ctx.fill();
+      }
+    }
+  }
+  
+  // 绘制箱子
+  for (const box of boxes) {
+    const px = box.x * cellSize;
+    const py = box.y * cellSize;
+    const onTarget = map[box.y][box.x] === '.';
+    ctx.fillStyle = onTarget ? colors.boxDone : colors.box;
+    ctx.fillRect(px + 4, py + 4, cellSize - 8, cellSize - 8);
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(px + 4, py + 4, cellSize - 8, cellSize - 8);
+  }
+  
+  // 绘制玩家
+  const ppx = player.x * cellSize;
+  const ppy = player.y * cellSize;
+  ctx.fillStyle = colors.player;
+  ctx.beginPath();
+  ctx.arc(ppx + cellSize/2, ppy + cellSize/2, cellSize/2 - 6, 0, Math.PI*2);
+  ctx.fill();
+}
+
+// 移动逻辑
+function move(dx, dy) {
+  const nx = player.x + dx;
+  const ny = player.y + dy;
+  
+  // 撞墙
+  if (map[ny][nx] === '#') return;
+  
+  // 检查箱子是否在目标位置
+  const boxIndex = boxes.findIndex(b => b.x === nx && b.y === ny);
+  if (boxIndex >= 0) {
+    const nbx = boxes[boxIndex].x + dx;
+    const nby = boxes[boxIndex].y + dy;
+    // 箱子下一步撞墙或者另一个箱子
+    if (map[nby][nbx] === '#' || boxes.find(b => b.x === nbx && b.y === nby)) {
+      return;
+    }
+    // 推箱子
+    boxes[boxIndex].x = nbx;
+    boxes[boxIndex].y = nby;
+  }
+  
+  // 移动玩家
+  saveState();
+  player.x = nx;
+  player.y = ny;
+  
+  draw();
+  
+  // 检查胜利
+  if (checkWin()) {
+    setTimeout(() => {
+      alert(`恭喜过关！进入第 ${currentLevel + 2} 关`);
+      nextLevel();
+    }, 300);
+  }
+}
+
+// 键盘控制
+document.addEventListener('keydown', e => {
+  switch(e.key) {
+    case 'ArrowUp': move(0, -1); break;
+    case 'ArrowDown': move(0, 1); break;
+    case 'ArrowLeft': move(-1, 0); break;
+    case 'ArrowRight': move(1, 0); break;
+    case 'z': case 'Z': undo(); break;
+    case 'r': case 'R': restart(); break;
+  }
+});
+
+// 触屏支持 (手机)
+let touchStartX, touchStartY;
+canvas.addEventListener('touchstart', e => {
+  touchStartX = e.touches[0].clientX;
+  touchStartY = e.touches[0].clientY;
+  e.preventDefault();
+});
+canvas.addEventListener('touchend', e => {
+  const dx = e.changedTouches[0].clientX - touchStartX;
+  const dy = e.changedTouches[0].clientY - touchStartY;
+  if (Math.abs(dx) > Math.abs(dy)) {
+    move(dx > 0 ? 1 : -1, 0);
+  } else {
+    move(0, dy > 0 ? 1 : -1);
+  }
+  e.preventDefault();
+});
+
+// 启动游戏
+initLevel();
+</script>
+</body>
+</html>

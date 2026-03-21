@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>躲避小行星</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #0a0a1a; display: flex; justify-content: center; align-items: center; min-height: 100vh; font-family: 'Courier New', monospace; overflow: hidden; }
+    #game-container { position: relative; }
+    canvas { display: block; border: 2px solid #4a9eff; border-radius: 8px; box-shadow: 0 0 20px rgba(74, 158, 255, 0.3); }
+    #ui { position: absolute; top: 10px; left: 10px; right: 10px; display: flex; justify-content: space-between; color: #fff; font-size: 18px; text-shadow: 0 0 10px #4a9eff; pointer-events: none; }
+    #game-over { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; color: #fff; display: none; }
+    #game-over h1 { font-size: 36px; margin-bottom: 20px; color: #ff4a4a; text-shadow: 0 0 10px #ff4a4a; }
+    #game-over p { font-size: 18px; margin-bottom: 20px; }
+    #restart-btn { padding: 12px 30px; font-size: 18px; background: #4a9eff; border: none; color: #fff; border-radius: 6px; cursor: pointer; transition: all 0.3s; }
+    #restart-btn:hover { background: #3a8eef; transform: scale(1.05); }
+    #mobile-controls { position: absolute; bottom: 20px; left: 10px; right: 10px; display: flex; justify-content: space-between; pointer-events: none; }
+    .touch-btn { width: 80px; height: 80px; background: rgba(74, 158, 255, 0.3); border: 2px solid #4a9eff; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 40px; color: #fff; pointer-events: auto; user-select: none; -webkit-user-select: none; touch-action: manipulation; }
+    .touch-btn:active { background: rgba(74, 158, 255, 0.6); }
+    #instructions { position: absolute; bottom: 120px; left: 50%; transform: translateX(-50%); color: #888; font-size: 14px; text-align: center; pointer-events: none; }
+    @media (min-width: 769px) { #mobile-controls, #instructions { display: none; } }
+  </style>
+</head>
+<body>
+  <div id="game-container">
+    <canvas id="game"></canvas>
+    <div id="ui"><div id="score">得分: 0</div><div id="lives">生命: 3</div></div>
+    <div id="game-over"><h1>游戏结束</h1><p id="final-score">最终得分: 0</p><button id="restart-btn">重新开始</button></div>
+    <div id="mobile-controls"><div class="touch-btn" id="left-btn">◀</div><div class="touch-btn" id="right-btn">▶</div></div>
+    <div id="instructions">使用 ← → 键或触摸屏幕左右躲避小行星</div>
+  </div>
+  <script>
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width = Math.min(window.innerWidth - 20, 400);
+    const H = canvas.height = 600;
+    const ship = { x: W/2, y: H-50, w: 30, h: 30, speed: 8 };
+    let asteroids = [], stars = [], score = 0, lives = 3, running = true, keys = {};
+    let lastTime = 0, difficulty = 1;
+    const asteroidColors = ['#ff6b6b', '#feca57', '#48dbfb', '#ff9ff3', '#54a0ff'];
+    
+    function initStars() {
+      for(let i = 0; i < 50; i++) stars.push({ x: Math.random()*W, y: Math.random()*H, size: Math.random()*2, speed: Math.random()*0.5+0.2 });
+    }
+    
+    function drawStars() {
+      ctx.fillStyle = '#ffffff';
+      stars.forEach(s => {
+        s.y += s.speed;
+        if(s.y > H) { s.y = 0; s.x = Math.random()*W; }
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.size, 0, Math.PI*2);
+        ctx.fill();
+      });
+    }
+    
+    function drawShip() {
+      ctx.save();
+      ctx.translate(ship.x, ship.y);
+      ctx.fillStyle = '#4a9eff';
+      ctx.beginPath();
+      ctx.moveTo(0, -ship.h/2);
+      ctx.lineTo(-ship.w/2, ship.h/2);
+      ctx.lineTo(0, ship.h/2-8);
+      ctx.lineTo(ship.w/2, ship.h/2);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(0, 0, 5, 0, Math.PI*2);
+      ctx.fill();
+      ctx.restore();
+    }
+    
+    function createAsteroid() {
+      const size = 15 + Math.random()*20;
+      asteroids.push({
+        x: Math.random()*(W-size),
+        y: -size,
+        size: size,
+        speed: (2 + Math.random()*2) * difficulty,
+        rotation: 0,
+        rotSpeed: (Math.random()-0.5)*0.1,
+        color: asteroidColors[Math.floor(Math.random()*asteroidColors.length)]
+      });
+    }
+    
+    function drawAsteroids() {
+      asteroids.forEach(a => {
+        a.y += a.speed;
+        a.rotation += a.rotSpeed;
+        ctx.save();
+        ctx.translate(a.x+a.size/2, a.y+a.size/2);
+        ctx.rotate(a.rotation);
+        ctx.fillStyle = a.color;
+        ctx.fillRect(-a.size/2, -a.size/2, a.size, a.size);
+        ctx.fillStyle = 'rgba(0,0,0,0.3)';
+        ctx.fillRect(-a.size/4, -a.size/4, a.size/3, a.size/3);
+        ctx.restore();
+      });
+      asteroids = asteroids.filter(a => a.y < H + a.size);
+    }
+    
+    function checkCollision() {
+      const shipPoly = [[ship.x, ship.y-ship.h/2], [ship.x-ship.w/2, ship.y+ship.h/2], [ship.x+ship.w/2, ship.y+ship.h/2]];
+      asteroids.forEach((a, i) => {
+        const dx = (ship.x) - (a.x+a.size/2);
+        const dy = (ship.y) - (a.y+a.size/2);
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        if(dist < (ship.w/2 + a.size/2)*0.8) {
+          asteroids.splice(i, 1);
+          lives--;
+          document.getElementById('lives').textContent = `生命: ${lives}`;
+          if(lives <= 0) gameOver();
+        }
+      });
+    }
+    
+    function update(deltaTime) {
+      if(!running) return;
+      score += deltaTime / 1000;
+      difficulty = 1 + Math.floor(score / 10) * 0.2;
+      document.getElementById('score').textContent = `得分: ${Math.floor(score)}`;
+      
+      if(keys['ArrowLeft']) ship.x -= ship.speed;
+      if(keys['ArrowRight']) ship.x += ship.speed;
+      ship.x = Math.max(ship.w/2, Math.min(W-ship.w/2, ship.x));
+      
+      if(Math.random() < 0.02*difficulty) createAsteroid();
+      drawStars();
+      drawShip();
+      drawAsteroids();
+      checkCollision();
+    }
+    
+    function gameOver() {
+      running = false;
+      document.getElementById('final-score').textContent = `最终得分: ${Math.floor(score)}`;
+      document.getElementById('game-over').style.display = 'block';
+    }
+    
+    function restart() {
+      score = 0;
+      lives = 3;
+      difficulty = 1;
+      running = true;
+      asteroids = [];
+      ship.x = W/2;
+      document.getElementById('score').textContent = '得分: 0';
+      document.getElementById('lives').textContent = '生命: 3';
+      document.getElementById('game-over').style.display = 'none';
+    }
+    
+    function gameLoop(timestamp) {
+      const deltaTime = timestamp - lastTime;
+      lastTime = timestamp;
+      ctx.fillStyle = '#0a0a1a';
+      ctx.fillRect(0, 0, W, H);
+      update(deltaTime || 16);
+      requestAnimationFrame(gameLoop);
+    }
+    
+    document.addEventListener('keydown', e => { if(e.key in keys) keys[e.key] = true; });
+    document.addEventListener('keyup', e => { if(e.key in keys) keys[e.key] = false; });
+    document.getElementById('restart-btn').addEventListener('click', restart);
+    
+    const leftBtn = document.getElementById('left-btn');
+    const rightBtn = document.getElementById('right-btn');
+    leftBtn.addEventListener('touchstart', e => { e.preventDefault(); keys['ArrowLeft'] = true; });
+    leftBtn.addEventListener('touchend', e => { e.preventDefault(); keys['ArrowLeft'] = false; });
+    rightBtn.addEventListener('touchstart', e => { e.preventDefault(); keys['ArrowRight'] = true; });
+    rightBtn.addEventListener('touchend', e => { e.preventDefault(); keys['ArrowRight'] = false; });
+    
+    initStars();
+    gameLoop(0);
+  </script>
+</body>
+</html>

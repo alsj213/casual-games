@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>俄罗斯方块叠叠乐</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            font-family: 'Arial', sans-serif;
+        }
+        #gameContainer {
+            text-align: center;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+        h1 {
+            color: #fff;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        #score {
+            color: #fff;
+            font-size: 24px;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+        #canvas {
+            border: 3px solid #fff;
+            border-radius: 8px;
+            background: #0f0f23;
+        }
+        #instructions {
+            color: #ccc;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+        .controls {
+            margin-top: 15px;
+        }
+        button {
+            background: #4a90e2;
+            color: white;
+            border: none;
+            padding: 10px 25px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background: #357abd;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <h1>🎮 俄罗斯方块叠叠乐</h1>
+        <div id="score">分数: 0</div>
+        <canvas id="canvas" width="300" height="500"></canvas>
+        <div class="controls">
+            <button id="startBtn">开始游戏</button>
+        </div>
+        <div id="instructions">
+            ← → 或点击拖动移动方块<br>
+            完美对齐获得高分，错对齐会切掉突出部分！
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const scoreEl = document.getElementById('score');
+        const startBtn = document.getElementById('startBtn');
+
+        let gameRunning = false;
+        let score = 0;
+        let currentX = 0;
+        let currentBlockWidth = 0;
+        let direction = 1; // 1向右，-1向左
+        let blocks = [];
+        let speed = 2;
+        let baseWidth = 280;
+        let fallSpeed = 0;
+
+        const COLORS = [
+            '#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4',
+            '#ffeaa7', '#dfe6e9', '#fd79a8', '#a29bfe'
+        ];
+
+        function initGame() {
+            score = 0;
+            blocks = [];
+            speed = 2;
+            baseWidth = 280;
+            currentBlockWidth = baseWidth;
+            currentX = 10;
+            direction = 1;
+            gameRunning = true;
+            updateScore();
+            gameLoop();
+        }
+
+        function updateScore() {
+            scoreEl.textContent = `分数: ${score}`;
+        }
+
+        function drawBlock(x, y, width, height, color) {
+            ctx.fillStyle = color;
+            ctx.fillRect(x, y, width, height);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(x, y, width, height);
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 绘制已堆叠的方块
+            let yPos = canvas.height - 40 * blocks.length;
+            blocks.forEach((block, index) => {
+                const colorIndex = index % COLORS.length;
+                drawBlock(block.x, yPos, block.width, 40, COLORS[colorIndex]);
+                yPos += 40;
+            });
+
+            // 绘制当前下落方块
+            const currentY = canvas.height - 40 * blocks.length - 40 - fallSpeed;
+            const colorIndex = blocks.length % COLORS.length;
+            drawBlock(currentX, currentY, currentBlockWidth, 40, COLORS[colorIndex]);
+        }
+
+        function update() {
+            if (!gameRunning) return;
+
+            // 移动当前方块左右
+            currentX += speed * direction;
+
+            // 碰撞边界反弹
+            if (currentX <= 0 || currentX + currentBlockWidth >= canvas.width) {
+                direction *= -1;
+                currentX = Math.max(0, Math.min(currentX, canvas.width - currentBlockWidth));
+            }
+
+            // 方块下落
+            fallSpeed += 1.5;
+            const targetY = canvas.height - 40 * (blocks.length + 1);
+            const currentY = canvas.height - 40 * blocks.length - 40 - fallSpeed;
+
+            if (currentY >= targetY) {
+                // 落地，处理堆叠
+                if (blocks.length === 0) {
+                    // 第一个方块直接放置
+                    blocks.push({ x: currentX, width: currentBlockWidth });
+                    score += currentBlockWidth;
+                    baseWidth = Math.floor(baseWidth * 0.95);
+                    currentBlockWidth = baseWidth;
+                    currentX = 10;
+                    fallSpeed = 0;
+                    updateScore();
+                } else {
+                    const lastBlock = blocks[blocks.length - 1];
+                    const overlapStart = Math.max(currentX, lastBlock.x);
+                    const overlapEnd = Math.min(currentX + currentBlockWidth, lastBlock.x + lastBlock.width);
+                    const overlapWidth = overlapEnd - overlapStart;
+
+                    if (overlapWidth <= 0) {
+                        // 没有重叠，游戏结束
+                        gameRunning = false;
+                        startBtn.textContent = '重新开始';
+                        return;
+                    }
+
+                    // 调整当前方块宽度为重叠部分宽度
+                    const newWidth = overlapWidth;
+                    const newX = overlapStart;
+                    blocks.push({ x: newX, width: newWidth });
+                    score += newWidth;
+                    baseWidth = newWidth;
+                    currentBlockWidth = Math.floor(baseWidth * 0.95);
+                    currentX = 10;
+                    fallSpeed = 0;
+                    speed *= 1.02;
+                    updateScore();
+
+                    // 如果方块太小，游戏结束
+                    if (currentBlockWidth < 20) {
+                        gameRunning = false;
+                        startBtn.textContent = '重新开始';
+                    }
+                }
+            }
+        }
+
+        function gameLoop() {
+            update();
+            draw();
+            if (gameRunning) {
+                requestAnimationFrame(gameLoop);
+            }
+        }
+
+        // 鼠标点击点击移动方块位置
+        canvas.addEventListener('click', (e) => {
+            if (!gameRunning) return;
+            const rect = canvas.getBoundingClientRect();
+            const clickX = e.clientX - rect.left;
+            currentX = Math.max(0, Math.min(clickX - currentBlockWidth / 2, canvas.width - currentBlockWidth));
+        });
+
+        // 键盘控制
+        document.addEventListener('keydown', (e) => {
+            if (!gameRunning) return;
+            if (e.key === 'ArrowLeft') {
+                currentX = Math.max(0, currentX - 20);
+            } else if (e.key === 'ArrowRight') {
+                currentX = Math.min(canvas.width - currentBlockWidth, currentX + 20);
+            }
+        });
+
+        // 触摸控制支持
+        let touchStartX = 0;
+        canvas.addEventListener('touchstart', (e) => {
+            if (!gameRunning) return;
+            e.preventDefault();
+            touchStartX = e.touches[0].clientX;
+        });
+
+        canvas.addEventListener('touchmove', (e) => {
+            if (!gameRunning) return;
+            e.preventDefault();
+            const rect = canvas.getBoundingClientRect();
+            const touchX = e.touches[0].clientX - rect.left;
+            currentX = Math.max(0, Math.min(touchX - currentBlockWidth / 2, canvas.width - currentBlockWidth));
+        });
+
+        startBtn.addEventListener('click', () => {
+            initGame();
+            startBtn.textContent = '游戏中';
+        });
+
+        // 初始绘制
+        draw();
+    </script>
+</body>
+</html>

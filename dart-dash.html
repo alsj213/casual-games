@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>飞镖接力游戏</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}body{background:#1a1a2e;font-family:Arial;overflow:hidden;}
+#game{display:flex;flex-direction:column;align-items:center;padding:10px;}
+canvas{background:#16213e;border-radius:10px;box-shadow:0 0 20px rgba(0,200,255,0.3);cursor:crosshair;}
+#ui{color:#fff;text-align:center;margin:10px 0;display:flex;gap:20px;align-items:center;}
+#ui button{background:#e94560;color:#fff;border:none;padding:10px 20px;border-radius:5px;cursor:pointer;font-size:14px;}
+#ui button:hover{background:#ff6b6b;}
+#info{background:#0f3460;padding:10px 20px;border-radius:5px;font-size:14px;}
+#mode-select{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#0f3460;padding:30px;border-radius:15px;box-shadow:0 0 30px rgba(0,0,0,0.5);}
+#mode-select h2{color:#fff;margin-bottom:20px;text-align:center;}
+#mode-select button{display:block;width:100%;margin:10px 0;padding:15px;font-size:16px;}
+</style>
+</head>
+<body><div id="mode-select"><h2>选择模式</h2><button onclick="startGame(1)">单机模式</button><button onclick="startGame(2)">双人模式</button></div>
+<div id="game"><div id="ui"><button onclick="restartGame()">重新开始</button><div id="info"></div></div><canvas id="canvas"></canvas></div>
+<script>
+const cvs=document.getElementById('canvas');const ctx=cvs.getContext('2d');
+cvs.width=800;cvs.height=600;
+let gameState={mode:0,players:[],currentPlayer:0,dartsLeft:0,score:0,totalScore:[]};
+let target={x:400,y:150,r:80,angle:0,moving:false,tx:0};
+let dart={x:0,y:0,vx:0,vy:0,thrown:false,dragging:false,startX:0,startY:0};
+let animId;
+
+function startGame(mode){
+gameState.mode=mode;
+gameState.players=[{name:"玩家1",darts:5,score:0},{name:"玩家2",darts:5,score:0}];
+gameState.currentPlayer=0;
+gameState.totalScore=[0,0];
+gameState.dartsLeft=5;
+target.moving=Math.random()>0.5;
+target.x=400;target.y=150;
+document.getElementById('mode-select').style.display='none';
+resetDart();
+updateInfo();
+loop();
+}
+
+function resetDart(){dart={x:400,y:500,vx:0,vy:0,thrown:false,dragging:false,startX:0,startY:0};}
+
+function restartGame(){cancelAnimationFrame(animId);document.getElementById('mode-select').style.display='block';}
+
+function updateInfo(){
+const p=gameState.players[gameState.currentPlayer];
+document.getElementById('info').textContent=`${p.name} | 剩余飞镖:${gameState.dartsLeft} | 当前得分:${gameState.score} | 累计得分:${gameState.totalScore[gameState.currentPlayer]} | 靶子:${target.moving?'移动':'普通'}`;
+}
+
+function drawTarget(){
+ctx.save();
+if(target.moving){
+target.angle+=0.02;
+target.tx=Math.sin(target.angle)*100;
+}
+ctx.translate(target.x+target.tx,target.y);
+ctx.rotate(target.angle);
+ctx.beginPath();ctx.arc(0,0,target.r,0,Math.PI*2);
+ctx.fillStyle='#fff';ctx.fill();
+for(let i=1;i<=5;i++){
+ctx.beginPath();ctx.arc(0,0,target.r*i/5,0,Math.PI*2);
+ctx.fillStyle=i%2?'#e74c3c':'#27ae60';ctx.fill();
+}
+ctx.beginPath();ctx.arc(0,0,10,0,Math.PI*2);ctx.fillStyle='#f1c40f';ctx.fill();
+ctx.restore();
+}
+
+function drawDart(){
+if(!dart.thrown){
+ctx.beginPath();ctx.arc(dart.x,dart.y,10,0,Math.PI*2);
+ctx.fillStyle='#3498db';ctx.fill();
+ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.stroke();
+if(dart.dragging){
+ctx.beginPath();ctx.moveTo(dart.startX,dart.startY);ctx.lineTo(dart.x,dart.y);
+ctx.strokeStyle='#f39c12';ctx.lineWidth=3;ctx.stroke();
+}
+}
+}
+
+function drawScorePopup(x,y,score){
+ctx.fillStyle='#fff';ctx.font='bold 24px Arial';
+ctx.fillText(`+${score}`,x,y-30);
+}
+
+canvas.onmousedown=(e)=>{
+if(dart.thrown||gameState.dartsLeft<=0)return;
+const rect=cvs.getBoundingClientRect();
+dart.x=e.clientX-rect.left;dart.y=e.clientY-rect.top;
+dart.startX=dart.x;dart.startY=dart.y;dart.dragging=true;
+};
+canvas.onmousemove=(e)=>{
+if(!dart.dragging)return;
+const rect=cvs.getBoundingClientRect();dart.x=e.clientX-rect.left;dart.y=e.clientY-rect.top;
+};
+canvas.onmouseup=(e)=>{
+if(!dart.dragging)return;
+dart.dragging=false;
+const dx=dart.startX-dart.x;const dy=dart.startY-dart.y;
+dart.vx=dx*0.15;dart.vy=dy*0.15;
+if(Math.abs(dart.vx)>1||Math.abs(dart.vy)>1)dart.thrown=true;
+else resetDart();
+};
+
+function update(){
+if(dart.thrown){
+dart.x+=dart.vx;dart.y+=dart.vy;dart.vy+=0.3;
+const dx=dart.x-(target.x+target.tx);const dy=dart.y-target.y;const dist=Math.sqrt(dx*dx+dy*dy);
+if(dart.x<0||dart.x>cvs.width||dart.y<0||dart.y>cvs.height){
+gameState.dartsLeft--;
+if(gameState.dartsLeft<=0){
+gameState.totalScore[gameState.currentPlayer]+=gameState.score;
+if(gameState.mode===2&&gameState.currentPlayer===0){
+gameState.currentPlayer=1;gameState.dartsLeft=5;gameState.score=0;
+}else endGame();
+}
+resetDart();updateInfo();
+}else if(dist<target.r){
+let score=Math.round((1-dist/target.r)*10);
+if(dist<10)score+=5;
+gameState.score+=score;
+gameState.totalScore[gameState.currentPlayer]+=score;gameState.dartsLeft--;
+if(gameState.dartsLeft<=0){
+if(gameState.mode===2&&gameState.currentPlayer===0){
+gameState.currentPlayer=1;gameState.dartsLeft=5;gameState.score=0;
+}else endGame();
+}
+resetDart();updateInfo();
+}
+}
+}
+
+function endGame(){
+cancelAnimationFrame(animId);
+let winner='',maxScore=0;
+if(gameState.mode===1){
+winner=`玩家得分: ${gameState.totalScore[0]}`;
+}else{
+maxScore=Math.max(...gameState.totalScore);
+winner=gameState.totalScore[0]===gameState.totalScore[1]?'平局!':
+gameState.totalScore[0]>gameState.totalScore[1]?'玩家1获胜!':'玩家2获胜!';
+}
+ctx.fillStyle='rgba(0,0,0,0.8)';ctx.fillRect(0,0,cvs.width,cvs.height);
+ctx.fillStyle='#fff';ctx.font='bold 40px Arial';ctx.textAlign='center';
+ctx.fillText('游戏结束!',cvs.width/2,cvs.height/2-30);
+ctx.font='bold 28px Arial';
+ctx.fillText(winner,cvs.width/2,cvs.height/2+20);
+ctx.font='20px Arial';
+if(gameState.mode===2)ctx.fillText(`玩家1:${gameState.totalScore[0]} vs 玩家2:${gameState.totalScore[1]}`,cvs.width/2,cvs.height/2+60);
+}
+
+function loop(){
+ctx.fillStyle='#16213e';ctx.fillRect(0,0,cvs.width,cvs.height);
+drawTarget();drawDart();update();
+if(!document.getElementById('mode-select').style.display||document.getElementById('mode-select').style.display==='none'){
+animId=requestAnimationFrame(loop);
+}
+}
+</script></body></html>

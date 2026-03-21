@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>乒乓 - Pong</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: #1a1a2e;
+            font-family: Arial, sans-serif;
+        }
+        #gameContainer {
+            text-align: center;
+        }
+        canvas {
+            border: 3px solid #fff;
+            background: #16213e;
+            display: block;
+        }
+        #score {
+            color: #fff;
+            font-size: 48px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 20px;
+        }
+        #controls {
+            color: #fff;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+        #startScreen {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.8);
+            padding: 30px;
+            border-radius: 10px;
+            color: white;
+            text-align: center;
+        }
+        #startScreen h2 { margin-bottom: 20px; }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            background: #0f3460;
+            color: white;
+            border: 2px solid white;
+            border-radius: 5px;
+        }
+        button:hover { background: #16537e; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <div id="score">
+            <span id="scoreLeft">0</span>
+            <span id="scoreRight">0</span>
+        </div>
+        <canvas id="canvas" width="800" height="500"></canvas>
+        <div id="controls">
+            左侧: W/S  |  右侧: ↑/↓  |  先到11分获胜
+        </div>
+        <div id="startScreen">
+            <h2>乒乓 Pong</h2>
+            <p>选择游戏模式:</p>
+            <button id="twoPlayer">双人对战</button>
+            <button id="aiPlayer">VS AI</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const scoreLeftEl = document.getElementById('scoreLeft');
+        const scoreRightEl = document.getElementById('scoreRight');
+        const startScreen = document.getElementById('startScreen');
+
+        // 游戏状态
+        let gameMode = null; // 'two' or 'ai'
+        let running = false;
+        let leftScore = 0;
+        let rightScore = 0;
+        let winningScore = 11;
+
+        // 球拍
+        const paddle = {
+            width: 12,
+            height: 80,
+            leftY: canvas.height / 2 - 40,
+            rightY: canvas.height / 2 - 40,
+            speed: 8
+        };
+
+        // 球
+        const ball = {
+            x: canvas.width / 2,
+            y: canvas.height / 2,
+            size: 12,
+            speed: 5,
+            vx: 0,
+            vy: 0
+        };
+
+        // 按键状态
+        const keys = {
+            w: false,
+            s: false,
+            up: false,
+            down: false
+        };
+
+        // 监听按键
+        document.addEventListener('keydown', e => {
+            switch(e.key.toLowerCase()) {
+                case 'w': keys.w = true; break;
+                case 's': keys.s = true; break;
+                case 'arrowup': keys.up = true; break;
+                case 'arrowdown': keys.down = true; break;
+            }
+        });
+        document.addEventListener('keyup', e => {
+            switch(e.key.toLowerCase()) {
+                case 'w': keys.w = false; break;
+                case 's': keys.s = false; break;
+                case 'arrowup': keys.up = false; break;
+                case 'arrowdown': keys.down = false; break;
+            }
+        });
+
+        // 开始游戏
+        document.getElementById('twoPlayer').addEventListener('click', () => {
+            gameMode = 'two';
+            startGame();
+        });
+        document.getElementById('aiPlayer').addEventListener('click', () => {
+            gameMode = 'ai';
+            startGame();
+        });
+
+        function startGame() {
+            leftScore = 0;
+            rightScore = 0;
+            updateScore();
+            resetBall();
+            startScreen.classList.add('hidden');
+            running = true;
+            gameLoop();
+        }
+
+        function resetBall() {
+            ball.x = canvas.width / 2;
+            ball.y = canvas.height / 2;
+            const angle = (Math.random() * Math.PI / 3) - Math.PI / 6;
+            const direction = Math.random() > 0.5 ? 1 : -1;
+            ball.speed = 5;
+            ball.vx = direction * ball.speed * Math.cos(angle);
+            ball.vy = ball.speed * Math.sin(angle);
+        }
+
+        function updateScore() {
+            scoreLeftEl.textContent = leftScore;
+            scoreRightEl.textContent = rightScore;
+        }
+
+        function checkWin() {
+            if (leftScore >= winningScore || rightScore >= winningScore) {
+                running = false;
+                const winner = leftScore >= winningScore ? '左侧' : '右侧';
+                setTimeout(() => {
+                    alert(`${winner}获胜！\n${leftScore} - ${rightScore}`);
+                    startScreen.classList.remove('hidden');
+                }, 100);
+                return true;
+            }
+            return false;
+        }
+
+        function update() {
+            // 移动左侧球拍
+            if (keys.w && paddle.leftY > 0) {
+                paddle.leftY -= paddle.speed;
+            }
+            if (keys.s && paddle.leftY + paddle.height < canvas.height) {
+                paddle.leftY += paddle.speed;
+            }
+
+            // 移动右侧球拍（双人或AI）
+            if (gameMode === 'two') {
+                if (keys.up && paddle.rightY > 0) {
+                    paddle.rightY -= paddle.speed;
+                }
+                if (keys.down && paddle.rightY + paddle.height < canvas.height) {
+                    paddle.rightY += paddle.speed;
+                }
+            } else {
+                // AI 控制
+                const aiCenter = paddle.rightY + paddle.height / 2;
+                if (aiCenter < ball.y - 35 && paddle.rightY + paddle.height < canvas.height) {
+                    paddle.rightY += paddle.speed - 1;
+                }
+                if (aiCenter > ball.y + 35 && paddle.rightY > 0) {
+                    paddle.rightY -= paddle.speed - 1;
+                }
+            }
+
+            // 移动球
+            ball.x += ball.vx;
+            ball.y += ball.vy;
+
+            // 上下边界碰撞
+            if (ball.y - ball.size < 0 || ball.y + ball.size > canvas.height) {
+                ball.vy = -ball.vy;
+                ball.y = ball.y - ball.size < 0 ? ball.size : canvas.height - ball.size;
+            }
+
+            // 左侧球拍碰撞
+            if (ball.x - ball.size <= paddle.width &&
+                ball.y >= paddle.leftY &&
+                ball.y <= paddle.leftY + paddle.height) {
+                ball.x = paddle.width + ball.size;
+                const hitPos = (ball.y - (paddle.leftY + paddle.height / 2)) / (paddle.height / 2);
+                const angle = hitPos * (Math.PI / 4);
+                ball.vx = Math.abs(ball.speed * Math.cos(angle));
+                ball.vy = ball.speed * Math.sin(angle);
+                ball.speed += 0.3;
+            }
+
+            // 右侧球拍碰撞
+            if (ball.x + ball.size >= canvas.width - paddle.width &&
+                ball.y >= paddle.rightY &&
+                ball.y <= paddle.rightY + paddle.height) {
+                ball.x = canvas.width - paddle.width - ball.size;
+                const hitPos = (ball.y - (paddle.rightY + paddle.height / 2)) / (paddle.height / 2);
+                const angle = hitPos * (Math.PI / 4);
+                ball.vx = -Math.abs(ball.speed * Math.cos(angle));
+                ball.vy = ball.speed * Math.sin(angle);
+                ball.speed += 0.3;
+            }
+
+            // 得分
+            if (ball.x < 0) {
+                rightScore++;
+                updateScore();
+                if (!checkWin()) resetBall();
+            }
+            if (ball.x > canvas.width) {
+                leftScore++;
+                updateScore();
+                if (!checkWin()) resetBall();
+            }
+        }
+
+        function draw() {
+            // 清空画布
+            ctx.fillStyle = '#16213e';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 中线
+            ctx.strokeStyle = '#ffffff44';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([10, 10]);
+            ctx.beginPath();
+            ctx.moveTo(canvas.width / 2, 0);
+            ctx.lineTo(canvas.width / 2, canvas.height);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // 球拍
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(0, paddle.leftY, paddle.width, paddle.height);
+            ctx.fillRect(canvas.width - paddle.width, paddle.rightY, paddle.width, paddle.height);
+
+            // 球
+            ctx.beginPath();
+            ctx.arc(ball.x, ball.y, ball.size, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        function gameLoop() {
+            if (running) {
+                update();
+                draw();
+                requestAnimationFrame(gameLoop);
+            }
+        }
+
+        draw();
+    </script>
+</body>
+</html>

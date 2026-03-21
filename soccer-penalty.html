@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>足球点球大战</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(to bottom, #87CEEB 0%, #98D8C8 100%);
+            font-family: Arial, sans-serif;
+        }
+        #gameContainer {
+            position: relative;
+            background: #2ecc71;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        canvas {
+            display: block;
+            cursor: crosshair;
+        }
+        #ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            font-size: 18px;
+            text-shadow: 1px 1px 2px black;
+            z-index: 10;
+        }
+        #instructions {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            color: white;
+            font-size: 14px;
+            text-shadow: 1px 1px 2px black;
+            z-index: 10;
+        }
+        #gameOver {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 30px;
+            border-radius: 10px;
+            text-align: center;
+            display: none;
+            z-index: 20;
+        }
+        #gameOver h2 {
+            margin-bottom: 15px;
+            font-size: 28px;
+        }
+        #finalScore {
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+        #restartBtn {
+            padding: 10px 20px;
+            font-size: 18px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        #restartBtn:hover {
+            background: #2980b9;
+        }
+        .power-bar {
+            position: absolute;
+            bottom: 50px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 200px;
+            height: 20px;
+            background: rgba(255,255,255,0.3);
+            border-radius: 10px;
+            overflow: hidden;
+            display: none;
+            z-index: 10;
+        }
+        .power-fill {
+            height: 100%;
+            background: linear-gradient(to right, #e74c3c, #f1c40f);
+            width: 0%;
+            transition: width 0.1s;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        <div id="ui">
+            <div>得分: <span id="score">0</span></div>
+            <div>剩余射门: <span id="shotsLeft">5</span></div>
+        </div>
+        <div id="instructions">拖拽鼠标调整角度和力度，松开射门!</div>
+        <div class="power-bar" id="powerBar">
+            <div class="power-fill" id="powerFill"></div>
+        </div>
+        <div id="gameOver">
+            <h2>游戏结束!</h2>
+            <div id="finalScore"></div>
+            <button id="restartBtn">再来一局</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreEl = document.getElementById('score');
+        const shotsLeftEl = document.getElementById('shotsLeft');
+        const gameOverEl = document.getElementById('gameOver');
+        const finalScoreEl = document.getElementById('finalScore');
+        const powerBar = document.getElementById('powerBar');
+        const powerFill = document.getElementById('powerFill');
+        
+        // 游戏状态
+        let gameState = {
+            score: 0,
+            shotsLeft: 5,
+            isDragging: false,
+            startX: 0,
+            startY: 0,
+            currentX: 0,
+            currentY: 0,
+            ball: { x: 400, y: 500, radius: 15, moving: false, vx: 0, vy: 0 },
+            keeper: { x: 400, y: 180, radius: 25, targetX: 400, moving: false, speed: 8 }
+        };
+
+        // 球门参数
+        const goal = {
+            x: 250,
+            y: 80,
+            width: 300,
+            height: 120
+        };
+
+        // 重置游戏
+        function resetGame() {
+            gameState.score = 0;
+            gameState.shotsLeft = 5;
+            updateUI();
+            gameOverEl.style.display = 'none';
+            resetShot();
+        }
+
+        // 重置射门
+        function resetShot() {
+            gameState.ball.x = 400;
+            gameState.ball.y = 500;
+            gameState.ball.moving = false;
+            gameState.ball.vx = 0;
+            gameState.ball.vy = 0;
+            gameState.keeper.targetX = 400;
+            gameState.keeper.moving = false;
+        }
+
+        // 更新UI
+        function updateUI() {
+            scoreEl.textContent = gameState.score;
+            shotsLeftEl.textContent = gameState.shotsLeft;
+        }
+
+        // 绘制球场
+        function drawPitch() {
+            // 草地
+            ctx.fillStyle = '#2ecc71';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // 禁区
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(150, 80, 500, 420);
+            
+            // 点球点
+            ctx.beginPath();
+            ctx.arc(400, 500, 5, 0, Math.PI * 2);
+            ctx.fillStyle = 'white';
+            ctx.fill();
+            
+            // 球门网
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(goal.x - 5, goal.y, goal.width + 10, 5);
+            
+            // 球门柱
+            ctx.fillRect(goal.x, goal.y - 5, 5, goal.height + 5);
+            ctx.fillRect(goal.x + goal.width, goal.y - 5, 5, goal.height + 5);
+            
+            // 球门网网格
+            ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= 10; i++) {
+                ctx.beginPath();
+                ctx.moveTo(goal.x + i * 30, goal.y);
+                ctx.lineTo(goal.x + i * 30, goal.y + goal.height);
+                ctx.stroke();
+            }
+            for (let i = 0; i <= 6; i++) {
+                ctx.beginPath();
+                ctx.moveTo(goal.x, goal.y + i * 20);
+                ctx.lineTo(goal.x + goal.width, goal.y + i * 20);
+                ctx.stroke();
+            }
+        }
+
+        // 绘制守门员
+        function drawKeeper() {
+            // 身体
+            ctx.beginPath();
+            ctx.arc(gameState.keeper.x, gameState.keeper.y, gameState.keeper.radius, 0, Math.PI * 2);
+            ctx.fillStyle = '#e74c3c';
+            ctx.fill();
+            ctx.strokeStyle = '#c0392b';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            
+            // 手臂张开
+            ctx.beginPath();
+            ctx.moveTo(gameState.keeper.x - 30, gameState.keeper.y + 10);
+            ctx.lineTo(gameState.keeper.x + 30, gameState.keeper.y + 10);
+            ctx.strokeStyle = '#c0392b';
+            ctx.lineWidth = 8;
+            ctx.stroke();
+        }
+
+        // 绘制足球
+        function drawBall() {
+            ctx.beginPath();
+            ctx.arc(gameState.ball.x, gameState.ball.y, gameState.ball.radius, 0, Math.PI * 2);
+            ctx.fillStyle = 'white';
+            ctx.fill();
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
+            // 黑色五边形图案
+            ctx.beginPath();
+            ctx.arc(gameState.ball.x - 5, gameState.ball.y - 5, 5, 0, Math.PI * 2);
+            ctx.fillStyle = '#333';
+            ctx.fill();
+        }
+
+        // 绘制瞄准线
+        function drawAim() {
+            if (gameState.isDragging) {
+                ctx.beginPath();
+                ctx.moveTo(gameState.ball.x, gameState.ball.y);
+                ctx.lineTo(gameState.currentX, gameState.currentY);
+                ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+            }
+        }
+
+        // 更新力度条
+        function updatePowerBar() {
+            if (!gameState.isDragging) {
+                powerBar.style.display = 'none';
+                return;
+            }
+            powerBar.style.display = 'block';
+            const dx = gameState.currentX - gameState.startX;
+            const dy = gameState.currentY - gameState.startY;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const maxDist = 100;
+            const power = Math.min((dist / maxDist) * 100, 100);
+            powerFill.style.width = power + '%';
+        }
+
+        // 鼠标按下
+        canvas.addEventListener('mousedown', (e) => {
+            if (gameState.ball.moving || gameState.shotsLeft <= 0) return;
+            
+            const rect = canvas.getBoundingClientRect();
+            gameState.isDragging = true;
+            gameState.startX = e.clientX - rect.left;
+            gameState.startY = e.clientY - rect.top;
+            gameState.currentX = gameState.startX;
+            gameState.currentY = gameState.startY;
+        });
+
+        // 鼠标移动
+        canvas.addEventListener('mousemove', (e) => {
+            if (!gameState.isDragging) return;
+            
+            const rect = canvas.getBoundingClientRect();
+            gameState.currentX = e.clientX - rect.left;
+            gameState.currentY = e.clientY - rect.top;
+            updatePowerBar();
+        });
+
+        // 鼠标松开射门
+        canvas.addEventListener('mouseup', () => {
+            if (!gameState.isDragging) return;
+            
+            const dx = gameState.startX - gameState.currentX;
+            const dy = gameState.startY - gameState.currentY;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const maxDist = 100;
+            const power = Math.min(dist / maxDist, 1);
+            
+            // 计算速度
+            const angle = Math.atan2(dy, dx);
+            gameState.ball.vx = Math.cos(angle) * power * 15;
+            gameState.ball.vy = Math.sin(angle) * power * 15;
+            gameState.ball.moving = true;
+            gameState.isDragging = false;
+            powerBar.style.display = 'none';
+            
+            // 守门员开始扑救
+            setTimeout(() => {
+                gameState.keeper.targetX = gameState.ball.x - 20 + Math.random() * 40;
+                gameState.keeper.moving = true;
+            }, 200);
+        });
+
+        // 检查碰撞
+        function checkCollision() {
+            const dx = gameState.ball.x - gameState.keeper.x;
+            const dy = gameState.ball.y - gameState.keeper.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            
+            if (dist < gameState.ball.radius + gameState.keeper.radius) {
+                // 被扑出了
+                gameState.ball.vx *= -0.5;
+                gameState.ball.vy *= -0.5;
+                return false;
+            }
+            return true;
+        }
+
+        // 检查是否进球
+        function checkGoal() {
+            if (gameState.ball.x >= goal.x && 
+                gameState.ball.x <= goal.x + goal.width && 
+                gameState.ball.y >= goal.y && 
+                gameState.ball.y <= goal.y + goal.height) {
+                return true;
+            }
+            return false;
+        }
+
+        // 更新游戏
+        function update() {
+            if (gameState.ball.moving) {
+                gameState.ball.x += gameState.ball.vx;
+                gameState.ball.y += gameState.ball.vy;
+                gameState.ball.vy += 0.2; // 重力
+                
+                // 更新守门员位置
+                if (gameState.keeper.moving) {
+                    if (Math.abs(gameState.keeper.x - gameState.keeper.targetX) < gameState.keeper.speed) {
+                        gameState.keeper.x = gameState.keeper.targetX;
+                        gameState.keeper.moving = false;
+                    } else if (gameState.keeper.x < gameState.keeper.targetX) {
+                        gameState.keeper.x += gameState.keeper.speed;
+                    } else {
+                        gameState.keeper.x -= gameState.keeper.speed;
+                    }
+                }
+                
+                // 检查扑救
+                const saved = !checkCollision();
+                
+                // 检查进球
+                if (checkGoal() && !saved) {
+                    gameState.score++;
+                    gameState.shotsLeft--;
+                    updateUI();
+                    setTimeout(() => {
+                        if (gameState.shotsLeft <= 0) {
+                            endGame();
+                        } else {
+                            resetShot();
+                        }
+                    }, 500);
+                } else if (gameState.ball.y > canvas.height || gameState.ball.y < 0 || 
+                          gameState.ball.x < 0 || gameState.ball.x > canvas.width) {
+                    // 出界
+                    gameState.shotsLeft--;
+                    updateUI();
+                    setTimeout(() => {
+                        if (gameState.shotsLeft <= 0) {
+                            endGame();
+                        } else {
+                            resetShot();
+                        }
+                    }, 500);
+                }
+            }
+        }
+
+        // 结束游戏
+        function endGame() {
+            gameOverEl.style.display = 'block';
+            finalScoreEl.textContent = `最终得分: ${gameState.score} / 5`;
+        }
+
+        // 重新开始
+        document.getElementById('restartBtn').addEventListener('click', resetGame);
+
+        // 游戏循环
+        function gameLoop() {
+            drawPitch();
+            drawKeeper();
+            drawAim();
+            drawBall();
+            update();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // 开始游戏
+        resetGame();
+        gameLoop();
+    </script>
+</body>
+</html>

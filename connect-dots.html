@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>连线点点 - Connect Dots</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: Arial, sans-serif;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #333;
+}
+#gameContainer {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+  padding: 20px;
+  max-width: 500px;
+  width: 90vw;
+}
+h1 { text-align: center; margin-bottom: 10px; color: #5a67d8; }
+#levelInfo { text-align: center; margin-bottom: 15px; font-size: 18px; }
+#canvas {
+  display: block;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  cursor: crosshair;
+  background: #f8fafc;
+  margin: 0 auto;
+}
+#controls {
+  margin-top: 15px;
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+button {
+  padding: 10px 20px;
+  font-size: 16px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+#clearBtn { background: #e53e3e; color: white; }
+#nextBtn { background: #38a169; color: white; display: none; }
+button:hover { transform: scale(1.05); }
+#message {
+  text-align: center;
+  margin-top: 10px;
+  font-size: 16px;
+  min-height: 24px;
+}
+.success { color: #38a169; font-weight: bold; }
+</style>
+</head>
+<body>
+<div id="gameContainer">
+  <h1>连线点点</h1>
+  <div id="levelInfo">第 <span id="currentLevel">1</span> 关</div>
+  <canvas id="canvas" width="460" height="400"></canvas>
+  <div id="message"></div>
+  <div id="controls">
+    <button id="clearBtn">重新开始</button>
+    <button id="nextBtn">下一关</button>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const currentLevelEl = document.getElementById('currentLevel');
+const messageEl = document.getElementById('message');
+const clearBtn = document.getElementById('clearBtn');
+const nextBtn = document.getElementById('nextBtn');
+
+let currentLevel = 1;
+let currentPath = [];
+let isDrawing = false;
+
+// 关卡定义，每个关卡包含点列表和期望的边连接顺序
+const levels = [
+  // 第1关：正方形
+  {
+    dots: [
+      {x: 100, y: 100}, {x: 300, y: 100}, {x: 300, y: 300}, {x: 100, y: 300}
+    ],
+    connections: [[0,1], [1,2], [2,3], [3,0]],
+    tolerance: 30
+  },
+  // 第2关：三角形
+  {
+    dots: [
+      {x: 230, y: 80}, {x: 80, y: 300}, {x: 380, y: 300}
+    ],
+    connections: [[0,1], [1,2], [2,0]],
+    tolerance: 35
+  },
+  // 第3关：五角星（简化）
+  {
+    dots: [
+      {x: 230, y: 50}, {x: 298, y: 170}, {x: 410, y: 170}, {x: 338, y: 250},
+      {x: 370, y: 370}, {x: 230, y: 300}, {x: 90, y: 370}, {x: 122, y: 250},
+      {x: 50, y: 170}, {x: 162, y: 170}
+    ],
+    connections: [
+      [0,4], [4, 8], [8, 2], [2, 6], [6, 0],
+      [1, 3], [3, 5], [5, 7], [7, 9], [9, 1]
+    ],
+    tolerance: 35
+  },
+  // 第4关：房子
+  {
+    dots: [
+      {x: 80, y: 200}, {x: 380, y: 200}, {x: 380, y: 350}, {x: 80, y: 350},
+      {x: 80, y: 200}, {x: 230, y: 80}, {x: 380, y: 200}, {x: 150, y: 350},
+      {x: 150, y: 270}, {x: 310, y: 270}, {x: 310, y: 350}
+    ],
+    connections: [
+      [0,1], [1,2], [2,3], [3,0], [0,5], [5,1],
+      [7,8], [8,9], [9,10]
+    ],
+    tolerance: 35
+  },
+  // 第5关：爱心
+  {
+    dots: [
+      {x: 230, y: 100}, {x: 310, y: 50}, {x: 380, y: 100}, {x: 410, y: 180},
+      {x: 340, y: 280}, {x: 230, y: 350}, {x: 120, y: 280}, {x: 50, y: 180},
+      {x: 80, y: 100}, {x: 150, y: 50}
+    ],
+    connections: [
+      [0,1], [1,2], [2,3], [3,4], [4,5], [5,6], [6,7], [7,8], [8,9], [9,0],
+      [0, 5]
+    ],
+    tolerance: 35
+  }
+];
+
+// 距离计算
+function distance(p1, p2) {
+  return Math.sqrt((p1.x - p2.x)**2 + (p1.y - p2.y)**2);
+}
+
+// 绘制当前关卡
+function drawLevel() {
+  const level = levels[currentLevel - 1];
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  
+  // 绘制点
+  level.dots.forEach((dot, i) => {
+    ctx.beginPath();
+    ctx.arc(dot.x, dot.y, 8, 0, Math.PI * 2);
+    ctx.fillStyle = currentPath.includes(i) ? '#9f7aea' : '#cbd5e0';
+    ctx.fill();
+    ctx.strokeStyle = '#4a5568';
+    ctx.stroke();
+    
+    // 绘制序号
+    ctx.fillStyle = '#2d3748';
+    ctx.font = '12px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText((i + 1).toString(), dot.x, dot.y + 4);
+  });
+
+  // 绘制已画的线
+  if (currentPath.length > 1) {
+    ctx.beginPath();
+    ctx.moveTo(level.dots[currentPath[0]].x, level.dots[currentPath[0]].y);
+    for (let i = 1; i < currentPath.length; i++) {
+      ctx.lineTo(level.dots[currentPath[i]].x, level.dots[currentPath[i]].y);
+    }
+    ctx.strokeStyle = '#5a67d8';
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+  }
+}
+
+// 检查是否完成
+function checkCompletion() {
+  const level = levels[currentLevel - 1];
+  if (currentPath.length < 2) return false;
+
+  // 检查所有连接是否都被绘制
+  let correctCount = 0;
+  for (const [a, b] of level.connections) {
+    let found = false;
+    // 检查路径中是否包含a-b或b-a
+    for (let i = 0; i < currentPath.length - 1; i++) {
+      const p1 = currentPath[i];
+      const p2 = currentPath[i + 1];
+      if ((p1 === a && p2 === b) || (p1 === b && p2 === a)) {
+        found = true;
+        break;
+      }
+    }
+    if (found) correctCount++;
+  }
+
+  const accuracy = correctCount / level.connections.length;
+  if (accuracy >= 0.9) {
+    messageEl.className = 'success';
+    messageEl.textContent = `🎉 恭喜完成第 ${currentLevel} 关！太棒了！`;
+    if (currentLevel < levels.length) {
+      nextBtn.style.display = 'inline-block';
+    } else {
+      nextBtn.style.display = 'none';
+      messageEl.className = 'success';
+      messageEl.textContent = '🏆 恭喜你通关了所有关卡！你真棒！';
+    }
+    return true;
+  } else {
+    messageEl.textContent = `还有 ${level.connections.length - correctCount} 条线没连上哦，加油！`;
+    return false;
+  }
+}
+
+// 获取最近的点
+function getNearestDot(x, y) {
+  const level = levels[currentLevel - 1];
+  let minDist = Infinity;
+  let nearest = -1;
+  level.dots.forEach((dot, i) => {
+    const d = distance({x, y}, dot);
+    if (d < minDist) {
+      minDist = d;
+      nearest = i;
+    }
+  });
+  if (minDist < level.tolerance) {
+    return nearest;
+  }
+  return -1;
+}
+
+// 鼠标事件
+canvas.addEventListener('mousedown', (e) => {
+  if (messageEl.className !== 'success') {
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const nearest = getNearestDot(x, y);
+    if (nearest !== -1) {
+      isDrawing = true;
+      currentPath = [nearest];
+    }
+  }
+});
+
+canvas.addEventListener('mousemove', (e) => {
+  if (!isDrawing) return;
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+  const nearest = getNearestDot(x, y);
+  if (nearest !== -1 && nearest !== currentPath[currentPath.length - 1]) {
+    currentPath.push(nearest);
+    drawLevel();
+    checkCompletion();
+  }
+});
+
+canvas.addEventListener('mouseup', () => {
+  isDrawing = false;
+  checkCompletion();
+});
+
+// 触摸支持（移动端）
+canvas.addEventListener('touchstart', (e) => {
+  e.preventDefault();
+  const rect = canvas.getBoundingClientRect();
+  const touch = e.touches[0];
+  const x = touch.clientX - rect.left;
+  const y = touch.clientY - rect.top;
+  const nearest = getNearestDot(x, y);
+  if (nearest !== -1) {
+    isDrawing = true;
+    currentPath = [nearest];
+  }
+});
+
+canvas.addEventListener('touchmove', (e) => {
+  e.preventDefault();
+  if (!isDrawing) return;
+  const rect = canvas.getBoundingClientRect();
+  const touch = e.touches[0];
+  const x = touch.clientX - rect.left;
+  const y = touch.clientY - rect.top;
+  const nearest = getNearestDot(x, y);
+  if (nearest !== -1 && nearest !== currentPath[currentPath.length - 1]) {
+    currentPath.push(nearest);
+    drawLevel();
+    checkCompletion();
+  }
+});
+
+canvas.addEventListener('touchend', () => {
+  isDrawing = false;
+  checkCompletion();
+});
+
+// 按钮事件
+clearBtn.addEventListener('click', () => {
+  currentPath = [];
+  messageEl.textContent = '';
+  nextBtn.style.display = 'none';
+  drawLevel();
+});
+
+nextBtn.addEventListener('click', () => {
+  if (currentLevel < levels.length) {
+    currentLevel++;
+    currentLevelEl.textContent = currentLevel;
+    currentPath = [];
+    messageEl.textContent = '';
+    nextBtn.style.display = 'none';
+    drawLevel();
+  }
+});
+
+// 初始化
+drawLevel();
+</script>
+</body>
+</html>

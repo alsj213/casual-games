@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>拖拽赛车</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#1a1a2e;font-family:Arial,sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;overflow:hidden}
+#gameCanvas{background:#2d2d44;border:3px solid #4ecdc4;border-radius:10px;margin:10px}
+.ui{color:#fff;text-align:center;padding:10px}
+h1{color:#ff6b6b;margin:5px 0}
+.start-btn{background:#ff6b6b;color:#fff;padding:15px 40px;font-size:20px;border:none;border-radius:30px;cursor:pointer;margin:10px;transition:0.3s}
+.start-btn:hover{background:#ff5252;transform:scale(1.05)}
+.info{font-size:18px;margin:5px}
+.speed-bar{width:300px;height:20px;background:#333;border-radius:10px;margin:10px;overflow:hidden}
+.speed-fill{height:100%;background:linear-gradient(90deg,#4ecdc4,#44a08d);transition:width 0.1s}
+.keys{display:flex;gap:10px;justify-content:center;margin:10px}
+.key{width:50px;height:50px;background:#444;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:20px;border:2px solid #4ecdc4}
+.key.active{background:#4ecdc4;color:#1a1a2e}
+@media(max-width:600px){#gameCanvas{width:100%;height:50vh}}
+</style>
+</head>
+<body>
+<div class="ui">
+<h1>🏎️ 拖拽赛车</h1>
+<div class="info">持续按上下键加速，左右键转向 | ≤60秒内完成</div>
+</div>
+<canvas id="gameCanvas" width="800" height="500"></canvas>
+<div class="ui">
+<div class="keys">
+<div class="key" id="up">↑</div>
+<div class="key" id="left">←</div>
+<div class="key" id="right">→</div>
+<div class="key" id="down">↓</div>
+</div>
+<div class="info">时间: <span id="timer">60</span>s | 档位: <span id="gear">1</span></div>
+<div class="speed-bar"><div class="speed-fill" id="speedBar" style="width:0%"></div></div>
+<button class="start-btn" onclick="startGame()">开始比赛</button>
+</div>
+<script>
+const canvas=document.getElementById('gameCanvas');
+const ctx=canvas.getContext('2d');
+let gameRunning=false,gameTime=60,timerInterval;
+let player={x:400,y:450,w:40,h:60,speed:0,sx:0,maxSpeed:12,gear:1,rpm:0,combo:0,comboTimer:0,color:'#ff6b6b',finish:0};
+let opponents=[
+{x:250,y:480,w:40,h:60,speed:0,maxSpeed:11,gear:1,rpm:0,color:'#4ecdc4',finish:0,name:'AI-1',difficulty:0.9},
+{x:400,y:480,w:40,h:60,speed:0,maxSpeed:11.5,gear:1,rpm:0,color:'#ffe66d',finish:0,name:'AI-2',difficulty:0.95},
+{x:550,y:480,w:40,h:60,speed:0,maxSpeed:12,gear:1,rpm:0,color:'#f7a9a9',finish:0,name:'AI-3',difficulty:1.0}
+];
+let finishLine=4000,roadW=600,trackOffset=0;
+let keys={up:false,down:false,left:false,right:false};
+document.onkeydown=e=>{if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key))keys[e.key.slice(5)]=true,updateKeys()};
+document.onkeyup=e=>{if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key))keys[e.key.slice(5)]=false,updateKeys()};
+function updateKeys(){['up','down','left','right'].forEach(k=>{const el=document.getElementById(k);el.classList.toggle('active',keys[k])})}
+function drawCar(car,yOffset=0){
+ctx.save();
+ctx.translate(car.x,car.y+yOffset);
+ctx.fillStyle=car.color;
+ctx.fillRect(-car.w/2,-car.h/2,car.w,car.h);
+ctx.fillStyle='#333';
+ctx.fillRect(-car.w/2+5,-car.h/2+10,car.w-10,15);
+ctx.fillRect(-car.w/2+5,-car.h/2+40,car.w-10,15);
+ctx.fillStyle='#222';
+ctx.beginPath();ctx.arc(-car.w/2+10,-car.h/2+5,8,0,Math.PI*2);ctx.fill();
+ctx.beginPath();ctx.arc(car.w/2-10,-car.h/2+5,8,0,Math.PI*2);ctx.fill();
+ctx.beginPath();ctx.arc(-car.w/2+10,car.h/2-5,8,0,Math.PI*2);ctx.fill();
+ctx.beginPath();ctx.arc(car.w/2-10,car.h/2-5,8,0,Math.PI*2);ctx.fill();
+ctx.fillStyle='#fff';
+ctx.fillRect(-8,-5,16,10);
+ctx.restore();
+}
+function drawTrack(){
+ctx.fillStyle='#1a1a2e';
+ctx.fillRect(0,0,canvas.width,canvas.height);
+const trackMid=canvas.width/2;
+ctx.fillStyle='#333';
+ctx.fillRect(trackMid-roadW/2,0,roadW,500);
+for(let i=0;i<20;i++){
+const y=(i*80-trackOffset%80);
+ctx.fillStyle=y<0||y>440?'#444':'#666';
+ctx.fillRect(trackMid-3,y,6,40);
+}
+ctx.fillStyle='#ff0';
+for(let i=0;i<5;i++){
+const y=-50+i*-600+player.finish*0.2;
+if(y>-100&&y<600)ctx.fillRect(trackMid-roadW/2,y,roadW,5);
+}
+ctx.fillStyle='#fff';
+ctx.font='20px Arial';
+ctx.textAlign='center';
+opponents.forEach((op,i)=>{
+const pos=Math.floor((finishLine-op.finish)/100);
+ctx.fillText(`${op.name}: ${pos}m`,trackMid-roadW/2-50+130*i,30);
+});
+}
+function updateCar(car,isPlayer=false){
+if(isPlayer){
+if(keys.up||keys.down){
+const accel=(keys.up?1:-1)*0.03*(1+car.combo*0.1);
+car.speed+=accel;
+car.combo++;
+car.comboTimer=10;
+} else {
+car.combo=Math.max(0,car.combo-0.1);
+}
+if(keys.left)car.sx-=0.3;
+if(keys.right)car.sx+=0.3;
+car.sx*=0.95;
+car.x+=car.sx;
+car.x=Math.max(canvas.width/2-roadW/2+30,Math.min(canvas.width/2+roadW/2-30,car.x));
+} else {
+const accel=0.02*car.difficulty;
+if(car.speed<car.maxSpeed*0.7)car.speed+=accel;
+}
+car.speed=Math.max(0,Math.min(car.maxSpeed,car.speed));
+car.finish+=car.speed;
+car.gear=Math.floor(car.speed/3)+1;
+car.rpm=(car.speed%3)*33;
+if(car.finish>=finishLine&&!car.finishDone){
+car.finishDone=true;
+car.finishTime=60-gameTime;
+}
+if(car.comboTimer>0)car.comboTimer--;
+car.combo=Math.max(0,car.combo-car.comboTimer/100);
+}
+function drawUI(){
+const speedPercent=(player.speed/player.maxSpeed)*100;
+document.getElementById('speedBar').style.width=speedPercent+'%';
+document.getElementById('gear').textContent=player.gear;
+}
+function checkEnd(){
+if(player.finish>=finishLine||gameTime<=0){
+gameRunning=false;
+clearInterval(timerInterval);
+const result=player.finish>=finishLine?`🎉 你赢了！用时 ${(60-gameTime).toFixed(1)}秒`:'⏰ 时间到！';
+alert(result+(opponents.filter(o=>o.finish>=finishLine).length>0?'\n\nAI 对手已到达终点！':''));
+}
+}
+function gameLoop(){
+if(!gameRunning)return;
+trackOffset+=player.speed;
+drawTrack();
+drawCar(player);
+opponents.forEach(op=>updateCar(op));
+opponents.forEach((op,i)=>drawCar(op,-+(op.finish-player.finish)*0.2+20));
+updateCar(player,true);
+drawUI();
+gameTime-=1/60;
+document.getElementById('timer').textContent=Math.max(0,gameTime.toFixed(1));
+checkEnd();
+requestAnimationFrame(gameLoop);
+}
+function startGame(){
+if(gameRunning)return;
+player={x:400,y:450,w:40,h:60,speed:0,sx:0,maxSpeed:12,gear:1,rpm:0,combo:0,comboTimer:0,color:'#ff6b6b',finish:0};
+opponents.forEach(op=>{op.x=canvas.width/2-roadW/2+50+opponents.indexOf(op)*150;op.speed=0;op.finish=0;op.finishDone=false});
+gameTime=60;
+gameRunning=true;
+timerInterval=setInterval(()=>{gameTime-=0.1;if(gameTime<=0)gameRunning=false,clearInterval(timerInterval)},100);
+gameLoop();
+}
+</script>
+</body>
+</html>

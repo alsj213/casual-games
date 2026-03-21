@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>天平配重</title>
+<style>
+body{margin:0;padding:0;background:#1a1a2e;font-family:Arial,sans-serif;overflow:hidden;display:flex;flex-direction:column;align-items:center}
+#game{position:relative}
+#canvas{background:linear-gradient(180deg,#2d2d44 0%,#1a1a2e 100%);border-radius:10px;box-shadow:0 0 30px rgba(0,0,0,0.5)}
+#ui{position:absolute;top:10px;left:0;right:0;color:#fff;text-align:center;font-size:18px}
+#timer{color:#ffd700;font-weight:bold}
+#level{color:#4ecdc4}
+#items{position:absolute;bottom:10px;left:0;right:0;display:flex;justify-content:center;gap:15px}
+.item{width:50px;height:50px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:bold;color:#fff;cursor:grab;user-select:none;box-shadow:0 4px 8px rgba(0,0,0,0.3)}
+.item:hover{transform:scale(1.1);transition:transform 0.2s}
+.item:active{cursor:grabbing}
+#message{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#fff;font-size:24px;text-align:center}
+#restart{position:absolute;bottom:60px;color:#4ecdc4;background:rgba(78,205,196,0.2);padding:10px 20px;border-radius:5px;cursor:pointer;display:none}
+#restart:hover{background:rgba(78,205,196,0.4)}
+</style>
+</head>
+<body>
+<div id="game">
+<canvas id="canvas" width="800" height="500"></canvas>
+<div id="ui">关卡: <span id="level">1</span> | 时间: <span id="timer">60</span>s</div>
+<div id="items"></div>
+<div id="message"></div>
+<div id="restart">重新开始</div>
+</div>
+<script>
+const canvas=document.getElementById('canvas'),ctx=canvas.getContext('2d');
+const W=800,H=500,hingeX=W/2,hingeY=150,beamLength=400,armLength=beamLength/2;
+let currentLevel=1,totalLevels=5,timeLeft=60,timer,gameState='playing',selectedItem=null;
+let leftItems=[],rightItems=[],availableItems=[];
+const itemColors=['#e74c3c','#3498db','#9b59b6','#f39c12','#1abc9c','#e91e63'];
+const levels=[{items:[2,3,5],target:8,time:45},{items:[1,4,2,6],target:7,time:50},{items:[3,5,2,4,1],target:9,time:55},{items:[4,6,2,3,5],target:11,time:60},{items:[7,3,5,2,4,6],target:13,time:70}];
+
+function initLevel(){gameState='playing';timeLeft=levels[currentLevel-1].time;leftItems=[];rightItems=[];document.getElementById('level').textContent=currentLevel;document.getElementById('message').textContent='';document.getElementById('restart').style.display='none';
+const levelData=levels[currentLevel-1];availableItems=levelData.items.map(w=>({weight:w,color:itemColors[Math.floor(Math.random()*itemColors.length)]}));
+renderItems();setTimeout(()=>{timer=setInterval(updateTimer,1000)},500);}
+
+function renderItems(){const container=document.getElementById('items');container.innerHTML='';
+availableItems.forEach((item,i)=>{if(!item.placed){const div=document.createElement('div');div.className='item';div.style.background=item.color;div.textContent=item.weight;div.dataset.index=i;
+div.ondragstart=dragStart;div.ondragend=dragEnd;div.draggable=true;container.appendChild(div;
+div.onmousedown=(e)=>{selectedItem={element:div,item:item,index:i,dragging:true};dragStart(e);};});});}
+
+function updateTimer(){timeLeft--;document.getElementById('timer').textContent=timeLeft;
+if(timeLeft<=0){clearInterval(timer);gameOver();}}
+
+function draw(){ctx.clearRect(0,0,W,H);drawBase();drawBeam();drawItems();}
+
+function drawBase(){ctx.fillStyle='#5d4e37';ctx.fillRect(hingeX-40,hingeY+armLength*Math.sin(currentTilt)+10,80,40);
+ctx.beginPath();ctx.moveTo(hingeX-40,hingeY+armLength*Math.sin(currentTilt)+10);ctx.lineTo(hingeX, hingeY+armLength*Math.sin(currentTilt)-30);ctx.lineTo(hingeX+40,hingeY+armLength*Math.sin(currentTilt)+10);ctx.fill();}
+
+let targetTilt=0,currentTilt=0;
+function drawBeam(){currentTilt+= (targetTilt-currentTilt)*0.1;ctx.save();ctx.translate(hingeX,hingeY);ctx.rotate(currentTilt);
+ctx.fillStyle='#8b7355';ctx.fillRect(-armLength,-8,beamLength,16);ctx.fillStyle='#d4af37';ctx.beginPath();ctx.arc(0,0,12,0,Math.PI*2);ctx.fill();
+[-1,1].forEach(side=>{ctx.fillStyle='#6b5344';ctx.fillRect(side*(armLength-30),8,60,80);ctx.strokeStyle='#d4af37';ctx.lineWidth=3;ctx.strokeRect(side*(armLength-30),8,60,80);});ctx.restore();}
+
+function drawItems(){[-1,1].forEach((side,idx)=>{const items=idx===0?leftItems:rightItems;items.forEach((item,i)=>{ctx.fillStyle=item.color;const x=hingeX+side*(armLength-50);const y=hingeY+currentTilt*side*(armLength-50)+12+i*40;
+ctx.fillRect(x-25,y+10,50,35);ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.strokeRect(x-25,y+10,50,35);ctx.fillStyle='#fff';ctx.font='bold 20px Arial';ctx.textAlign='center';ctx.fillText(item.weight,x,y+35);});});}
+
+function dragStart(e){selectedItem.dragging=true;}
+function dragEnd(e){if(!selectedItem.dragging)return;selectedItem.dragging=false;const rect=canvas.getBoundingClientRect();const x=e.clientX-rect.left,y=e.clientY-rect.top;
+if(y>200&&y<350){if(x<hingeX){leftItems.push(selectedItem.item);selectedItem.item.placed=true}else{rightItems.push(selectedItem.item);selectedItem.item.placed=true;}renderItems();checkBalance();}selectedItem=null;}
+
+canvas.ondragover=e=>e.preventDefault();
+canvas.ondrop=e=>{e.preventDefault();dragEnd(e);};
+canvas.onmousemove=e=>{if(selectedItem&&selectedItem.dragging){selectedItem.element.style.position='fixed';selectedItem.element.style.left=e.clientX-25+'px';selectedItem.element.style.top=e.clientY-25+'px';}};
+canvas.onmouseup=e=>dragEnd(e);
+
+function checkBalance(){let leftSum=leftItems.reduce((a,i)=>a+i.weight,0);let rightSum=rightItems.reduce((a,i)=>a+i.weight,0);targetTilt=(rightSum-leftSum)*0.05;
+if(leftSum===rightSum&&leftSum>0){clearInterval(timer);gameState='won';document.getElementById('message').textContent='平衡成功！';setTimeout(()=>{if(currentLevel<totalLevels){currentLevel++;initLevel();}else{document.getElementById('message').textContent='恭喜通关所有关卡！';document.getElementById('restart').style.display='block';}},1500);}}
+
+function gameOver(){clearInterval(timer);gameState='lost';document.getElementById('message').textContent='时间到！';document.getElementById('restart').style.display='block';}
+
+document.getElementById('restart').onclick=()=>{currentLevel=1;initLevel();};
+
+function gameLoop(){draw();requestAnimationFrame(gameLoop);}
+initLevel();gameLoop();
+</script>
+</body>
+</html>

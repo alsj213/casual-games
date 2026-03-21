@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>涂鸦跳跃 Doodle Jump</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { 
+  background: linear-gradient(to bottom, #1a1a2e 0%, #16213e 100%);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  font-family: Arial, sans-serif;
+}
+#gameCanvas {
+  border: 3px solid #fff;
+  border-radius: 10px;
+  background: #f0f0f0;
+  display: block;
+}
+#gameContainer {
+  position: relative;
+}
+#score {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  font-size: 24px;
+  font-weight: bold;
+  color: #333;
+  z-index: 10;
+}
+#gameOver {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(0,0,0,0.8);
+  color: white;
+  padding: 30px;
+  border-radius: 10px;
+  text-align: center;
+  display: none;
+  z-index: 20;
+}
+#gameOver h1 { margin-bottom: 10px; }
+#restartBtn {
+  padding: 10px 20px;
+  font-size: 18px;
+  margin-top: 15px;
+  cursor: pointer;
+  background: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 5px;
+}
+#restartBtn:hover { background: #45a049; }
+#instructions {
+  color: white;
+  text-align: center;
+  margin-top: 10px;
+}
+</style>
+</head>
+<body>
+<div>
+  <div id="gameContainer">
+    <canvas id="gameCanvas" width="400" height="600"></canvas>
+    <div id="score">Score: 0</div>
+    <div id="gameOver">
+      <h1>游戏结束</h1>
+      <p id="finalScore"></p>
+      <button id="restartBtn">重新开始</button>
+    </div>
+  </div>
+  <div id="instructions">
+    ← → 方向键或 A/D 控制移动 | 踩破敌人加分
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const scoreEl = document.getElementById('score');
+const gameOverEl = document.getElementById('gameOver');
+const finalScoreEl = document.getElementById('finalScore');
+const restartBtn = document.getElementById('restartBtn');
+
+// 游戏状态
+let gameRunning = true;
+let score = 0;
+let cameraY = 0;
+
+// 玩家
+const player = {
+  x: canvas.width / 2 - 15,
+  y: canvas.height / 2,
+  width: 30,
+  height: 40,
+  velX: 0,
+  velY: 0,
+  jumping: false
+};
+
+// 平台类型: 0=普通, 1=破碎, 2=移动, 3=弹跳
+let platforms = [];
+let enemies = [];
+
+const GRAVITY = 0.5;
+const JUMP_FORCE = -12;
+const MOVE_SPEED = 6;
+
+// 初始化游戏
+function initGame() {
+  gameRunning = true;
+  score = 0;
+  cameraY = 0;
+  player.x = canvas.width / 2 - 15;
+  player.y = canvas.height / 2;
+  player.velX = 0;
+  player.velY = 0;
+  platforms = [];
+  enemies = [];
+  
+  // 创建初始平台
+  platforms.push({
+    x: canvas.width / 2 - 40,
+    y: canvas.height - 30,
+    width: 80,
+    height: 15,
+    type: 0
+  });
+  
+  // 生成更多平台
+  for (let i = 0; i < 15; i++) {
+    generatePlatform();
+  }
+  
+  gameOverEl.style.display = 'none';
+  updateScore();
+  gameLoop();
+}
+
+// 生成新平台
+function generatePlatform() {
+  const type = Math.random();
+  let platformType = 0;
+  if (type < 0.6) platformType = 0;
+  else if (type < 0.75) platformType = 1;
+  else if (type < 0.9) platformType = 2;
+  else platformType = 3;
+  
+  const platform = {
+    x: Math.random() * (canvas.width - 60),
+    y: -cameraY - Math.random() * 100 - 50,
+    width: 40 + Math.random() * 30,
+    height: 12,
+    type: platformType,
+    dir: Math.random() > 0.5 ? 1 : -1,
+    speed: 1 + Math.random() * 2,
+    broken: false
+  };
+  
+  // 10%概率生成敌人
+  if (Math.random() < 0.1 && platforms.length > 5) {
+    enemies.push({
+      x: platform.x + platform.width / 2 - 15,
+      y: platform.y - 30,
+      width: 30,
+      height: 25,
+      alive: true
+    });
+  }
+  
+  platforms.push(platform);
+}
+
+// 玩家更新
+function updatePlayer() {
+  player.velY += GRAVITY;
+  player.x += player.velX;
+  player.y += player.velY;
+  
+  // 屏幕左右边界 wrap-around
+  if (player.x + player.width < 0) player.x = canvas.width;
+  if (player.x > canvas.width) player.x = -player.width;
+  
+  // 平台碰撞检测
+  if (player.velY > 0) {
+    platforms.forEach(platform => {
+      if (platform.broken) return;
+      if (checkCollision(player, platform) && 
+          player.y + player.height - player.velY <= platform.y) {
+        player.y = platform.y - player.height;
+        player.velY = JUMP_FORCE;
+        
+        if (platform.type === 1) {
+          platform.broken = true;
+        } else if (platform.type === 3) {
+          player.velY = JUMP_FORCE * 1.8;
+        }
+        
+        // 加分
+        if (platform.y < -cameraY) {
+          score += platform.type === 3 ? 3 : platform.type === 2 ? 2 : 1;
+          updateScore();
+        }
+      }
+    });
+  }
+  
+  // 敌人碰撞检测
+  enemies.forEach(enemy => {
+    if (!enemy.alive) return;
+    if (checkCollision(player, enemy) && player.velY > 0 &&
+        player.y + player.height - player.velY <= enemy.y + 5) {
+      // 踩死敌人
+      enemy.alive = false;
+      player.velY = JUMP_FORCE * 1.2;
+      score += 10;
+      updateScore();
+    } else if (checkCollision(player, enemy) && enemy.alive) {
+      // 碰到敌人游戏结束
+      gameOver();
+    }
+  });
+  
+  // 滚动屏幕
+  if (player.y < canvas.height / 2) {
+    const diff = canvas.height / 2 - player.y;
+    cameraY += diff;
+    player.y += diff;
+    platforms.forEach(p => p.y += diff);
+    enemies.forEach(e => e.y += diff);
+    
+    // 生成新平台
+    while (platforms[platforms.length - 1].y > 0) {
+      generatePlatform();
+    }
+  }
+  
+  // 移除掉出屏幕的平台
+  platforms = platforms.filter(p => p.y < canvas.height + cameraY);
+  
+  // 掉落死亡检测
+  if (player.y - cameraY > canvas.height) {
+    gameOver();
+  }
+}
+
+// 碰撞检测
+function checkCollision(a, b) {
+  return a.x < b.x + b.width &&
+         a.x + a.width > b.x &&
+         a.y < b.y + b.height &&
+         a.y + a.height > b.y;
+}
+
+// 更新移动平台
+function updatePlatforms() {
+  platforms.forEach(platform => {
+    if (platform.type === 2) {
+      platform.x += platform.dir * platform.speed;
+      if (platform.x <= 0 || platform.x + platform.width >= canvas.width) {
+        platform.dir *= -1;
+      }
+    }
+  });
+}
+
+// 绘制玩家
+function drawPlayer() {
+  ctx.fillStyle = '#4a90e2';
+  ctx.fillRect(player.x, player.y - cameraY, player.width, player.height);
+  // 眼睛
+  ctx.fillStyle = 'white';
+  ctx.fillRect(player.x + 5, player.y - cameraY + 8, 6, 6);
+  ctx.fillRect(player.x + 19, player.y - cameraY + 8, 6, 6);
+  ctx.fillStyle = 'black';
+  ctx.fillRect(player.x + 7, player.y - cameraY + 10, 3, 3);
+  ctx.fillRect(player.x + 21, player.y - cameraY + 10, 3, 3);
+}
+
+// 绘制平台
+function drawPlatforms() {
+  platforms.forEach(platform => {
+    if (platform.broken) return;
+    switch(platform.type) {
+      case 0: ctx.fillStyle = '#4CAF50'; break;
+      case 1: ctx.fillStyle = '#F44336'; break;
+      case 2: ctx.fillStyle = '#FF9800'; break;
+      case 3: ctx.fillStyle = '#9C27B0'; break;
+    }
+    ctx.fillRect(platform.x, platform.y - cameraY, platform.width, platform.height);
+  });
+}
+
+// 绘制敌人
+function drawEnemies() {
+  enemies.forEach(enemy => {
+    if (!enemy.alive) return;
+    ctx.fillStyle = '#ff5252';
+    ctx.fillRect(enemy.x, enemy.y - cameraY, enemy.width, enemy.height);
+    // 眼睛
+    ctx.fillStyle = 'white';
+    ctx.fillRect(enemy.x + 5, enemy.y - cameraY + 5, 6, 6);
+    ctx.fillRect(enemy.x + 19, enemy.y - cameraY + 5, 6, 6);
+    ctx.fillStyle = 'black';
+    ctx.fillRect(enemy.x + 7, enemy.y - cameraY + 7, 2, 2);
+    ctx.fillRect(enemy.x + 21, enemy.y - cameraY + 7, 2, 2);
+  });
+}
+
+// 更新分数
+function updateScore() {
+  scoreEl.textContent = `Score: ${score}`;
+}
+
+// 游戏结束
+function gameOver() {
+  gameRunning = false;
+  gameOverEl.style.display = 'block';
+  finalScoreEl.textContent = `最终得分: ${score}`;
+}
+
+// 游戏循环
+function gameLoop() {
+  // 清空画布
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  
+  if (gameRunning) {
+    updatePlayer();
+    updatePlatforms();
+  }
+  
+  drawPlatforms();
+  drawEnemies();
+  drawPlayer();
+  
+  if (gameRunning) {
+    requestAnimationFrame(gameLoop);
+  }
+}
+
+// 键盘控制
+const keys = {};
+document.addEventListener('keydown', e => {
+  keys[e.key] = true;
+});
+document.addEventListener('keyup', e => {
+  keys[e.key] = false;
+});
+
+function handleInput() {
+  if (keys['ArrowLeft'] || keys['a'] || keys['A']) {
+    player.velX = -MOVE_SPEED;
+  } else if (keys['ArrowRight'] || keys['d'] || keys['D']) {
+    player.velX = MOVE_SPEED;
+  } else {
+    player.velX = 0;
+  }
+}
+
+// 每帧处理输入
+setInterval(handleInput, 1000/60);
+
+// 重新开始按钮
+restartBtn.addEventListener('click', initGame);
+
+// 触摸支持（手机）
+let touchStartX = 0;
+document.addEventListener('touchstart', e => {
+  touchStartX = e.touches[0].clientX;
+});
+document.addEventListener('touchmove', e => {
+  e.preventDefault();
+  const touchX = e.touches[0].clientX;
+  const diff = touchX - touchStartX;
+  if (diff < -10) player.velX = -MOVE_SPEED;
+  else if (diff > 10) player.velX = MOVE_SPEED;
+  else player.velX = 0;
+});
+document.addEventListener('touchend', () => {
+  player.velX = 0;
+});
+
+// 开始游戏
+initGame();
+</script>
+</body>
+</html>

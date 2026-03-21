@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>简易塔防</title>
+<style>
+body { margin: 0; padding: 20px; background: #1a1a2e; color: white; font-family: Arial, sans-serif; display: flex; flex-direction: column; align-items: center; }
+canvas { border: 3px solid #666; background: #16213e; }
+.ui { margin-bottom: 10px; display: flex; gap: 20px; align-items: center; }
+button { padding: 8px 16px; font-size: 16px; cursor: pointer; background: #0f3460; color: white; border: none; border-radius: 4px; }
+button:hover { background: #16537e; }
+button.selected { background: #e94560; }
+.stats { font-size: 18px; }
+</style>
+</head>
+<body>
+<div class="ui">
+  <div class="stats">生命: <span id="health">10</span> | 金币: <span id="gold">50</span> | 波数: <span id="wave">0</span></div>
+  <button id="btnBasic" onclick="selectTower('basic')">基础炮塔 (10)</button>
+  <button id="btnSniper" onclick="selectTower('sniper')">狙击炮塔 (30)</button>
+  <button id="btnStart" onclick="startWave()">开始波次</button>
+</div>
+<canvas id="game" width="800" height="600"></canvas>
+
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+
+// 游戏状态
+let game = {
+  health: 10,
+  gold: 50,
+  wave: 0,
+  selectedTower: 'basic',
+  isPlaying: false,
+  towers: [],
+  enemies: [],
+  projectiles: [],
+  particles: [],
+  spawnTimer: 0,
+  waveInProgress: false
+};
+
+// 路径点
+const path = [
+  {x: 50, y: 300},
+  {x: 200, y: 300},
+  {x: 200, y: 150},
+  {x: 350, y: 150},
+  {x: 350, y: 450},
+  {x: 500, y: 450},
+  {x: 500, y: 250},
+  {x: 650, y: 250},
+  {x: 650, y: 100},
+  {x: 750, y: 100}
+];
+
+// 炮塔定义
+const towerTypes = {
+  basic: {cost: 10, damage: 10, range: 80, fireRate: 1000, color: '#00d9ff'},
+  sniper: {cost: 30, damage: 50, range: 150, fireRate: 2500, color: '#ff9500'}
+};
+
+// 敌人定义
+function Enemy(healthMultiplier) {
+  this.x = path[0].x;
+  this.y = path[0].y;
+  this.pathIndex = 0;
+  this.health = 10 + game.wave * 2;
+  this.maxHealth = this.health;
+  this.speed = 1 + game.wave * 0.1;
+  this.reward = 5 + Math.floor(game.wave / 2);
+}
+
+// 炮塔
+function Tower(x, y, type) {
+  this.x = x;
+  this.y = y;
+  this.type = type;
+  this.cooldown = 0;
+  const data = towerTypes[type];
+  this.range = data.range;
+  this.damage = data.damage;
+  this.fireRate = data.fireRate;
+}
+
+// 子弹
+function Projectile(x, y, target, damage) {
+  this.x = x;
+  this.y = y;
+  this.target = target;
+  this.damage = damage;
+  this.speed = 5;
+}
+
+// 选择炮塔
+function selectTower(type) {
+  game.selectedTower = type;
+  document.querySelectorAll('button').forEach(b => b.classList.remove('selected'));
+  document.getElementById('btn' + type.charAt(0).toUpperCase() + type.slice(1)).classList.add('selected');
+}
+
+// 点击放置炮塔
+canvas.addEventListener('click', e => {
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+
+  // 检查是否在路径上
+  for (let i = 0; i < path.length - 1; i++) {
+    const a = path[i];
+    const b = path[i+1];
+    const dist = pointToLineDist(x, y, a.x, a.y, b.x, b.y);
+    if (dist < 20) return; // 不能放在路径上
+  }
+
+  // 检查是否已存在炮塔
+  for (const t of game.towers) {
+    const dist = Math.hypot(t.x - x, t.y - y);
+    if (dist < 30) return;
+  }
+
+  const cost = towerTypes[game.selectedTower].cost;
+  if (game.gold >= cost) {
+    game.towers.push(new Tower(x, y, game.selectedTower));
+    game.gold -= cost;
+    updateUI();
+  }
+});
+
+// 点到线段距离
+function pointToLineDist(px, py, x1, y1, x2, y2) {
+  const A = px - x1;
+  const B = py - y1;
+  const C = x2 - x1;
+  const D = y2 - y1;
+  const dot = A * C + B * D;
+  const lenSq = C * C + D * D;
+  let param = lenSq === 0 ? -1 : dot / lenSq;
+  let xx, yy;
+  if (param < 0) { xx = x1; yy = y1; }
+  else if (param > 1) { xx = x2; yy = y2; }
+  else { xx = x1 + param * C; yy = y1 + param * D; }
+  return Math.hypot(px - xx, py - yy);
+}
+
+// 开始波次
+function startWave() {
+  if (!game.waveInProgress) {
+    game.wave++;
+    game.waveInProgress = true;
+    game.spawnTimer = 0;
+    updateUI();
+  }
+}
+
+// 更新UI
+function updateUI() {
+  document.getElementById('health').textContent = game.health;
+  document.getElementById('gold').textContent = game.gold;
+  document.getElementById('wave').textContent = game.wave;
+}
+
+// 找最近敌人
+function findEnemy(tower) {
+  let closest = null;
+  let minDist = tower.range;
+  for (const e of game.enemies) {
+    const dist = Math.hypot(e.x - tower.x, e.y - tower.y);
+    if (dist < minDist) {
+      minDist = dist;
+      closest = e;
+    }
+  }
+  return closest;
+}
+
+// 游戏更新循环
+let lastTime = 0;
+function update(time) {
+  const dt = time - lastTime;
+  lastTime = time;
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // 绘制路径
+  ctx.beginPath();
+  ctx.moveTo(path[0].x, path[0].y);
+  for (let i = 1; i < path.length; i++) {
+    ctx.lineTo(path[i].x, path[i].y);
+  }
+  ctx.lineWidth = 40;
+  ctx.strokeStyle = '#4a4a4a';
+  ctx.stroke();
+
+  // 产生敌人
+  if (game.waveInProgress && game.spawnTimer <= 0) {
+    const count = 5 + game.wave * 2;
+    if (game.enemies.length < count) {
+      game.enemies.push(new Enemy());
+      game.spawnTimer = 800;
+    } else if (game.enemies.length === 0) {
+      game.waveInProgress = false;
+      game.gold += 20 + game.wave * 5;
+      updateUI();
+    }
+  }
+  game.spawnTimer -= dt;
+
+  // 更新敌人
+  for (let i = game.enemies.length - 1; i >= 0; i--) {
+    const e = game.enemies[i];
+    const target = path[e.pathIndex + 1];
+    if (!target) {
+      // 到达终点
+      game.health--;
+      game.enemies.splice(i, 1);
+      updateUI();
+      continue;
+    }
+    const angle = Math.atan2(target.y - e.y, target.x - e.x);
+    e.x += Math.cos(angle) * e.speed * dt / 16;
+    e.y += Math.sin(angle) * e.speed * dt / 16;
+    if (Math.hypot(e.x - target.x, e.y - target.y) < 10) {
+      e.pathIndex++;
+    }
+
+    // 绘制敌人
+    ctx.beginPath();
+    ctx.arc(e.x, e.y, 12, 0, Math.PI * 2);
+    ctx.fillStyle = '#e94560';
+    ctx.fill();
+
+    // 血条
+    const barWidth = 24;
+    const barHeight = 4;
+    ctx.fillStyle = 'red';
+    ctx.fillRect(e.x - barWidth/2, e.y - 20, barWidth, barHeight);
+    ctx.fillStyle = 'green';
+    ctx.fillRect(e.x - barWidth/2, e.y - 20, barWidth * (e.health / e.maxHealth), barHeight);
+  }
+
+  // 更新炮塔
+  for (const t of game.towers) {
+    if (t.cooldown <= 0) {
+      const target = findEnemy(t);
+      if (target) {
+        game.projectiles.push(new Projectile(t.x, t.y, target, t.damage));
+        t.cooldown = t.fireRate;
+      }
+    } else {
+      t.cooldown -= dt;
+    }
+
+    // 绘制炮塔
+    ctx.beginPath();
+    ctx.arc(t.x, t.y, 15, 0, Math.PI * 2);
+    ctx.fillStyle = towerTypes[t.type].color;
+    ctx.fill();
+    ctx.strokeStyle = 'white';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+
+  // 更新子弹
+  for (let i = game.projectiles.length - 1; i >= 0; i--) {
+    const p = game.projectiles[i];
+    if (!game.enemies.includes(p.target) || p.target.health <= 0) {
+      game.projectiles.splice(i, 1);
+      continue;
+    }
+    const angle = Math.atan2(p.target.y - p.y, p.target.x - p.x);
+    p.x += Math.cos(angle) * p.speed * dt / 16 * 10;
+    p.y += Math.sin(angle) * p.speed * dt / 16 * 10;
+
+    const dist = Math.hypot(p.x - p.target.x, p.y - p.target.y);
+    if (dist < 15) {
+      p.target.health -= p.damage;
+      if (p.target.health <= 0) {
+        game.gold += p.target.reward;
+        const idx = game.enemies.indexOf(p.target);
+        if (idx >= 0) game.enemies.splice(idx, 1);
+        updateUI();
+      }
+      game.projectiles.splice(i, 1);
+    }
+
+    // 绘制子弹
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+    ctx.fillStyle = 'yellow';
+    ctx.fill();
+  }
+
+  // 游戏结束检查
+  if (game.health <= 0) {
+    ctx.fillStyle = 'rgba(0,0,0,0.7)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = 'white';
+    ctx.font = '48px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('游戏结束', canvas.width/2, canvas.height/2);
+    ctx.font = '24px Arial';
+    ctx.fillText(`共抵挡 ${game.wave} 波敌人`, canvas.width/2, canvas.height/2 + 40);
+    return;
+  }
+
+  requestAnimationFrame(update);
+}
+
+// 开局选默认炮塔
+selectTower('basic');
+updateUI();
+requestAnimationFrame(update);
+</script>
+</body>
+</html>

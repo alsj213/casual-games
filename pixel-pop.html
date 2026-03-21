@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>像素消消看 - Pixel Pop</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .game-container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            max-width: 600px;
+            width: 100%;
+        }
+
+        h1 {
+            text-align: center;
+            color: #1a1a2e;
+            margin-bottom: 20px;
+            font-size: 2em;
+        }
+
+        .score-panel {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f0f0f0;
+            border-radius: 10px;
+        }
+
+        .score {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #1a1a2e;
+        }
+
+        .difficulty-select {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .diff-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: all 0.3s ease;
+            background: #e0e0e0;
+            color: #333;
+        }
+
+        .diff-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .diff-btn.active {
+            background: #1a1a2e;
+            color: white;
+        }
+
+        #game-board {
+            display: grid;
+            gap: 4px;
+            background: #ccc;
+            padding: 4px;
+            border-radius: 10px;
+            margin: 0 auto;
+            width: fit-content;
+            max-width: 100%;
+        }
+
+        .pixel {
+            width: 30px;
+            height: 30px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .pixel:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+        }
+
+        .pixel:active {
+            transform: scale(0.95);
+        }
+
+        .pixel.pop {
+            animation: popOut 0.3s ease forwards;
+        }
+
+        .pixel.fall {
+            animation: fallDown 0.4s ease forwards;
+        }
+
+        @keyframes popOut {
+            0% {
+                transform: scale(1);
+                opacity: 1;
+            }
+            50% {
+                transform: scale(1.3);
+                opacity: 0.5;
+            }
+            100% {
+                transform: scale(0);
+                opacity: 0;
+            }
+        }
+
+        @keyframes fallDown {
+            0% {
+                transform: translateY(-100%);
+                opacity: 0;
+            }
+            100% {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .empty {
+            background: transparent;
+            cursor: default;
+        }
+
+        .empty:hover {
+            transform: none;
+            box-shadow: none;
+        }
+
+        .game-over {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .game-over.show {
+            display: flex;
+        }
+
+        .game-over-content {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            0% {
+                transform: translateY(-20px);
+                opacity: 0;
+            }
+            100% {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .game-over-content h2 {
+            color: #1a1a2e;
+            margin-bottom: 15px;
+            font-size: 2em;
+        }
+
+        .final-score {
+            font-size: 1.5em;
+            color: #666;
+            margin-bottom: 25px;
+        }
+
+        #restart-btn {
+            padding: 15px 40px;
+            font-size: 1.2em;
+            background: #1a1a2e;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        #restart-btn:hover {
+            background: #16213e;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        @media (max-width: 600px) {
+            .game-container {
+                padding: 15px;
+            }
+
+            h1 {
+                font-size: 1.5em;
+            }
+
+            .pixel {
+                width: 25px;
+                height: 25px;
+            }
+
+            .score-panel {
+                flex-direction: column;
+                gap: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>🎮 像素消消看</h1>
+        <div class="score-panel">
+            <div class="score">得分: <span id="score">0</span></div>
+            <div class="score">最高分: <span id="high-score">0</span></div>
+        </div>
+        <div class="difficulty-select">
+            <button class="diff-btn active" data-size="8">简单 (8×8)</button>
+            <button class="diff-btn" data-size="10">中等 (10×10)</button>
+            <button class="diff-btn" data-size="12">困难 (12×12)</button>
+            <button class="diff-btn" data-size="16">专家 (16×16)</button>
+        </div>
+        <div id="game-board"></div>
+    </div>
+
+    <div class="game-over" id="game-over">
+        <div class="game-over-content">
+            <h2>游戏结束!</h2>
+            <div class="final-score">你的得分: <span id="final-score">0</span></div>
+            <button id="restart-btn">再来一局</button>
+        </div>
+    </div>
+
+    <script>
+        // 颜色配置
+        const COLORS = [
+            '#FF6B6B', // 红
+            '#4ECDC4', // 青
+            '#45B7D1', // 蓝
+            '#96CEB4', // 绿
+            '#FFEAA7', // 黄
+            '#DDA0DD', // 紫
+            '#FFA07A', // 橙
+            '#98D8C8'  // 薄荷
+        ];
+
+        let board = [];
+        let score = 0;
+        let highScore = localStorage.getItem('pixelPopHighScore') || 0;
+        let gridSize = 8;
+        let colorsCount = 5;
+        let isAnimating = false;
+
+        const gameBoard = document.getElementById('game-board');
+        const scoreElement = document.getElementById('score');
+        const highScoreElement = document.getElementById('high-score');
+        const gameOverModal = document.getElementById('game-over');
+        const finalScoreElement = document.getElementById('final-score');
+
+        highScoreElement.textContent = highScore;
+
+        // 难度选择
+        document.querySelectorAll('.diff-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                gridSize = parseInt(e.target.dataset.size);
+                startNewGame();
+            });
+        });
+
+        // 重启游戏
+        document.getElementById('restart-btn').addEventListener('click', () => {
+            gameOverModal.classList.remove('show');
+            startNewGame();
+        });
+
+        // 初始化游戏
+        function startNewGame() {
+            score = 0;
+            scoreElement.textContent = score;
+            isAnimating = false;
+
+            // 根据网格大小调整颜色数量
+            colorsCount = Math.min(COLORS.length, Math.floor(gridSize / 2) + 2);
+
+            // 初始化棋盘
+            board = [];
+            for (let y = 0; y < gridSize; y++) {
+                board[y] = [];
+                for (let x = 0; x < gridSize; x++) {
+                    // 确保相邻不重复的随机颜色
+                    let colorIndex;
+                    do {
+                        colorIndex = Math.floor(Math.random() * colorsCount);
+                    } while (
+                        (x > 0 && board[y][x - 1] === colorIndex) ||
+                        (y > 0 && board[y - 1][x] === colorIndex)
+                    );
+                    board[y][x] = colorIndex;
+                }
+            }
+
+            renderBoard();
+        }
+
+        // 渲染棋盘
+        function renderBoard() {
+            gameBoard.style.gridTemplateColumns = `repeat(${gridSize}, 1fr)`;
+            gameBoard.innerHTML = '';
+
+            for (let y = 0; y < gridSize; y++) {
+                for (let x = 0; x < gridSize; x++) {
+                    const pixel = document.createElement('div');
+                    pixel.className = 'pixel';
+                    if (board[y][x] === null) {
+                        pixel.classList.add('empty');
+                    } else {
+                        pixel.style.backgroundColor = COLORS[board[y][x]];
+                        pixel.dataset.x = x;
+                        pixel.dataset.y = y;
+                        pixel.addEventListener('click', () => handlePixelClick(x, y));
+                    }
+                    gameBoard.appendChild(pixel);
+                }
+            }
+        }
+
+        // 获取相连的同色块
+        function getConnectedPixels(x, y) {
+            const color = board[y][x];
+            if (color === null) return [];
+
+            const connected = [];
+            const visited = Array(gridSize).fill().map(() => Array(gridSize).fill(false));
+
+            function dfs(cx, cy) {
+                if (cx < 0 || cx >= gridSize || cy < 0 || cy >= gridSize) return;
+                if (visited[cy][cx] || board[cy][cx] !== color) return;
+
+                visited[cy][cx] = true;
+                connected.push({x: cx, y: cy});
+
+                dfs(cx + 1, cy);
+                dfs(cx - 1, cy);
+                dfs(cx, cy + 1);
+                dfs(cx, cy - 1);
+            }
+
+            dfs(x, y);
+            return connected;
+        }
+
+        // 处理点击
+        async function handlePixelClick(x, y) {
+            if (isAnimating || board[y][x] === null) return;
+
+            const connected = getConnectedPixels(x, y);
+
+            if (connected.length < 2) {
+                // 单个块不能消除
+                const pixel = getPixelElement(x, y);
+                pixel.style.transform = 'scale(0.9)';
+                setTimeout(() => {
+                    pixel.style.transform = 'scale(1)';
+                }, 100);
+                return;
+            }
+
+            isAnimating = true;
+
+            // 加分
+            const points = connected.length * connected.length;
+            score += points;
+            scoreElement.textContent = score;
+
+            // 消除动画
+            connected.forEach(({x: cx, y: cy}) => {
+                const pixel = getPixelElement(cx, cy);
+                pixel.classList.add('pop');
+            });
+
+            // 等待动画完成
+            await sleep(300);
+
+            // 移除块
+            connected.forEach(({x: cx, y: cy}) => {
+                board[cy][cx] = null;
+            });
+
+            // 下落
+            await dropPixels();
+
+            // 重新渲染
+            renderBoard();
+
+            // 检查游戏是否结束
+            if (checkGameOver()) {
+                endGame();
+            } else {
+                isAnimating = false;
+            }
+        }
+
+        // 像素下落
+        async function dropPixels() {
+            // 对每一列处理
+            for (let x = 0; x < gridSize; x++) {
+                let writePos = gridSize - 1;
+                const newColumn = Array(gridSize).fill(null);
+
+                // 从下往上读取非空块
+                for (let y = gridSize - 1; y >= 0; y--) {
+                    if (board[y][x] !== null) {
+                        newColumn[writePos] = board[y][x];
+                        writePos--;
+                    }
+                }
+
+                // 写回原列
+                for (let y = 0; y < gridSize; y++) {
+                    board[y][x] = newColumn[y];
+                }
+            }
+
+            await sleep(400);
+        }
+
+        // 检查游戏结束
+        function checkGameOver() {
+            // 检查是否所有块都被消除，或者没有可消除的相连块
+            for (let y = 0; y < gridSize; y++) {
+                for (let x = 0; x < gridSize; x++) {
+                    if (board[y][x] !== null) {
+                        const color = board[y][x];
+                        let adjacentSame = false;
+                        if (x + 1 < gridSize && board[y][x + 1] === color) adjacentSame = true;
+                        if (y + 1 < gridSize && board[y + 1][x] === color) adjacentSame = true;
+                        if (adjacentSame) return false; // 还有可消除的，游戏继续
+                    }
+                }
+            }
+
+            // 如果没有像素了，或者没有可消除的相连块，游戏结束
+            return true;
+        }
+
+        // 结束游戏
+        function endGame() {
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('pixelPopHighScore', highScore);
+                highScoreElement.textContent = highScore;
+            }
+            finalScoreElement.textContent = score;
+            gameOverModal.classList.add('show');
+        }
+
+        // 获取DOM元素
+        function getPixelElement(x, y) {
+            return gameBoard.children[y * gridSize + x];
+        }
+
+        // 睡眠函数
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        // 开始游戏
+        startNewGame();
+    </script>
+</body>
+</html>

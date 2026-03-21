@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>记忆配对游戏</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+    }
+    h1 { color: white; margin-bottom: 20px; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); }
+    .info { display: flex; gap: 30px; color: white; font-size: 1.2em; margin-bottom: 20px; }
+    .info span { background: rgba(255,255,255,0.2); padding: 10px 20px; border-radius: 25px; }
+    .controls { margin-bottom: 20px; }
+    button {
+      padding: 10px 25px; font-size: 1em; border: none; border-radius: 25px;
+      cursor: pointer; background: white; color: #667eea; font-weight: bold;
+      transition: transform 0.2s, box-shadow 0.2s; margin: 0 10px;
+    }
+    button:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
+    .grid {
+      display: grid; gap: 12px; perspective: 1000px;
+    }
+    .grid-4x4 { grid-template-columns: repeat(4, 1fr); }
+    .grid-6x6 { grid-template-columns: repeat(6, 1fr); }
+    .card {
+      width: 80px; height: 80px; position: relative; cursor: pointer;
+      transform-style: preserve-3d; transition: transform 0.5s;
+    }
+    .card.flipped { transform: rotateY(180deg); }
+    .card.matched { visibility: hidden; }
+    .card-face {
+      position: absolute; width: 100%; height: 100%; backface-visibility: hidden;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 12px; font-size: 2.5em; box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+    }
+    .card-front { background: linear-gradient(145deg, #fff, #f0f0f0); }
+    .card-front::after { content: '?'; color: #667eea; font-weight: bold; }
+    .card-back { transform: rotateY(180deg); background: white; border: 3px solid #667eea; }
+    .win-overlay {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.8); display: none; align-items: center;
+      justify-content: center; z-index: 100; flex-direction: column;
+    }
+    .win-overlay.show { display: flex; }
+    .win-content {
+      background: white; padding: 40px; border-radius: 20px; text-align: center;
+      animation: popIn 0.5s ease-out;
+    }
+    @keyframes popIn { from { transform: scale(0); } to { transform: scale(1); } }
+  </style>
+</head>
+<body>
+  <h1>🎮 记忆配对游戏</h1>
+  <div class="info">
+    <span>⏱️ 时间: <span id="time">00:00</span></span>
+    <span>👣 步数: <span id="moves">0</span></span>
+    <span>🎯 配对: <span id="matches">0</span>/8</span>
+  </div>
+  <div class="controls">
+    <button onclick="startGame(4)">4×4 网格</button>
+    <button onclick="startGame(6)">6×6 网格</button>
+  </div>
+  <div id="grid" class="grid"></div>
+  <div class="win-overlay" id="winOverlay">
+    <div class="win-content">
+      <h2>🎉 恭喜通关!</h2>
+      <p>用时: <span id="finalTime"></span></p>
+      <p>步数: <span id="finalMoves"></span></p>
+      <button onclick="restartGame()" style="margin-top: 20px;">再玩一次</button>
+    </div>
+  </div>
+  <script>
+    const patterns = ['🍎','🍊','🍋','🍇','🍓','🍑','🥝','🍒','🌈','🌸','🌺','🌻','🦋','🐬','🐱','🐶','🦊','🐼'];
+    let gridSize = 4;
+    let cards = [];
+    let flippedCards = [];
+    let matchedPairs = 0;
+    let moves = 0;
+    let timer = null;
+    let seconds = 0;
+    let canFlip = true;
+
+    function startGame(size) {
+      gridSize = size;
+      initGame();
+    }
+
+    function initGame() {
+      const grid = document.getElementById('grid');
+      grid.innerHTML = '';
+      grid.className = `grid grid-${gridSize}x${gridSize}`;
+      
+      const pairCount = (gridSize * gridSize) / 2;
+      document.getElementById('matches').textContent = `0/${pairCount}`;
+      
+      const selectedPatterns = patterns.slice(0, pairCount);
+      cards = [...selectedPatterns, ...selectedPatterns];
+      shuffle(cards);
+      
+      flippedCards = [];
+      matchedPairs = 0;
+      moves = 0;
+      seconds = 0;
+      canFlip = true;
+      document.getElementById('moves').textContent = '0';
+      document.getElementById('time').textContent = '00:00';
+      document.getElementById('winOverlay').classList.remove('show');
+      
+      cards.forEach((pattern, index) => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.dataset.index = index;
+        card.innerHTML = `
+          <div class="card-face card-front"></div>
+          <div class="card-face card-back">${pattern}</div>
+        `;
+        card.onclick = () => flipCard(card, pattern);
+        grid.appendChild(card);
+      });
+      
+      startTimer();
+    }
+
+    function shuffle(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+    }
+
+    function flipCard(card, pattern) {
+      if (!canFlip || card.classList.contains('flipped') || card.classList.contains('matched')) return;
+      
+      card.classList.add('flipped');
+      flippedCards.push({ card, pattern });
+      
+      if (flippedCards.length === 2) {
+        moves++;
+        document.getElementById('moves').textContent = moves;
+        checkMatch();
+      }
+    }
+
+    function checkMatch() {
+      canFlip = false;
+      const [card1, card2] = flippedCards;
+      
+      if (card1.pattern === card2.pattern) {
+        matchedPairs++;
+        document.getElementById('matches').textContent = `${matchedPairs}/${(gridSize * gridSize) / 2}`;
+        card1.card.classList.add('matched');
+        card2.card.classList.add('matched');
+        flippedCards = [];
+        canFlip = true;
+        checkWin();
+      } else {
+        setTimeout(() => {
+          card1.card.classList.remove('flipped');
+          card2.card.classList.remove('flipped');
+          flippedCards = [];
+          canFlip = true;
+        }, 1000);
+      }
+    }
+
+    function checkWin() {
+      const pairCount = (gridSize * gridSize) / 2;
+      if (matchedPairs === pairCount) {
+        clearInterval(timer);
+        document.getElementById('finalTime').textContent = formatTime(seconds);
+        document.getElementById('finalMoves').textContent = moves;
+        setTimeout(() => document.getElementById('winOverlay').classList.add('show'), 500);
+      }
+    }
+
+    function startTimer() {
+      clearInterval(timer);
+      timer = setInterval(() => {
+        seconds++;
+        document.getElementById('time').textContent = formatTime(seconds);
+      }, 1000);
+    }
+
+    function formatTime(s) {
+      const mins = Math.floor(s / 60).toString().padStart(2, '0');
+      const secs = (s % 60).toString().padStart(2, '0');
+      return `${mins}:${secs}`;
+    }
+
+    function restartGame() {
+      document.getElementById('winOverlay').classList.remove('show');
+      initGame();
+    }
+
+    startGame(4);
+  </script>
+</body>
+</html>

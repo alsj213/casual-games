@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>接球弹球</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            display: flex; 
+            flex-direction: column; 
+            justify-content: center; 
+            align-items: center; 
+            min-height: 100vh; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+        }
+        #gameCanvas { 
+            background: #1a1a2e; 
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        #info { 
+            color: white; 
+            margin: 15px; 
+            text-align: center;
+            font-size: 18px;
+        }
+        #instructions {
+            color: rgba(255,255,255,0.8);
+            margin: 10px;
+            font-size: 14px;
+        }
+        #gameOver {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.9);
+            color: white;
+            padding: 40px;
+            border-radius: 15px;
+            text-align: center;
+            z-index: 100;
+        }
+        #gameOver button {
+            margin-top: 20px;
+            padding: 12px 30px;
+            font-size: 18px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+        }
+        #gameOver button:hover { background: #764ba2; }
+    </style>
+</head>
+<body>
+    <div id="info">得分: <span id="score">0</span> | 速度: <span id="speed">1.0x</span></div>
+    <canvas id="gameCanvas"></canvas>
+    <div id="instructions">← → 键盘移动 / 触摸左右滑动</div>
+    <div id="gameOver">
+        <h2>游戏结束!</h2>
+        <p>最终得分: <span id="finalScore">0</span></p>
+        <button onclick="restartGame()">重新开始</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // 设置canvas大小
+        function resizeCanvas() {
+            canvas.width = Math.min(window.innerWidth - 40, 800);
+            canvas.height = Math.min(window.innerHeight - 150, 600);
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        // 游戏状态
+        let score = 0;
+        let gameRunning = true;
+        let baseSpeed = 3;
+        let speedMultiplier = 1;
+
+        // 挡板
+        const paddle = {
+            width: 120,
+            height: 15,
+            x: 0,
+            speed: 8,
+            color: '#00d9ff'
+        };
+        paddle.x = canvas.width / 2 - paddle.width / 2;
+
+        // 小球
+        const ball = {
+            radius: 10,
+            x: canvas.width / 2,
+            y: 100,
+            dx: 3,
+            dy: 3,
+            color: '#ff6b6b'
+        };
+
+        // 键盘状态
+        const keys = { left: false, right: false };
+        
+        // 触摸状态
+        let touchX = null;
+
+        // 事件监听
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft' || e.key === 'a') keys.left = true;
+            if (e.key === 'ArrowRight' || e.key === 'd') keys.right = true;
+        });
+
+        document.addEventListener('keyup', (e) => {
+            if (e.key === 'ArrowLeft' || e.key === 'a') keys.left = false;
+            if (e.key === 'ArrowRight' || e.key === 'd') keys.right = false;
+        });
+
+        canvas.addEventListener('touchstart', handleTouch);
+        canvas.addEventListener('touchmove', handleTouch);
+        canvas.addEventListener('touchend', () => touchX = null);
+
+        function handleTouch(e) {
+            e.preventDefault();
+            const rect = canvas.getBoundingClientRect();
+            touchX = e.touches[0].clientX - rect.left;
+        }
+
+        // 移动挡板
+        function movePaddle() {
+            if (keys.left && paddle.x > 0) {
+                paddle.x -= paddle.speed;
+            }
+            if (keys.right && paddle.x + paddle.width < canvas.width) {
+                paddle.x += paddle.speed;
+            }
+            
+            // 触摸控制
+            if (touchX !== null) {
+                let targetX = touchX - paddle.width / 2;
+                // 平滑移动
+                paddle.x += (targetX - paddle.x) * 0.15;
+                // 边界限制
+                if (paddle.x < 0) paddle.x = 0;
+                if (paddle.x + paddle.width > canvas.width) paddle.x = canvas.width - paddle.width;
+            }
+        }
+
+        // 更新小球位置
+        function updateBall() {
+            ball.x += ball.dx * speedMultiplier;
+            ball.y += ball.dy * speedMultiplier;
+
+            // 左右碰撞
+            if (ball.x - ball.radius < 0 || ball.x + ball.radius > canvas.width) {
+                ball.dx = -ball.dx;
+                ball.x = ball.x - ball.radius < 0 ? ball.radius : canvas.width - ball.radius;
+            }
+
+            // 顶部碰撞
+            if (ball.y - ball.radius < 0) {
+                ball.dy = -ball.dy;
+                ball.y = ball.radius;
+            }
+
+            // 挡板碰撞
+            if (ball.y + ball.radius > canvas.height - paddle.height - 10 &&
+                ball.y - ball.radius < canvas.height - 10 &&
+                ball.x > paddle.x &&
+                ball.x < paddle.x + paddle.width &&
+                ball.dy > 0) {
+                ball.dy = -ball.dy;
+                ball.y = canvas.height - paddle.height - 10 - ball.radius;
+                score += 10;
+                document.getElementById('score').textContent = score;
+                
+                // 随着得分增加速度
+                speedMultiplier = 1 + Math.floor(score / 50) * 0.1;
+                document.getElementById('speed').textContent = speedMultiplier.toFixed(1) + 'x';
+            }
+
+            // 掉到底部
+            if (ball.y - ball.radius > canvas.height) {
+                gameRunning = false;
+                document.getElementById('finalScore').textContent = score;
+                document.getElementById('gameOver').style.display = 'block';
+            }
+        }
+
+        // 绘制
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // 绘制挡板
+            ctx.fillStyle = paddle.color;
+            ctx.shadowColor = paddle.color;
+            ctx.shadowBlur = 15;
+            ctx.beginPath();
+            ctx.roundRect(paddle.x, canvas.height - paddle.height - 10, paddle.width, paddle.height, 5);
+            ctx.fill();
+            
+            // 绘制小球
+            ctx.fillStyle = ball.color;
+            ctx.shadowColor = ball.color;
+            ctx.shadowBlur = 10;
+            ctx.beginPath();
+            ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.shadowBlur = 0;
+        }
+
+        // 游戏循环
+        function gameLoop() {
+            if (!gameRunning) return;
+            
+            movePaddle();
+            updateBall();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // 重新开始
+        function restartGame() {
+            score = 0;
+            speedMultiplier = 1;
+            gameRunning = true;
+            ball.x = canvas.width / 2;
+            ball.y = 100;
+            ball.dx = 3;
+            ball.dy = 3;
+            paddle.x = canvas.width / 2 - paddle.width / 2;
+            document.getElementById('score').textContent = score;
+            document.getElementById('speed').textContent = '1.0x';
+            document.getElementById('gameOver').style.display = 'none';
+            gameLoop();
+        }
+
+        // 启动游戏
+        gameLoop();
+    </script>
+</body>
+</html>

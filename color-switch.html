@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Color Switch Jump</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background: #1a1a2e;
+            font-family: Arial, sans-serif;
+        }
+        canvas {
+            border: 3px solid #fff;
+            border-radius: 10px;
+            background: #16213e;
+        }
+        .game-info {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: white;
+            text-align: center;
+        }
+        .game-over {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            padding: 30px;
+            border-radius: 10px;
+            color: white;
+            text-align: center;
+            display: none;
+        }
+        button {
+            background: #e94560;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background: #ff6b6b;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-info">
+        <h2>Color Switch Jump</h2>
+        <p>Score: <span id="score">0</span> | Distance: <span id="distance">0</span></p>
+    </div>
+    <canvas id="gameCanvas" width="400" height="600"></canvas>
+    <div class="game-over" id="gameOver">
+        <h2>Game Over!</h2>
+        <p>Final Score: <span id="finalScore">0</span></p>
+        <p>Distance: <span id="finalDistance">0</span></p>
+        <button onclick="restartGame()">Play Again</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreEl = document.getElementById('score');
+        const distanceEl = document.getElementById('distance');
+        const gameOverEl = document.getElementById('gameOver');
+        const finalScoreEl = document.getElementById('finalScore');
+        const finalDistanceEl = document.getElementById('finalDistance');
+
+        // Colors
+        const COLORS = ['#e94560', '#0f3460', '#f39c12', '#16a085'];
+        let ballColor = COLORS[0];
+
+        // Game state
+        let gameRunning = true;
+        let score = 0;
+        let distance = 0;
+        let obstaclesPassed = 0;
+
+        // Ball physics
+        const ball = {
+            x: canvas.width / 2,
+            y: canvas.height / 2,
+            radius: 15,
+            velocityY: 0,
+            velocityX: 3,
+            gravity: 0.5,
+            jumpForce: -10
+        };
+
+        // Obstacles
+        let obstacles = [];
+        const obstacleWidth = 60;
+        const gapSize = 80;
+        const spawnInterval = 180;
+        let frameCount = 0;
+
+        // Mouse/touch jump
+        canvas.addEventListener('click', jump);
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            jump();
+        });
+
+        function jump() {
+            if (!gameRunning) return;
+            ball.velocityY = ball.jumpForce;
+        }
+
+        function createObstacle() {
+            const centerY = Math.random() * (canvas.height - gapSize) + gapSize / 2;
+            const topY = centerY - gapSize / 2;
+            const bottomY = centerY + gapSize / 2;
+            
+            // Random color for each section
+            const topColor = COLORS[Math.floor(Math.random() * COLORS.length)];
+            const bottomColor = COLORS[Math.floor(Math.random() * COLORS.length)];
+
+            obstacles.push({
+                x: canvas.width,
+                topY: topY,
+                bottomY: bottomY,
+                width: obstacleWidth,
+                topColor: topColor,
+                bottomColor: bottomColor,
+                passed: false
+            });
+        }
+
+        function update() {
+            if (!gameRunning) return;
+
+            // Physics
+            ball.velocityY += ball.gravity;
+            ball.y += ball.velocityY;
+            ball.x += ball.velocityX;
+            distance = Math.floor(ball.x);
+
+            // Spawn obstacles
+            frameCount++;
+            if (frameCount % spawnInterval === 0) {
+                createObstacle();
+                frameCount = 0;
+            }
+
+            // Move and check obstacles
+            for (let i = obstacles.length - 1; i >= 0; i--) {
+                const obs = obstacles[i];
+                obs.x -= 3;
+
+                // Check if passed
+                if (!obs.passed && obs.x + obs.width < ball.x) {
+                    obstaclesPassed++;
+                    score = obstaclesPassed;
+                    obs.passed = true;
+                    scoreEl.textContent = score;
+                }
+
+                // Remove off-screen
+                if (obs.x + obs.width < 0) {
+                    obstacles.splice(i, 1);
+                }
+
+                // Collision detection
+                if (ball.x + ball.radius > obs.x && ball.x - ball.radius < obs.x + obs.width) {
+                    // Check top collision
+                    if (ball.y - ball.radius < obs.topY) {
+                        if (ballColor !== obs.topColor) {
+                            gameOver();
+                            return;
+                        } else {
+                            ballColor = getNextColor();
+                        }
+                    }
+                    // Check bottom collision
+                    if (ball.y + ball.radius > obs.bottomY) {
+                        if (ballColor !== obs.bottomColor) {
+                            gameOver();
+                            return;
+                        } else {
+                            ballColor = getNextColor();
+                        }
+                    }
+                }
+            }
+
+            // Check floor/ceiling
+            if (ball.y - ball.radius < 0 || ball.y + ball.radius > canvas.height) {
+                gameOver();
+            }
+
+            distanceEl.textContent = distance;
+        }
+
+        function draw() {
+            // Clear
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw obstacles
+            obstacles.forEach(obs => {
+                // Top obstacle
+                ctx.fillStyle = obs.topColor;
+                ctx.fillRect(obs.x, 0, obs.width, obs.topY);
+                
+                // Bottom obstacle
+                ctx.fillStyle = obs.bottomColor;
+                ctx.fillRect(obs.x, obs.bottomY, obs.width, canvas.height - obs.bottomY);
+            });
+
+            // Draw ball
+            ctx.beginPath();
+            ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+            ctx.fillStyle = ballColor;
+            ctx.fill();
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            ctx.closePath();
+        }
+
+        function getNextColor() {
+            const currentIndex = COLORS.indexOf(ballColor);
+            return COLORS[(currentIndex + 1) % COLORS.length];
+        }
+
+        function gameOver() {
+            gameRunning = false;
+            gameOverEl.style.display = 'block';
+            finalScoreEl.textContent = score;
+            finalDistanceEl.textContent = distance;
+        }
+
+        function restartGame() {
+            gameRunning = true;
+            score = 0;
+            distance = 0;
+            obstaclesPassed = 0;
+            obstacles = [];
+            frameCount = 0;
+            ball.x = canvas.width / 2;
+            ball.y = canvas.height / 2;
+            ball.velocityY = 0;
+            ballColor = COLORS[0];
+            gameOverEl.style.display = 'none';
+            scoreEl.textContent = '0';
+            distanceEl.textContent = '0';
+            gameLoop();
+        }
+
+        function gameLoop() {
+            update();
+            draw();
+            if (gameRunning) {
+                requestAnimationFrame(gameLoop);
+            }
+        }
+
+        // Start game
+        gameLoop();
+    </script>
+</body>
+</html>

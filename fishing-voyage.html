@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>垂钓之旅 - Fishing Voyage</title>
+    <style>
+        body { margin:0; background:#1a4d3e; display:flex; justify-content:center; align-items:center; height:100vh; font-family:'Microsoft YaHei',sans-serif; overflow:hidden; }
+        #gameCanvas { background:linear-gradient(to bottom,#87CEEB 0%,#4682B4 60%,#2E6B4E 60%,#1a5a3f 100%); border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,0.4); cursor:pointer; }
+        #ui { position:absolute; top:10px; left:10px; color:white; font-size:18px; text-shadow:2px 2px 4px rgba(0,0,0,0.7); z-index:10; }
+        #ui div { margin:8px 0; }
+        #overlay { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); text-align:center; color:white; z-index:20; }
+        #overlay h1 { font-size:36px; margin:0 0 20px; text-shadow:3px 3px 6px rgba(0,0,0,0.8); }
+        #overlay p { font-size:18px; margin:10px 0; text-shadow:2px 2px 4px rgba(0,0,0,0.7); }
+        #overlay button { padding:12px 30px; font-size:20px; background:#ff6b35; border:none; color:white; border-radius:8px; cursor:pointer; margin-top:20px; transition:all 0.3s; }
+        #overlay button:hover { background:#ff8555; transform:scale(1.05); }
+        .hidden { display:none !important; }
+        #message { position:absolute; top:40%; left:50%; transform:translate(-50%,-50%); color:#fff; font-size:24px; font-weight:bold; text-shadow:3px 3px 6px rgba(0,0,0,0.9); pointer-events:none; opacity:0; transition:opacity 0.3s; z-index:15; }
+    </style>
+</head>
+<body>
+    <div id="ui">
+        <div>🎣 分数: <span id="score">0</span></div>
+        <div>⏱️ 时间: <span id="time">60</span>s</div>
+        <div>🐟 钓获: <span id="caught">0</span></div>
+    </div>
+    <div id="message"></div>
+    <div id="overlay">
+        <h1>🎣 垂钓之旅</h1>
+        <p>点击抛钩，等待鱼咬钩</p>
+        <p>按空格键或再次点击收线</p>
+        <p>不同鱼种分值不同，重量影响收线难度</p>
+        <p>稀有鱼可获得额外加分！</p>
+        <button onclick="startGame()">开始游戏</button>
+    </div>
+    <canvas id="gameCanvas"></canvas>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = 800; canvas.height = 600;
+
+        const FISH_TYPES = [
+            { name: '草鱼', score: 10, weight: [1,2], color: '#9ACD32', rare: false },
+            { name: '鲤鱼', score: 20, weight: [2,4], color: '#FFD700', rare: false },
+            { name: '鲈鱼', score: 30, weight: [3,5], color: '#87CEEB', rare: false },
+            { name: '鳕鱼', score: 40, weight: [4,6], color: '#E6E6FA', rare: false },
+            { name: '金龙鱼', score: 100, weight: [2,3], color: '#FFA500', rare: true },
+            { name: '锦鲤', score: 150, weight: [3,4], color: '#FF69B4', rare: true },
+            { name: '蓝鳍金枪鱼', score: 200, weight: [8,12], color: '#4169E1', rare: true },
+            { name: '神龙鱼', score: 300, weight: [5,7], color: '#9400D3', rare: true }
+        ];
+
+        let gameState = { score: 0, timeLeft: 60, caught: 0, running: false };
+        let hook = { x: 400, y: 200, thrown: false, biting: false, reeling: false, fish: null, reelProgress: 0, speed: 0 };
+        let particles = [];
+        let lastTime = 0;
+
+        function getRandomFish() {
+            const rareChance = Math.random() < 0.15;
+            const available = FISH_TYPES.filter(f => f.rare === rareChance);
+            const fish = {...available[Math.floor(Math.random() * available.length)]};
+            fish.weight = fish.weight[0] + Math.random() * (fish.weight[1] - fish.weight[0]);
+            return fish;
+        }
+
+        function showMessage(text) {
+            const msg = document.getElementById('message');
+            msg.textContent = text;
+            msg.style.opacity = 1;
+            setTimeout(() => msg.style.opacity = 0, 1500);
+        }
+
+        function startGame() {
+            gameState = { score: 0, timeLeft: 60, caught: 0, running: true };
+            hook = { x: 400, y: 200, thrown: false, biting: false, reeling: false, fish: null, reelProgress: 0, speed: 0 };
+            particles = [];
+            document.getElementById('overlay').classList.add('hidden');
+            updateUI();
+            gameLoop(0);
+        }
+
+        function endGame() {
+            gameState.running = false;
+            document.getElementById('overlay').classList.remove('hidden');
+            document.getElementById('overlay').innerHTML = `
+                <h1>🎣 游戏结束</h1>
+                <p>最终分数: ${gameState.score}</p>
+                <p>钓获数量: ${gameState.caught}</p>
+                <button onclick="startGame()">再玩一次</button>
+            `;
+        }
+
+        function updateUI() {
+            document.getElementById('score').textContent = gameState.score;
+            document.getElementById('time').textContent = gameState.timeLeft;
+            document.getElementById('caught').textContent = gameState.caught;
+        }
+
+        function castHook() {
+            if (!hook.thrown && !hook.reeling && gameState.running) {
+                hook.thrown = true;
+                hook.speed = 8;
+                hook.x = 400;
+            }
+        }
+
+        function startReel() {
+            if (hook.biting && !hook.reeling && gameState.running) {
+                hook.reeling = true;
+                hook.reelProgress = 0;
+            }
+        }
+
+        canvas.addEventListener('click', () => {
+            if (!hook.thrown) castHook();
+            else if (hook.biting) startReel();
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                if (hook.biting && !hook.reeling) startReel();
+            }
+        });
+
+        function createParticles(x, y, color, count) {
+            for (let i = 0; i < count; i++) {
+                particles.push({
+                    x, y, color,
+                    vx: (Math.random() - 0.5) * 4,
+                    vy: (Math.random() - 0.5) * 4 - 2,
+                    life: 1
+                });
+            }
+        }
+
+        function drawWater(currentTime) {
+            const waterLevel = 360;
+            for (let y = waterLevel; y < canvas.height; y += 20) {
+                const waveOffset = Math.sin(y * 0.05 + currentTime * 0.002) * 5;
+                ctx.fillStyle = `rgba(30, 90, 100, ${0.3 + (y - waterLevel) / 600})`;
+                ctx.fillRect(0, y, canvas.width, 20);
+            }
+            ctx.fillStyle = '#4682B4';
+            for (let x = 0; x < canvas.width; x += 40) {
+                const waveY = Math.sin(x * 0.02 + currentTime * 0.003) * 3;
+                ctx.beginPath();
+                ctx.arc(x, waterLevel + waveY, 15, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        function drawFisherman() {
+            ctx.fillStyle = '#8B4513';
+            ctx.fillRect(380, 140, 40, 50);
+            ctx.fillStyle = '#FFE4C4';
+            ctx.beginPath();
+            ctx.arc(400, 130, 20, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#2F4F4F';
+            ctx.fillRect(390, 145, 20, 10);
+        }
+
+        function drawFishingLine() {
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(400, 190);
+            if (hook.thrown) {
+                ctx.lineTo(hook.x, hook.y);
+            } else {
+                ctx.quadraticCurveTo(450, 220, 420, 250);
+            }
+            ctx.stroke();
+        }
+
+        function drawHook() {
+            const hookY = hook.thrown ? hook.y - 10 : 250;
+            ctx.strokeStyle = '#C0C0C0';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(hook.x, hookY, 12, 0, Math.PI, false);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(hook.x + 12, hookY);
+            ctx.lineTo(hook.x + 12, hookY - 20);
+            ctx.stroke();
+        }
+
+        function drawFishIcon(fish, x, y, size = 1) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.scale(size, size);
+            ctx.fillStyle = fish.color;
+            ctx.beginPath();
+            ctx.ellipse(0, 0, 25, 12, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.moveTo(25, 0);
+            ctx.lineTo(35, -8);
+            ctx.lineTo(35, 8);
+            ctx.closePath();
+            ctx.fill();
+            ctx.fillStyle = '#000';
+            ctx.beginPath();
+            ctx.arc(-12, -4, 3, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        }
+
+        function gameLoop(currentTime) {
+            if (!gameState.running) return;
+
+            const deltaTime = currentTime - lastTime;
+            lastTime = currentTime;
+
+            if (deltaTime > 0) {
+                gameState.timeLeft -= deltaTime / 1000;
+                if (gameState.timeLeft <= 0) {
+                    gameState.timeLeft = 0;
+                    endGame();
+                    return;
+                }
+            }
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawFisherman();
+            DrawWater(currentTime);
+            drawFishingLine();
+            drawHook();
+
+            if (hook.thrown && !hook.reeling) {
+                hook.y += hook.speed;
+                hook.speed *= 0.98;
+                hook.x += (Math.random() - 0.5) * 2;
+
+                if (hook.speed < 0.5 && !hook.biting) {
+                    hook.biting = true;
+                    hook.fish = getRandomFish();
+                    showMessage(`🐟 ${hook.fish.name} 咬钩了！`);
+                    createParticles(hook.x, hook.y, '#87CEEB', 15);
+                }
+
+                if (hook.biting) {
+                    ctx.fillStyle = '#FFD700';
+                    ctx.font = 'bold 24px Arial';
+                    ctx.fillText('咬钩!', hook.x + 20, hook.y);
+                    setTimeout(() => {
+                        if (hook.biting && !hook.reeling) { hook.biting = false; hookup = { ...hook, thrown: false }; showMessage('🐟 鱼跑了...'); }
+                    }, 2000);
+                }
+            }
+
+            if (hook.reeling && hook.fish) {
+                const difficulty = hook.fish.weight * 15;
+                hook.reelProgress += 100 / difficulty;
+                hook.y -= 3;
+
+                drawFishIcon(hook.fish, hook.x, hook.y + 15);
+
+                ctx.fillStyle = '#333';
+                ctx.fillRect(350, 80, 100, 20);
+                ctx.fillStyle = hook.reelProgress >= 100 ? '#32CD32' : '#FF6347';
+                ctx.fillRect(350, 80, Math.min(100, hook.reelProgress), 20);
+
+                if (hook.reelProgress >= 100) {
+                    const bonus = hook.fish.rare ? 50 : 0;
+                    gameState.score += hook.fish.score + bonus;
+                    gameState.caught++;
+                    showMessage(`🎉 ${hook.fish.name} +${hook.fish.score}${bonus ? ` (+${bonus}稀有奖励)` : ''}`);
+                    createParticles(hook.x, 100, '#FFD700', 20);
+                    hook = { x: 400, y: 200, thrown: false, biting: false, reeling: false, fish: null, reelProgress: 0, speed: 0 };
+                }
+            }
+
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.vy += 0.1;
+                p.life -= 0.02;
+                ctx.fillStyle = p.color;
+                ctx.globalAlpha = p.life;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, 4 * p.life, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.globalAlpha = 1;
+                if (p.life <= 0) particles.splice(i, 1);
+            }
+
+            updateUI();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function DrawWater(currentTime) {
+            drawWater(currentTime);
+        }
+    </script>
+</body>
+</html>

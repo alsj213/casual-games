@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>蛇梯棋 - Snake and Ladder</title>
+<style>
+* {box-sizing: border-box; margin: 0; padding: 0;}
+body {
+    font-family: 'Arial', sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 10px;
+}
+.container {
+    background: white;
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+    max-width: 600px;
+    width: 100%;
+}
+h1 {
+    text-align: center;
+    color: #333;
+    margin-bottom: 15px;
+    font-size: 24px;
+}
+.game-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+.mode-select {
+    display: flex;
+    gap: 8px;
+}
+button {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s;
+}
+.mode-btn {
+    background: #e0e0e0;
+}
+.mode-btn.active {
+    background: #667eea;
+    color: white;
+}
+.dice-area {
+    text-align: center;
+    margin-bottom: 15px;
+}
+#dice {
+    width: 60px;
+    height: 60px;
+    font-size: 32px;
+    font-weight: bold;
+    background: #ff6b6b;
+    color: white;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    transition: transform 0.3s;
+}
+#dice.roll {
+    transform: rotate(360deg) scale(1.2);
+}
+#rollBtn {
+    background: #ff6b6b;
+    color: white;
+    font-size: 16px;
+    margin-left: 15px;
+    padding: 12px 24px;
+}
+#rollBtn:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+}
+.players {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+.player {
+    flex: 1;
+    padding: 10px;
+    border-radius: 8px;
+    text-align: center;
+    border: 2px solid #eee;
+}
+.player.active {
+    border-color: #667eea;
+    background: #f0f4ff;
+}
+.player1 {
+    background: #ffebee;
+    border-color: #ef5350;
+}
+.player2 {
+    background: #e3f2fd;
+    border-color: #2196f3;
+}
+.token {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    margin-right: 8px;
+    vertical-align: middle;
+}
+.token1 {background: #ef5350;}
+.token2 {background: #2196f3;}
+.board {
+    display: grid;
+    grid-template-columns: repeat(10, 1fr);
+    gap: 4px;
+    background: #f0f0f0;
+    padding: 4px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+}
+.cell {
+    aspect-ratio: 1;
+    background: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: bold;
+    position: relative;
+    border-radius: 4px;
+}
+.cell:nth-child(even) {
+    background: #fafafa;
+}
+.cell.snake {
+    background: #ffccbc;
+}
+.cell.ladder {
+    background: #c8e6c9;
+}
+.tokens {
+    position: absolute;
+    display: flex;
+    gap: 2px;
+    bottom: 2px;
+}
+.cell-token {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+}
+#status {
+    text-align: center;
+    font-size: 16px;
+    color: #333;
+    font-weight: bold;
+}
+.snake-arrow {
+    color: #e64a19;
+    font-size: 10px;
+}
+.ladder-arrow {
+    color: #388e3c;
+    font-size: 10px;
+}
+@media (max-width: 500px) {
+    .cell {font-size: 10px;}
+    .container {padding: 15px;}
+    h1 {font-size: 20px;}
+}
+</style>
+</head>
+<body>
+<div class="container">
+    <h1>🎲 蛇梯棋 Snake & Ladder</h1>
+    <div class="game-info">
+        <div class="mode-select">
+            <button class="mode-btn active" id="aiMode" onclick="setMode('ai')">双人对战</button>
+            <button class="mode-btn" id="pvcMode" onclick="setMode('pvc')">vs AI</button>
+        </div>
+        <button onclick="resetGame()">重新开始</button>
+    </div>
+    <div class="players">
+        <div class="player player1 active" id="player1">
+            <span class="token token1"></span>
+            <span>玩家 1<br><span id="p1pos">1</span></span>
+        </div>
+        <div class="player player2" id="player2">
+            <span class="token token2"></span>
+            <span id="p2name">玩家 2<br><span id="p2pos">1</span></span>
+        </div>
+    </div>
+    <div class="dice-area">
+        <div id="dice">-</div>
+        <button id="rollBtn" onclick="rollDice()">掷骰子</button>
+    </div>
+    <div class="board" id="board"></div>
+    <div id="status">轮到玩家 1 走棋</div>
+</div>
+
+<script>
+const BOARD_SIZE = 10;
+let mode = 'ai';
+let currentPlayer = 1;
+let positions = {1: 1, 2: 1};
+let gameOver = false;
+
+// 蛇和梯子定义: 起点 -> 终点
+const snakes = {
+    16: 6, 24: 12, 34: 21, 47: 30, 52: 37,
+    63: 42, 71: 56, 79: 65, 92: 75, 98: 78
+};
+const ladders = {
+    2: 38, 7: 14, 8: 31, 15: 26, 21: 42,
+    28: 84, 36: 44, 51: 67, 71: 91, 78: 98
+};
+
+// 合并所有传送点
+const teleports = {...ladders, ...snakes};
+
+function createBoard() {
+    const board = document.getElementById('board');
+    board.innerHTML = '';
+    for (let row = 9; row >= 0; row--) {
+        for (let col = 0; col < 10; col++) {
+            const cellNum = row * 10 + (row % 2 === 0 ? col + 1 : 10 - col);
+            const cell = document.createElement('div');
+            cell.className = 'cell';
+            cell.id = `cell-${cellNum}`;
+            cell.textContent = cellNum;
+            if (snakes[cellNum]) {
+                cell.classList.add('snake');
+                cell.innerHTML += `<br><span class="snake-arrow">↓${snakes[cellNum]}</span>`;
+            } else if (ladders[cellNum]) {
+                cell.classList.add('ladder');
+                cell.innerHTML += `<br><span class="ladder-arrow">↑${ladders[cellNum]}</span>`;
+            }
+            board.appendChild(cell);
+        }
+    }
+    updateBoard();
+}
+
+function updateBoard() {
+    // Clear all tokens
+    document.querySelectorAll('.tokens').forEach(el => el.remove());
+    // Add tokens to current positions
+    for (let player of [1, 2]) {
+        const pos = positions[player];
+        const cell = document.getElementById(`cell-${pos}`);
+        let tokensContainer = cell.querySelector('.tokens');
+        if (!tokensContainer) {
+            tokensContainer = document.createElement('div');
+            tokensContainer.className = 'tokens';
+            cell.appendChild(tokensContainer);
+        }
+        const token = document.createElement('div');
+        token.className = `cell-token token${player}`;
+        tokensContainer.appendChild(token);
+    }
+    document.getElementById('p1pos').textContent = positions[1];
+    document.getElementById('p2pos').textContent = positions[2];
+}
+
+function setMode(newMode) {
+    mode = newMode;
+    document.getElementById('aiMode').classList.toggle('active', newMode === 'ai');
+    document.getElementById('pvcMode').classList.toggle('active', newMode === 'pvc');
+    document.getElementById('p2name').textContent = newMode === 'ai' ? '玩家 2' : 'AI';
+    resetGame();
+}
+
+function resetGame() {
+    currentPlayer = 1;
+    positions = {1: 1, 2: 1};
+    gameOver = false;
+    document.getElementById('dice').textContent = '-';
+    document.getElementById('player1').classList.add('active');
+    document.getElementById('player2').classList.remove('active');
+    document.getElementById('status').textContent = '轮到玩家 1 走棋';
+    document.getElementById('rollBtn').disabled = false;
+    createBoard();
+}
+
+function rollDice() {
+    if (gameOver) return;
+    const dice = Math.floor(Math.random() * 6) + 1;
+    const diceEl = document.getElementById('dice');
+    diceEl.textContent = dice;
+    diceEl.classList.remove('roll');
+    setTimeout(() => diceEl.classList.add('roll'), 10);
+
+    movePlayer(currentPlayer, dice);
+}
+
+function movePlayer(player, steps) {
+    let newPos = positions[player] + steps;
+    if (newPos > 100) newPos = 100 - (newPos - 100);
+    positions[player] = newPos;
+
+    // Check for teleport
+    if (teleports[newPos]) {
+        positions[player] = teleports[newPos];
+    }
+
+    updateBoard();
+
+    // Check win
+    if (positions[player] === 100) {
+        gameOver = true;
+        const winner = player === 1 ? '玩家 1' :
+            mode === 'ai' && player === 2 ? '玩家 2' : 'AI';
+        document.getElementById('status').textContent = `${winner} 获胜！🎉`;
+        document.getElementById('rollBtn').disabled = true;
+        return;
+    }
+
+    // Switch player
+    currentPlayer = currentPlayer === 1 ? 2 : 1;
+    document.getElementById('player1').classList.toggle('active');
+    document.getElementById('player2').classList.toggle('active');
+
+    const currentName = currentPlayer === 1 ? '玩家 1' :
+        mode === 'ai' && currentPlayer === 2 ? '玩家 2' : 'AI';
+    document.getElementById('status').textContent = `轮到 ${currentName} 走棋`;
+
+    // AI turn
+    if (mode === 'pvc' && currentPlayer === 2 && !gameOver) {
+        document.getElementById('rollBtn').disabled = true;
+        setTimeout(() => {
+            const aiDice = Math.floor(Math.random() * 6) + 1;
+            document.getElementById('dice').textContent = aiDice;
+            movePlayer(2, aiDice);
+            if (!gameOver) document.getElementById('rollBtn').disabled = false;
+        }, 800);
+    } else {
+        document.getElementById('rollBtn').disabled = false;
+    }
+}
+
+// Initialize
+createBoard();
+</script>
+</div>
+</body>
+</html>

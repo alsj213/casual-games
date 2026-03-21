@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>迷你填字游戏</title>
+<style>
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: Arial, sans-serif;
+  background: #f0f4f8;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  padding: 20px;
+}
+
+.container {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+  max-width: 600px;
+  width: 100%;
+}
+
+h1 {
+  text-align: center;
+  color: #2d3748;
+  margin-bottom: 20px;
+}
+
+.level-select {
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.level-btn {
+  padding: 8px 16px;
+  margin: 0 4px;
+  border: none;
+  border-radius: 6px;
+  background: #e2e8f0;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.level-btn.active {
+  background: #4299e1;
+  color: white;
+}
+
+.game-area {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.grid {
+  display: grid;
+  gap: 2px;
+  background: #2d3748;
+  border: 2px solid #2d3748;
+}
+
+.cell {
+  width: 40px;
+  height: 40px;
+  background: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.cell.black {
+  background: #2d3748;
+}
+
+.cell.selected {
+  background: #bee3f8;
+}
+
+.cell.highlight {
+  background: #c6f6d5;
+}
+
+.clues {
+  flex: 1;
+  min-width: 250px;
+}
+
+.clue-section {
+  margin-bottom: 16px;
+}
+
+.clue-section h3 {
+  color: #4a5568;
+  margin-bottom: 8px;
+  font-size: 16px;
+}
+
+.clue-item {
+  padding: 6px 8px;
+  margin: 4px 0;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.clue-item:hover {
+  background: #edf2f7;
+}
+
+.clue-item.active {
+  background: #bee3f8;
+}
+
+.clue-item.solved {
+  text-decoration: line-through;
+  color: #718096;
+}
+
+.message {
+  text-align: center;
+  font-size: 18px;
+  font-weight: bold;
+  margin-top: 16px;
+  color: #2f855a;
+  display: none;
+}
+
+.message.show {
+  display: block;
+}
+
+@media (max-width: 500px) {
+  .cell {
+    width: 32px;
+    height: 32px;
+    font-size: 16px;
+  }
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>迷你填字游戏</h1>
+  <div class="level-select">
+    <button class="level-btn active" data-level="1">关卡 1</button>
+    <button class="level-btn" data-level="2">关卡 2</button>
+    <button class="level-btn" data-level="3">关卡 3</button>
+  </div>
+  <div class="game-area">
+    <div class="grid" id="grid"></div>
+    <div class="clues">
+      <div class="clue-section">
+        <h3>横向</h3>
+        <div id="across-clues"></div>
+      </div>
+      <div class="clue-section">
+        <h3>纵向</h3>
+        <div id="down-clues"></div>
+      </div>
+    </div>
+  </div>
+  <div class="message" id="message"></div>
+</div>
+
+<script>
+const levels = [
+  {
+    size: 5,
+    words: [
+      { word: 'CAT', clue: '宠物，会捉老鼠', direction: 'across', row: 1, col: 0 },
+      { word: 'DOG', clue: '宠物，人类最好的朋友', direction: 'across', row: 3, col: 1 },
+      { word: 'CD', clue: '光盘，存储介质', direction: 'down', row: 1, col: 1 },
+      { word: 'AT', clue: '在...地点', direction: 'down', row: 1, col: 3 },
+    ]
+  },
+  {
+    size: 6,
+    words: [
+      { word: 'RED', clue: '颜色，代表热情', direction: 'across', row: 0, col: 0 },
+      { word: 'BLUE', clue: '颜色，天空的颜色', direction: 'across', row: 2, col: 1 },
+      { word: 'EGG', clue: '鸡蛋，早餐常见', direction: 'across', row: 4, col: 2 },
+      { word: 'RICE', clue: '米饭，主食', direction: 'down', row: 0, col: 1 },
+      { word: 'BEE', clue: '会采蜜的昆虫', direction: 'down', row: 2, col: 3 },
+    ]
+  },
+  {
+    size: 6,
+    words: [
+      { word: 'SUN', clue: '白天天空会发光', direction: 'across', row: 0, col: 1 },
+      { word: 'MOON', clue: '晚上天空会发光', direction: 'across', row: 2, col: 1 },
+      { word: 'STAR', clue: '夜晚天空的小点', direction: 'across', row: 4, col: 1 },
+      { word: 'SKY', clue: '我们头顶的蓝色', direction: 'down', row: 0, col: 3 },
+      { word: 'SEA', clue: '大片的蓝色水域', direction: 'down', row: 1, col: 2 },
+    ]
+  }
+];
+
+let currentLevel = 0;
+let selectedCell = null;
+let selectedDirection = 'across';
+const gridEl = document.getElementById('grid');
+const acrossCluesEl = document.getElementById('across-clues');
+const downCluesEl = document.getElementById('down-clues');
+const messageEl = document.getElementById('message');
+
+function createGrid(levelIndex) {
+  const level = levels[levelIndex];
+  const size = level.size;
+  gridEl.style.gridTemplateColumns = `repeat(${size}, 1fr)`;
+  gridEl.innerHTML = '';
+
+  const grid = Array(size).fill().map(() => Array(size).fill(null));
+  
+  level.words.forEach(word => {
+    let r = word.row;
+    let c = word.col;
+    for (let i = 0; i < word.word.length; i++) {
+      if (word.direction === 'across') {
+        grid[r][c] = grid[r][c] || '';
+        c++;
+      } else {
+        grid[r][c] = grid[r][c] || '';
+        r++;
+      }
+    }
+  });
+
+  for (let r = 0; r < size; r++) {
+    for (let c = 0; c < size; c++) {
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      if (grid[r][c] === null) {
+        cell.classList.add('black');
+      } else {
+        cell.dataset.row = r;
+        cell.dataset.col = c;
+        cell.textContent = grid[r][c];
+        cell.addEventListener('click', () => selectCell(r, c));
+      }
+      gridEl.appendChild(cell);
+    }
+  }
+
+  renderClues(levelIndex);
+  checkWin(levelIndex);
+}
+
+function renderClues(levelIndex) {
+  const level = levels[levelIndex];
+  acrossCluesEl.innerHTML = '';
+  downCluesEl.innerHTML = '';
+
+  level.words.forEach((word, index) => {
+    const item = document.createElement('div');
+    item.className = 'clue-item';
+    item.textContent = `${index + 1}. ${word.clue} (${word.word.length}字母)`;
+    item.dataset.index = index;
+    item.addEventListener('click', () => {
+      selectedDirection = word.direction;
+      selectCell(word.row, word.col);
+      highlightClueCells(word);
+    });
+    if (isWordSolved(word, levelIndex)) {
+      item.classList.add('solved');
+    }
+    if (word.direction === 'across') {
+      acrossCluesEl.appendChild(item);
+    } else {
+      downCluesEl.appendChild(item);
+    }
+  });
+}
+
+function isWordSolved(word, levelIndex) {
+  const level = levels[levelIndex];
+  let r = word.row;
+  let c = word.col;
+  for (let i = 0; i < word.word.length; i++) {
+    const cell = getCell(r, c);
+    if (!cell || cell.textContent.toUpperCase() !== word.word[i]) {
+      return false;
+    }
+    if (word.direction === 'across') c++;
+    else r++;
+  }
+  return true;
+}
+
+function getCell(row, col) {
+  return gridEl.querySelector(`[data-row="${row}"][data-col="${col}"]`);
+}
+
+function selectCell(row, col) {
+  const cell = getCell(row, col);
+  if (!cell) return;
+
+  document.querySelectorAll('.cell').forEach(c => c.classList.remove('selected'));
+  selectedCell = { row, col };
+  cell.classList.add('selected');
+
+  if (selectedCell.row === row && selectedDirection === 'across') {
+    selectedDirection = 'across';
+  } else if (selectedCell.col === col && selectedDirection === 'down') {
+    selectedDirection = 'down';
+  } else {
+    selectedDirection = selectedDirection === 'across' ? 'down' : 'across';
+  }
+
+  highlightCurrentClue();
+}
+
+function highlightCurrentClue() {
+  document.querySelectorAll('.clue-item').forEach(item => item.classList.remove('active'));
+  document.querySelectorAll('.cell').forEach(c => c.classList.remove('highlight'));
+
+  if (!selectedCell) return;
+
+  const level = levels[currentLevel];
+  for (const word of level.words) {
+    let r = word.row;
+    let c = word.col;
+    let inWord = false;
+    for (let i = 0; i < word.word.length; i++) {
+      if (r === selectedCell.row && c === selectedCell.col) {
+        inWord = true;
+        break;
+      }
+      if (word.direction === 'across') c++;
+      else r++;
+    }
+    if (inWord && word.direction === selectedDirection) {
+      highlightClueCells(word);
+      const items = document.querySelectorAll('.clue-item');
+      items.forEach(item => {
+        if (parseInt(item.dataset.index) === level.words.indexOf(word)) {
+          item.classList.add('active');
+        }
+      });
+      break;
+    }
+  }
+}
+
+function highlightClueCells(word) {
+  let r = word.row;
+  let c = word.col;
+  for (let i = 0; i < word.word.length; i++) {
+    const cell = getCell(r, c);
+    if (cell) cell.classList.add('highlight');
+    if (word.direction === 'across') c++;
+    else r++;
+  }
+}
+
+document.addEventListener('keydown', e => {
+  if (!selectedCell) return;
+  const key = e.key.toUpperCase();
+  if (key.length === 1 && /[A-Z]/.test(key)) {
+    fillCell(selectedCell.row, selectedCell.col, key);
+    moveNext();
+  } else if (e.key === 'Backspace') {
+    fillCell(selectedCell.row, selectedCell.col, '');
+    movePrev();
+  }
+  renderClues(currentLevel);
+  if (checkWin(currentLevel)) {
+    messageEl.textContent = `🎉 恭喜！你完成了关卡 ${currentLevel + 1}！`;
+    messageEl.classList.add('show');
+  } else {
+    messageEl.classList.remove('show');
+  }
+});
+
+function fillCell(row, col, value) {
+  const cell = getCell(row, col);
+  if (cell) cell.textContent = value;
+}
+
+function moveNext() {
+  let r = selectedCell.row;
+  let c = selectedCell.col;
+  const level = levels[currentLevel];
+  if (selectedDirection === 'across') {
+    c++;
+    if (c >= level.size || !getCell(r, c)) return;
+  } else {
+    r++;
+    if (r >= level.size || !getCell(r, c)) return;
+  }
+  selectCell(r, c);
+}
+
+function movePrev() {
+  let r = selectedCell.row;
+  let c = selectedCell.col;
+  if (selectedDirection === 'across') {
+    c--;
+    if (c < 0 || !getCell(r, c)) return;
+  } else {
+    r--;
+    if (r < 0 || !getCell(r, c)) return;
+  }
+  selectCell(r, c);
+}
+
+function checkWin(levelIndex) {
+  const level = levels[levelIndex];
+  return level.words.every(word => isWordSolved(word, levelIndex));
+}
+
+document.querySelectorAll('.level-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.level-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentLevel = parseInt(btn.dataset.level) - 1;
+    messageEl.classList.remove('show');
+    createGrid(currentLevel);
+    selectedCell = null;
+  });
+});
+
+createGrid(0);
+</script>
+</body>
+</html>

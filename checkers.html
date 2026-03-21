@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>西洋跳棋 Checkers</title>
+<style>
+* {box-sizing: border-box; margin: 0; padding: 0;}
+body {display: flex; flex-direction: column; align-items: center; background: #1a1a2e; color: #fff; font-family: Arial, sans-serif; padding: 20px;}
+h1 {margin-bottom: 20px;}
+#board {display: grid; grid-template-columns: repeat(8, 60px); grid-template-rows: repeat(8, 60px); gap: 0; border: 4px solid #fff;}
+.square {width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; cursor: pointer;}
+.light {background: #f0d9b5;}
+.dark {background: #b58863;}
+.piece {width: 50px; height: 50px; border-radius: 50%; border: 2px solid currentColor; position: relative;}
+.black {color: #000; background: #000; box-shadow: inset -5px -5px 10px rgba(255,255,255,0.2), inset 5px 5px 10px rgba(0,0,0,0.8);}
+.red {color: #e74c3c; background: #e74c3c; box-shadow: inset -5px -5px 10px rgba(255,255,255,0.2), inset 5px 5px 10px rgba(0,0,0,0.8);}
+.king::after {content: '👑'; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 24px;}
+.selected {box-shadow: 0 0 0 3px #f1c40f inset;}
+.valid::after {content: ''; width: 15px; height: 15px; background: rgba(46, 204, 113, 0.6); border-radius: 50%;}
+#controls {margin-top: 20px; display: flex; gap: 10px;}
+button {padding: 10px 20px; font-size: 16px; cursor: pointer; background: #3498db; border: none; border-radius: 5px; color: #fff;}
+button:hover {background: #2980b9;}
+#status {margin-top: 15px; font-size: 18px;}
+</style>
+</head>
+<body>
+<h1>西洋跳棋</h1>
+<div id="board"></div>
+<div id="controls">
+  <button id="newGame">新游戏</button>
+  <button id="aiMode">双人对战 / AI对战</button>
+</div>
+<div id="status">轮到黑方走棋</div>
+
+<script>
+const BOARD_SIZE = 8;
+let board = [];
+let currentPlayer = 'black';
+let selected = null;
+let gameOver = false;
+let aiMode = false;
+let aiPlayer = 'red';
+
+const boardEl = document.getElementById('board');
+const statusEl = document.getElementById('status');
+const aiModeBtn = document.getElementById('aiMode');
+const newGameBtn = document.getElementById('newGame');
+
+function initBoard() {
+  board = Array(BOARD_SIZE).fill().map(() => Array(BOARD_SIZE).fill(null));
+  for (let r = 0; r < 3; r++) {
+    for (let c = 0; c < BOARD_SIZE; c++) {
+      if ((r + c) % 2 === 1) board[r][c] = {color: 'red', king: false};
+    }
+  }
+  for (let r = 5; r < 8; r++) {
+    for (let c = 0; c < BOARD_SIZE; c++) {
+      if ((r + c) % 2 === 1) board[r][c] = {color: 'black', king: false};
+    }
+  }
+  currentPlayer = 'black';
+  selected = null;
+  gameOver = false;
+  render();
+  updateStatus();
+}
+
+function render() {
+  boardEl.innerHTML = '';
+  for (let r = 0; r < BOARD_SIZE; r++) {
+    for (let c = 0; c < BOARD_SIZE; c++) {
+      const square = document.createElement('div');
+      square.className = 'square ' + ((r + c) % 2 === 0 ? 'light' : 'dark');
+      square.dataset.r = r; square.dataset.c = c;
+      if (board[r][c]) {
+        const piece = document.createElement('div');
+        piece.className = 'piece ' + board[r][c].color + (board[r][c].king ? ' king' : '');
+        square.appendChild(piece);
+      }
+      if (selected && selected.r === r && selected.c === c) {
+        square.classList.add('selected');
+        const moves = getValidMoves(r, c);
+        moves.forEach(([nr, nc]) => {
+          document.querySelector(`[data-r="${nr}"][data-c="${nc}"]`).classList.add('valid');
+        });
+      }
+      square.addEventListener('click', () => handleClick(r, c));
+      boardEl.appendChild(square);
+    }
+  }
+}
+
+function handleClick(r, c) {
+  if (gameOver) return;
+  if (board[r][c] && board[r][c].color === currentPlayer) {
+    selected = {r, c};
+    render();
+    return;
+  }
+  if (!selected || !isValidMove(selected.r, selected.c, r, c)) {
+    if (board[r][c] && board[r][c].color === currentPlayer) {
+      selected = {r, c};
+    } else {
+      selected = null;
+    }
+    render();
+    return;
+  }
+  move(selected.r, selected.c, r, c);
+  selected = null;
+  render();
+  checkGameOver();
+  if (!gameOver && aiMode && currentPlayer === aiPlayer) {
+    setTimeout(aiMove, 300);
+  }
+}
+
+function isValidMove(fromR, fromC, toR, toC) {
+  if (board[toR][toC] !== null) return false;
+  const piece = board[fromR][fromC];
+  const dr = toR - fromR;
+  const dc = Math.abs(toC - fromC);
+  if (dc !== Math.abs(dr)) return false;
+  if (!piece.king) {
+    if (piece.color === 'black' && dr > 0) return false;
+    if (piece.color === 'red' && dr < 0) return false;
+  }
+  if (Math.abs(dr) === 1) return true;
+  if (Math.abs(dr) === 2) {
+    const jumpR = fromR + dr / 2;
+    const jumpC = fromC + (toC - fromC) / 2;
+    const jumped = board[jumpR][jumpC];
+    return jumped && jumped.color !== piece.color;
+  }
+  return false;
+}
+
+function getValidMoves(r, c) {
+  const moves = [];
+  const piece = board[r][c];
+  const dirs = piece.king ? [[-1,-1], [-1,1], [1,-1], [1,1]] :
+    piece.color === 'black' ? [[-1,-1], [-1,1]] : [[1,-1], [1,1]];
+  for (const [dr, dc] of dirs) {
+    const nr = r + dr, nc = c + dc;
+    if (nr < 0 || nr >= 8 || nc < 0 || nc >= 8) continue;
+    if (isValidMove(r, c, nr, nc)) moves.push([nr, nc]);
+  }
+  for (const [dr, dc] of dirs) {
+    const nr = r + dr * 2, nc = c + dc * 2;
+    if (nr < 0 || nr >= 8 || nc < 0 || nc >= 8) continue;
+    if (isValidMove(r, c, nr, nc)) moves.push([nr, nc]);
+  }
+  return moves;
+}
+
+function hasJumps(color) {
+  for (let r = 0; r < 8; r++) {
+    for (let c = 0; c < 8; c++) {
+      if (board[r][c] && board[r][c].color === color) {
+        const moves = getValidMoves(r, c);
+        for (const [nr, nc] of moves) {
+          if (Math.abs(nr - r) === 2) return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+
+function move(fromR, fromC, toR, toC) {
+  const piece = board[fromR][fromC];
+  board[toR][toC] = piece;
+  board[fromR][fromC] = null;
+  if ((piece.color === 'black' && toR === 0) || (piece.color === 'red' && toR === 7)) {
+    piece.king = true;
+  }
+  if (Math.abs(toR - fromR) === 2) {
+    const jumpR = (fromR + toR) / 2;
+    const jumpC = (fromC + toC) / 2;
+    board[jumpR][jumpC] = null;
+  }
+  currentPlayer = currentPlayer === 'black' ? 'red' : 'black';
+}
+
+function checkGameOver() {
+  let blackCount = 0, redCount = 0;
+  let blackHasMove = false, redHasMove = false;
+  for (let r = 0; r < 8; r++) {
+    for (let c = 0; c < 8; c++) {
+      if (board[r][c]) {
+        if (board[r][c].color === 'black') {
+          blackCount++;
+          if (getValidMoves(r, c).length > 0) blackHasMove = true;
+        } else {
+          redCount++;
+          if (getValidMoves(r, c).length > 0) redHasMove = true;
+        }
+      }
+    }
+  }
+  if (blackCount === 0 || (!blackHasMove && currentPlayer === 'black')) {
+    gameOver = true;
+    statusEl.textContent = '游戏结束，红方获胜！';
+  } else if (redCount === 0 || (!redHasMove && currentPlayer === 'red')) {
+    gameOver = true;
+    statusEl.textContent = '游戏结束，黑方获胜！';
+  }
+  return gameOver;
+}
+
+function updateStatus() {
+  if (gameOver) return;
+  statusEl.textContent = `轮到${currentPlayer === 'black' ? '黑' : '红'}方走棋`;
+}
+
+function aiMove() {
+  const jumps = [];
+  const normal = [];
+  for (let r = 0; r < 8; r++) {
+    for (let c = 0; c < 8; c++) {
+      if (board[r][c] && board[r][c].color === aiPlayer) {
+        const moves = getValidMoves(r, c);
+        moves.forEach(([nr, nc]) => {
+          if (Math.abs(nr - r) === 2) jumps.push({from: [r, c], to: [nr, nc]});
+          else normal.push({from: [r, c], to: [nr, nc]});
+        });
+      }
+    }
+  }
+  const allMoves = jumps.length > 0 ? jumps : normal;
+  const move = allMoves[Math.floor(Math.random() * allMoves.length)];
+  if (move) {
+    move(move.from[0], move.from[1], move.to[0], move.to[1]);
+    render();
+    checkGameOver();
+  }
+}
+
+newGameBtn.addEventListener('click', initBoard);
+aiModeBtn.addEventListener('click', () => {
+  aiMode = !aiMode;
+  aiModeBtn.textContent = aiMode ? '切换为双人对战' : '切换为AI对战';
+  initBoard();
+});
+
+initBoard();
+</script>
+</body>
+</html>
