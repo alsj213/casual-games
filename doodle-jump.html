@@ -130,7 +130,9 @@ function initGame() {
     y: canvas.height - 30,
     width: 80,
     height: 15,
-    type: 0
+    type: 0,
+    broken: false,
+    scored: false
   });
   
   // 生成更多平台
@@ -160,7 +162,8 @@ function generatePlatform() {
     type: platformType,
     dir: Math.random() > 0.5 ? 1 : -1,
     speed: 1 + Math.random() * 2,
-    broken: false
+    broken: false,
+    scored: false
   };
   
   // 10%概率生成敌人
@@ -202,9 +205,10 @@ function updatePlayer() {
           player.velY = JUMP_FORCE * 1.8;
         }
         
-        // 加分
-        if (platform.y < -cameraY) {
+        // 加分 - 只加一次
+        if (platform.y < -cameraY && !platform.scored) {
           score += platform.type === 3 ? 3 : platform.type === 2 ? 2 : 1;
+          platform.scored = true;
           updateScore();
         }
       }
@@ -243,6 +247,9 @@ function updatePlayer() {
   
   // 移除掉出屏幕的平台
   platforms = platforms.filter(p => p.y < canvas.height + cameraY);
+  
+  // 移除掉出屏幕的敌人
+  enemies = enemies.filter(e => e.y < canvas.height + cameraY);
   
   // 掉落死亡检测
   if (player.y - cameraY > canvas.height) {
