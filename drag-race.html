@@ -117,6 +117,7 @@ car.speed=Math.max(0,Math.min(car.maxSpeed,car.speed));
 car.finish+=car.speed;
 car.gear=Math.floor(car.speed/3)+1;
 car.rpm=(car.speed%3)*33;
+if (typeof car.finishDone === 'undefined') car.finishDone = false;
 if(car.finish>=finishLine&&!car.finishDone){
 car.finishDone=true;
 car.finishTime=60-gameTime;
@@ -132,7 +133,6 @@ document.getElementById('gear').textContent=player.gear;
 function checkEnd(){
 if(player.finish>=finishLine||gameTime<=0){
 gameRunning=false;
-clearInterval(timerInterval);
 const result=player.finish>=finishLine?`🎉 你赢了！用时 ${(60-gameTime).toFixed(1)}秒`:'⏰ 时间到！';
 alert(result+(opponents.filter(o=>o.finish>=finishLine).length>0?'\n\nAI 对手已到达终点！':''));
 }
@@ -153,11 +153,10 @@ requestAnimationFrame(gameLoop);
 }
 function startGame(){
 if(gameRunning)return;
-player={x:400,y:450,w:40,h:60,speed:0,sx:0,maxSpeed:12,gear:1,rpm:0,combo:0,comboTimer:0,color:'#ff6b6b',finish:0};
-opponents.forEach(op=>{op.x=canvas.width/2-roadW/2+50+opponents.indexOf(op)*150;op.speed=0;op.finish=0;op.finishDone=false});
+player={x:400,y:450,w:40,h:60,speed:0,sx:0,maxSpeed:12,gear:1,rpm:0,combo:0,comboTimer:0,color:'#ff6b6b',finish:0, finishDone: false};
+opponents.forEach(op=>{op.x=canvas.width/2-roadW/2+50+opponents.indexOf(op)*150;op.y=450;op.speed=0;op.finish=0;op.finishDone=false});
 gameTime=60;
 gameRunning=true;
-timerInterval=setInterval(()=>{gameTime-=0.1;if(gameTime<=0)gameRunning=false,clearInterval(timerInterval)},100);
 gameLoop();
 }
 </script>
