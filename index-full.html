@@ -59,3 +59,404 @@
     <!-- Main Content -->
     <main class="max-w-7xl mx-auto py-12 px-4">
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+            <!-- 1. 经典 2048 -->
+            <a href="2048-original.html" class="game-card block bg-white rounded-xl overflow-hidden shadow-lg">
+                <div class="aspect-video overflow-hidden bg-gray-100">
+                    <div class="game-preview w-full h-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center">
+                        <div class="text-white text-center">
+                            <span class="text-5xl mb-2 block">🎲</span>
+                            <span class="text-xl font-semibold">经典 2048</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-6">
+                    <h3 class="text-xl font-semibold text-gray-900 mb-2">经典 2048</h3>
+                    <p class="text-gray-600 text-sm mb-4">滑动方块相同数字合并，目标合成 2048。</p>
+                    <button class="btn-play w-full text-white py-3 px-4 rounded-lg font-medium">开始游戏</button>
+                </div>
+            </a>
+
+            <!-- 2. 躲避小行星 -->
+            <a href="asteroid-dodge.html" class="game-card block bg-white rounded-xl overflow-hidden shadow-lg">
+                <div class="aspect-video overflow-hidden bg-gray-100">
+                    <div class="game-preview w-full h-full bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center">
+                        <div class="text-white text-center">
+                            <span class="text-5xl mb-2 block">🚀</span>
+                            <span class="text-xl font-semibold">躲避小行星</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-6">
+                    <h3 class="text-xl font-semibold text-gray-900 mb-2">躲避小行星</h3>
+                    <p class="text-gray-600 text-sm mb-4">移动飞船躲避小行星，坚持越久得分越高。</p>
+                    <button class="btn-play w-full text-white py-3 px-4 rounded-lg font-medium">开始游戏</button>
+                </div>
+            </a>
+
+            <!-- 3. 天平配重 -->
+            <a href="balance-scale.html" class="game-card block bg-white rounded-xl overflow-hidden shadow-lg">
+                <div class="aspect-video overflow-hidden bg-gray-100">
+                    <div class="game-preview w-full h-full bg-gradient-to-br from-orange-400 to-amber-500 flex items-center justify-center">
+                        <div class="text-white text-center">
+                            <span class="text-5xl mb-2 block">⚖️</span>
+                            <span class="text-xl font-semibold">天平配重</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-6">
+                    <h3 class="text-xl font-semibold text-gray-900 mb-2">天平配重</h3>
+                    <p class="text-gray-600 text-sm mb-4">在天平两侧放置不同重量物品，使天平保持平衡。</p>
+                    <button class="btn-play w-full text-white py-3 px-4 rounded-lg font-medium">开始游戏</button>
+                </div>
+            </a>
+
+            <!-- 4. 套圈 -->
+            <a href="ball-hit-cups.html" class="game-card block bg-white rounded-xl overflow-hidden shadow-lg">
+                <div class="aspect-video overflow-hidden bg-gray-100">
+                    <div class="game-preview w-full h-full bg-gradient-to-br from-yellow-400 to-amber-500 flex items-center justify-center">
+                        <div class="text-white text-center">
+                            <span class="text-5xl mb-2 block">⭕</span>
+                            <span class="text-xl font-semibold">套圈</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-6">
+                    <h3 class="text-xl font-semibold text-gray-900 mb-2">套圈</h3>
+                    <p class="text-gray-600 text-sm mb-4">蓄力投掷小球落入杯子得分，不同杯子分值不同。</p>
+                    <button class="btn-play w-full text-white py-3 px-4 rounded-lg font-medium">开始游戏</button>
+                </div>
+            </a>
+
+            <!-- 5. 21点纸牌 -->
+            <a href="blackjack.html" class="game-card block bg-white rounded-xl overflow-hidden shadow-lg">
+                <div class="aspect-video overflow-hidden bg-gray-100">
+                    <div class="game-preview w-full h-full bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center">
+                        <div class="text-white text-center">
+                            <span class="text-5xl mb-2 block">🃏</span>
+                            <span class="text-xl font-semibold">21点纸牌</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-6">
+                    <h3 class="text-xl font-semibold text-gray-900 mb-2">21点纸牌</h3>
+                    <p class="text-gray-600 text-sm mb-4">经典二十一点，不超过21点比大小，对战庄家。</p>
+                    <button class="btn-play w-full text-white py-3 px-4 rounded-lg font-medium">开始游戏</button>
+                </div>
+            </a>
+
+            <!-- 6. 打砖块 -->
+            <a href="breakout.html" class="game-card block bg-white rounded-xl overflow-hidden shadow-lg">
+                <div class="aspect-video overflow-hidden bg-gray-100">
+                    <div class="game-preview w-full h-full bg-gradient-to-br from-orange-400 to-red-500 flex items-center justify-center">
+                        <div class="text-white text-center">
+                            <span class="text-5xl mb-2 block">🧱</span>
+                            <span class="text-xl font-semibold">打砖块</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-6">
+                    <h3 class="text-xl font-semibold text-gray-900 mb-2">打砖块</h3>
+                    <p class="text-gray-600 text-sm mb-4">用挡板反弹小球击碎所有砖块，经典街机游戏。</p>
+                    <button class="btn-play w-full text-white py-3 px-4 rounded-lg font-medium">开始游戏</button>
+                </div>
+            </a>
+
+            <!-- 7. 气球爆破 -->
+            <a href="bubble-pop.html" class="game-card block bg-white rounded-xl overflow-hidden shadow-lg">
+                <div class="aspect-video overflow-hidden bg-gray-100">
+                    <div class="game-preview w-full h-full bg-gradient-to-br from-cyan-300 to-cyan-500 flex items-center justify-center">
+                        <div class="text-white text-center">
+                            <span class="text-5xl mb-2 block">🎈</span>
+                            <span class="text-xl font-semibold">气球爆破</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-6">
+                    <h3 class="text-xl font-semibold text-gray-900 mb-2">气球爆破</h3>
+                    <p class="text-gray-600 text-sm mb-4">点击飞起的气球爆破，考验你的反应速度。</p>
+                    <button class="btn-play w-full text-white py-3 px-4 rounded-lg font-medium">开始游戏</button>
+                </div>
+            </a>
+
+            <!-- 8. 泡泡龙射击 -->
+            <a href="bubble-shooter.html" class="game-card block bg-white rounded-xl overflow-hidden shadow-lg">
+                <div class="aspect-video overflow-hidden bg-gray-100">
+                    <div class="game-preview w-full h-full bg-gradient-to-br from-pink-300 to-pink-500 flex items-center justify-center">
+                        <div class="text-white text-center">
+                            <span class="text-5xl mb-2 block">🫧</span>
+                            <span class="text-xl font-semibold">泡泡龙射击</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-6">
+                    <h3 class="text-xl font-semibold text-gray-900 mb-2">泡泡龙射击</h3>
+                    <p class="text-gray-600 text-sm mb-4">发射泡泡三个相同消除，经典街机游戏。</p>
+                    <button class="btn-play w-full text-white py-3 px-4 rounded-lg font-medium">开始游戏</button>
+                </div>
+            </a>
+
+            <!-- 9. 简易赛车 -->
+            <a href="car-racing.html" class="game-card block bg-white rounded-xl overflow-hidden shadow-lg">
+                <div class="aspect-video overflow-hidden bg-gray-100">
+                    <div class="game-preview w-full h-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
+                        <div class="text-white text-center">
+                            <span class="text-5xl mb-2 block">🏎️</span>
+                            <span class="text-xl font-semibold">简易赛车</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-6">
+                    <h3 class="text-xl font-semibold text-gray-900 mb-2">简易赛车</h3>
+                    <p class="text-gray-600 text-sm mb-4">车道上躲避其他车辆，行驶越远得分越高。</p>
+                    <button class="btn-play w-full text-white py-3 px-4 rounded-lg font-medium">开始游戏</button>
+                </div>
+            </a>
+
+            <!-- 10. 西洋跳棋 -->
+            <a href="checkers.html" class="game-card block bg-white rounded-xl overflow-hidden shadow-lg">
+                <div class="aspect-video overflow-hidden bg-gray-100">
+                    <div class="game-preview w-full h-full bg-gradient-to-br from-slate-500 to-slate-700 flex items-center justify-center">
+                        <div class="text-white text-center">
+                            <span class="text-5xl mb-2 block">♟️</span>
+                            <span class="text-xl font-semibold">西洋跳棋</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-6">
+                    <h3 class="text-xl font-semibold text-gray-900 mb-2">西洋跳棋</h3>
+                    <p class="text-gray-600 text-sm mb-4">8x8棋盘对角线移动，跳过对方吃掉，吃光获胜。</p>
+                    <button class="btn-play w-full text-white py-3 px-4 rounded-lg font-medium">开始游戏</button>
+                </div>
+            </a>
+
+            <!-- 11. 颜色记忆 -->
+            <a href="color-memory.html" class="game-card block bg-white rounded-xl overflow-hidden shadow-lg">
+                <div class="aspect-video overflow-hidden bg-gray-100">
+                    <div class="game-preview w-full h-full bg-gradient-to-br from-purple-400 to-pink-500 flex items-center justify-center">
+                        <div class="text-white text-center">
+                            <span class="text-5xl mb-2 block">🌈</span>
+                            <span class="text-xl font-semibold">颜色记忆</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-6">
+                    <h3 class="text-xl font-semibold text-gray-900 mb-2">颜色记忆</h3>
+                    <p class="text-gray-600 text-sm mb-4">记住颜色出现顺序，依次点击重复序列，挑战记忆力。</p>
+                    <button class="btn-play w-full text-white py-3 px-4 rounded-lg font-medium">开始游戏</button>
+                </div>
+            </a>
+
+            <!-- 12. 颜色切换 -->
+            <a href="color-switch.html" class="game-card block bg-white rounded-xl overflow-hidden shadow-lg">
+                <div class="aspect-video overflow-hidden bg-gray-100">
+                    <div class="game-preview w-full h-full bg-gradient-to-br from-yellow-300 to-indigo-500 flex items-center justify-center">
+                        <div class="text-white text-center">
+                            <span class="text-5xl mb-2 block">🎨</span>
+                            <span class="text-xl font-semibold">颜色切换</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-6">
+                    <h3 class="text-xl font-semibold text-gray-900 mb-2">颜色切换</h3>
+                    <p class="text-gray-600 text-sm mb-4">跳跃前进，小球必须穿过对应颜色的障碍。</p>
+                    <button class="btn-play w-full text-white py-3 px-4 rounded-lg font-medium">开始游戏</button>
+                </div>
+            </a>
+
+            <!-- 13. 连线点点 -->
+            <a href="connect-dots.html" class="game-card block bg-white rounded-xl overflow-hidden shadow-lg">
+                <div class="aspect-video overflow-hidden bg-gray-100">
+                    <div class="game-preview w-full h-full bg-gradient-to-br from-violet-400 to-purple-500 flex items-center justify-center">
+                        <div class="text-white text-center">
+                            <span class="text-5xl mb-2 block">🔗</span>
+                            <span class="text-xl font-semibold">连线点点</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-6">
+                    <h3 class="text-xl font-semibold text-gray-900 mb-2">连线点点</h3>
+                    <p class="text-gray-600 text-sm mb-4">按顺序连接所有点，完成图案。</p>
+                    <button class="btn-play w-full text-white py-3 px-4 rounded-lg font-medium">开始游戏</button>
+                </div>
+            </a>
+
+            <!-- 14. 填字游戏 -->
+            <a href="crossword.html" class="game-card block bg-white rounded-xl overflow-hidden shadow-lg">
+                <div class="aspect-video overflow-hidden bg-gray-100">
+                    <div class="game-preview w-full h-full bg-gradient-to-br from-blue-400 to-indigo-600 flex items-center justify-center">
+                        <div class="text-white text-center">
+                            <span class="text-5xl mb-2 block">🔤</span>
+                            <span class="text-xl font-semibold">填字游戏</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-6">
+                    <h3 class="text-xl font-semibold text-gray-900 mb-2">填字游戏</h3>
+                    <p class="text-gray-600 text-sm mb-4">根据提示填写横竖单词，经典益智游戏。</p>
+                    <button class="btn-play w-full text-white py-3 px-4 rounded-lg font-medium">开始游戏</button>
+                </div>
+            </a>
+
+            <!-- 15. 飞镖接力 -->
+            <a href="dart-dash.html" class="game-card block bg-white rounded-xl overflow-hidden shadow-lg">
+                <div class="aspect-video overflow-hidden bg-gray-100">
+                    <div class="game-preview w-full h-full bg-gradient-to-br from-red-400 to-red-600 flex items-center justify-center">
+                        <div class="text-white text-center">
+                            <span class="text-5xl mb-2 block">🎯</span>
+                            <span class="text-xl font-semibold">飞镖接力</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-6">
+                    <h3 class="text-xl font-semibold text-gray-900 mb-2">飞镖接力</h3>
+                    <p class="text-gray-600 text-sm mb-4">投掷飞镖击中靶心，精准得分挑战。</p>
+                    <button class="btn-play w-full text-white py-3 px-4 rounded-lg font-medium">开始游戏</button>
+                </div>
+            </a>
+
+            <!-- 16. 涂鸦跳跃 -->
+            <a href="doodle-jump.html" class="game-card block bg-white rounded-xl overflow-hidden shadow-lg">
+                <div class="aspect-video overflow-hidden bg-gray-100">
+                    <div class="game-preview w-full h-full bg-gradient-to-br from-green-400 to-blue-500 flex items-center justify-center">
+                        <div class="text-white text-center">
+                            <span class="text-5xl mb-2 block">🪂</span>
+                            <span class="text-xl font-semibold">涂鸦跳跃</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-6">
+                    <h3 class="text-xl font-semibold text-gray-900 mb-2">涂鸦跳跃</h3>
+                    <p class="text-gray-600 text-sm mb-4">不断向上跳跃，踩破敌人获得高分。</p>
+                    <button class="btn-play w-full text-white py-3 px-4 rounded-lg font-medium">开始游戏</button>
+                </div>
+            </a>
+
+            <!-- 17. 拖拽赛车 -->
+            <a href="drag-race.html" class="game-card block bg-white rounded-xl overflow-hidden shadow-lg">
+                <div class="aspect-video overflow-hidden bg-gray-100">
+                    <div class="game-preview w-full h-full bg-gradient-to-br from-orange-400 to-red-500 flex items-center justify-center">
+                        <div class="text-white text-center">
+                            <span class="text-5xl mb-2 block">🏎️</span>
+                            <span class="text-xl font-semibold">拖拽赛车</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-6">
+                    <h3 class="text-xl font-semibold text-gray-900 mb-2">拖拽赛车</h3>
+                    <p class="text-gray-600 text-sm mb-4">持续按键加速，谁先到达终点获胜。</p>
+                    <button class="btn-play w-full text-white py-3 px-4 rounded-lg font-medium">开始游戏</button>
+                </div>
+            </a>
+
+            <!-- 18. 消除方块 -->
+            <a href="falling-blocks.html" class="game-card block bg-white rounded-xl overflow-hidden shadow-lg">
+                <div class="aspect-video overflow-hidden bg-gray-100">
+                    <div class="game-preview w-full h-full bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center">
+                        <div class="text-white text-center">
+                            <span class="text-5xl mb-2 block">🧱</span>
+                            <span class="text-xl font-semibold">消除方块</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-6">
+                    <h3 class="text-xl font-semibold text-gray-900 mb-2">消除方块</h3>
+                    <p class="text-gray-600 text-sm mb-4">相同颜色三个消除，俄罗斯方块变种。</p>
+                    <button class="btn-play w-full text-white py-3 px-4 rounded-lg font-medium">开始游戏</button>
+                </div>
+            </a>
+
+            <!-- 19. 垂钓之旅 -->
+            <a href="fishing-voyage.html" class="game-card block bg-white rounded-xl overflow-hidden shadow-lg">
+                <div class="aspect-video overflow-hidden bg-gray-100">
+                    <div class="game-preview w-full h-full bg-gradient-to-br from-blue-400 to-green-600 flex items-center justify-center">
+                        <div class="text-white text-center">
+                            <span class="text-5xl mb-2 block">🎣</span>
+                            <span class="text-xl font-semibold">垂钓之旅</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-6">
+                    <h3 class="text-xl font-semibold text-gray-900 mb-2">垂钓之旅</h3>
+                    <p class="text-gray-600 text-sm mb-4">抛钩钓鱼，不同鱼类分值不同。</p>
+                    <button class="btn-play w-full text-white py-3 px-4 rounded-lg font-medium">开始游戏</button>
+                </div>
+            </a>
+
+            <!-- 20. 飞翔小鸟 -->
+            <a href="flappy-bird.html" class="game-card block bg-white rounded-xl overflow-hidden shadow-lg">
+                <div class="aspect-video overflow-hidden bg-gray-100">
+                    <div class="game-preview w-full h-full bg-gradient-to-br from-green-400 to-cyan-500 flex items-center justify-center">
+                        <div class="text-white text-center">
+                            <span class="text-5xl mb-2 block">🐦</span>
+                            <span class="text-xl font-semibold">飞翔小鸟</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-6">
+                    <h3 class="text-xl font-semibold text-gray-900 mb-2">飞翔小鸟</h3>
+                    <p class="text-gray-600 text-sm mb-4">点击飞翔穿过管道，经典虐心游戏。</p>
+                    <button class="btn-play w-full text-white py-3 px-4 rounded-lg font-medium">开始游戏</button>
+                </div>
+            </a>
+
+            <!-- 21. 六边形 2048 -->
+            <a href="hex-2048.html" class="game-card block bg-white rounded-xl overflow-hidden shadow-lg">
+                <div class="aspect-video overflow-hidden bg-gray-100">
+                    <div class="game-preview w-full h-full bg-gradient-to-br from-purple-400 to-pink-500 flex items-center justify-center">
+                        <div class="text-white text-center">
+                            <span class="text-5xl mb-2 block">⬡</span>
+                            <span class="text-xl font-semibold">六边形 2048</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-6">
+                    <h3 class="text-xl font-semibold text-gray-900 mb-2">六边形 2048</h3>
+                    <p class="text-gray-600 text-sm mb-4">六边形网格上的 2048，六方向滑动合并。</p>
+                    <button class="btn-play w-full text-white py-3 px-4 rounded-lg font-medium">开始游戏</button>
+                </div>
+            </a>
+
+            <!-- 25. 拼图游戏 -->
+            <a href="jigsaw-puzzle.html" class="game-card block bg-white rounded-xl overflow-hidden shadow-lg">
+                <div class="aspect-video overflow-hidden bg-gray-100">
+                    <div class="game-preview w-full h-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center">
+                        <div class="text-white text-center">
+                            <span class="text-5xl mb-2 block">🧩</span>
+                            <span class="text-xl font-semibold">拼图游戏</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-6">
+                    <h3 class="text-xl font-semibold text-gray-900 mb-2">拼图游戏</h3>
+                    <p class="text-gray-600 text-sm mb-4">拖动拼块复原完整图片，休闲益智。</p>
+                    <button class="btn-play w-full text-white py-3 px-4 rounded-lg font-medium">开始游戏</button>
+                </div>
+            </a>
+
+            <!-- 26. 光线反射 -->
+            <a href="light-reflection.html" class="game-card block bg-white rounded-xl overflow-hidden shadow-lg">
+                <div class="aspect-video overflow-hidden bg-gray-100">
+                    <div class="game-preview w-full h-full bg-gradient-to-br from-yellow-200 to-yellow-500 flex items-center justify-center">
+                        <div class="text-white text-center">
+                            <span class="text-5xl mb-2 block">💡</span>
+                            <span class="text-xl font-semibold">光线反射</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-6">
+                    <h3 class="text-xl font-semibold text-gray-900 mb-2">光线反射</h3>
+                    <p class="text-gray-600 text-sm mb-4">旋转镜子让光线折射到终点，解谜游戏。</p>
+                    <button class="btn-play w-full text-white py-3 px-4 rounded-lg font-medium">开始游戏</button>
+                </div>
+            </a>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-gray-100 py-8 px-4 mt-12">
+        <div class="max-w-7xl mx-auto text-center text-gray-500">
+            <p>50个纯HTML/JavaScript小游戏集合 - 开源项目</p>
+        </div>
+    </footer>
+</body>
+</html>
