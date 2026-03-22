@@ -120,8 +120,14 @@
             ctx.fillRect(pipe.x - 5, pipe.topHeight - 30, pipeWidth + 10, 30);
             // 下管道
             const bottomY = pipe.topHeight + pipeGap;
+            const gradient2 = ctx.createLinearGradient(pipe.x, bottomY, pipe.x + pipeWidth, bottomY);
+            gradient2.addColorStop(0, '#73BF2E');
+            gradient2.addColorStop(0.5, '#8BC34A');
+            gradient2.addColorStop(1, '#73BF2E');
+            ctx.fillStyle = gradient2;
             ctx.fillRect(pipe.x, bottomY, pipeWidth, canvas.height - bottomY);
             // 管道帽(底部)
+            ctx.fillStyle = gradient2;
             ctx.fillRect(pipe.x - 5, bottomY, pipeWidth + 10, 30);
             // 边框
             ctx.strokeStyle = '#558B2F';
