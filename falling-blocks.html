@@ -65,7 +65,7 @@
                 group.push({
                     color: COLORS[Math.floor(Math.random() * COLORS.length)],
                     relX: 0,
-                    relY: -i
+                    relY: i - 2
                 });
             }
             return group;
@@ -129,11 +129,28 @@
                     }
                 }
             }
+            let eliminated = false;
             for (let color in colors) {
                 if (colors[color].length >= 3) {
                     score += colors[color].length * 10;
                     for (let pos of colors[color]) {
                         grid[pos.r][pos.c] = null;
+                    }
+                    eliminated = true;
+                }
+            }
+            // 如果有消除，让所有方块下落填补空位
+            if (eliminated) {
+                for (let c = 0; c < COLS; c++) {
+                    let writePos = ROWS - 1;
+                    for (let r = ROWS - 1; r >= 0; r--) {
+                        if (grid[r][c] !== null) {
+                            if (writePos !== r) {
+                                grid[writePos][c] = grid[r][c];
+                                grid[r][c] = null;
+                            }
+                            writePos--;
+                        }
                     }
                 }
             }
