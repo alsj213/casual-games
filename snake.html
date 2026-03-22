@@ -257,15 +257,13 @@
                 ctx.shadowColor = '#00ff88';
                 ctx.shadowBlur = index === 0 ? 15 : 5;
                 
-                ctx.beginPath();
-                ctx.roundRect(
+                // 使用fillRect替代roundRect保证兼容性
+                ctx.fillRect(
                     segment.x * gridSize + 1,
                     segment.y * gridSize + 1,
                     gridSize - 2,
-                    gridSize - 2,
-                    5
+                    gridSize - 2
                 );
-                ctx.fill();
             });
             ctx.shadowBlur = 0;
 

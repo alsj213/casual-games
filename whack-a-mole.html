@@ -164,7 +164,7 @@
                 timeLeft--;
                 timerEl.textContent = timeLeft;
                 if (timeLeft <= 10) timerEl.style.color = '#e74c3c';
-                else timerEl.style.color = '#e74c3c';
+                else timerEl.style.color = 'inherit';
                 
                 if (timeLeft <= 0) endGame();
             }, 1000);

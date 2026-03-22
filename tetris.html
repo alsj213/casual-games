@@ -442,8 +442,9 @@ function clearLines() {
             level = newLevel;
             dropInterval = Math.max(100, 1000 - (level - 1) * 100);
         }
-        update
-Display();
+        updateDisplay();
+}
+
 // 更新分数和等级显示
 function updateDisplay() {
     scoreElement.textContent = score;
