@@ -224,7 +224,7 @@
 
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             drawFisherman();
-            DrawWater(currentTime);
+            drawWater(currentTime);
             drawFishingLine();
             drawHook();
 
@@ -245,7 +245,12 @@
                     ctx.font = 'bold 24px Arial';
                     ctx.fillText('咬钩!', hook.x + 20, hook.y);
                     setTimeout(() => {
-                        if (hook.biting && !hook.reeling) { hook.biting = false; hookup = { ...hook, thrown: false }; showMessage('🐟 鱼跑了...'); }
+                        if (hook.biting && !hook.reeling && gameState.running) { 
+                            hook.biting = false;
+                            hook.thrown = false;
+                            hook.fish = null;
+                            showMessage('🐟 鱼跑了...'); 
+                        }
                     }, 2000);
                 }
             }
@@ -289,10 +294,6 @@
 
             updateUI();
             requestAnimationFrame(gameLoop);
-        }
-
-        function DrawWater(currentTime) {
-            drawWater(currentTime);
         }
     </script>
 </body>
