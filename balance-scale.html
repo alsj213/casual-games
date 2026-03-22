@@ -42,7 +42,7 @@ renderItems();setTimeout(()=>{timer=setInterval(updateTimer,1000)},500);}
 
 function renderItems(){const container=document.getElementById('items');container.innerHTML='';
 availableItems.forEach((item,i)=>{if(!item.placed){const div=document.createElement('div');div.className='item';div.style.background=item.color;div.textContent=item.weight;div.dataset.index=i;
-div.ondragstart=dragStart;div.ondragend=dragEnd;div.draggable=true;container.appendChild(div;
+div.ondragstart=dragStart;div.ondragend=dragEnd;div.draggable=true;container.appendChild(div);
 div.onmousedown=(e)=>{selectedItem={element:div,item:item,index:i,dragging:true};dragStart(e);};});});}
 
 function updateTimer(){timeLeft--;document.getElementById('timer').textContent=timeLeft;
