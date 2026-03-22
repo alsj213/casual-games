@@ -92,9 +92,11 @@ const result=[];let curr=key(current);while(prev[curr])curr=key(prev[curr]),resu
 return result.filter(p=>grid[p[1]][p[0]]!==0);}
 for(const[dx,dy]of dirs){
 const nx=current[0]+dx,ny=current[1]+dy;
-if(nx>=0&&nx<gridSize&&ny>=0&&ny<gridSize&&grid[ny][nx]!==2&&!key([nx,ny]in prev)){
-prev[key([nx,ny])]=[current[0],current[1]];
+const cellKey = key([nx,ny]);
+if(nx>=0&&nx<gridSize&&ny>=0&&ny<gridSize&&grid[ny][nx]!==2&&!(cellKey in prev)){
+prev[cellKey]=[current[0],current[1]];
 q.push([nx,ny]);}}
+}
 return null;}
 function draw(){
 ctx.fillStyle='#0f0f23';ctx.fillRect(0,0,canvas.width,canvas.height);
