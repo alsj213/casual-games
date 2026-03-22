@@ -42,7 +42,7 @@ loop();
 
 function resetDart(){dart={x:400,y:500,vx:0,vy:0,thrown:false,dragging:false,startX:0,startY:0};}
 
-function restartGame(){cancelAnimationFrame(animId);document.getElementById('mode-select').style.display='block';}
+function restartGame(){cancelAnimationFrame(animId);gameState = {mode:0,players:[],currentPlayer:0,dartsLeft:0,score:0,totalScore:[]};resetDart();document.getElementById('mode-select').style.display='block';}
 
 function updateInfo(){
 const p=gameState.players[gameState.currentPlayer];
