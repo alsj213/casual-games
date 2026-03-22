@@ -106,7 +106,7 @@
             ctx.translate(m.x*CELL+CELL/2,m.y*CELL+CELL/2);
             ctx.rotate(m.angle*Math.PI/180);
             
-            ctx.fillStyle=singleBitableCreateField?'ffd700':'#ffd700';
+            ctx.fillStyle = '#ffd700';
             ctx.shadowColor='#ffd700';
             ctx.shadowBlur=m===selected?20:10;
             ctx.fillRect(-22,-5,44,10);
@@ -231,8 +231,9 @@
             const p=getPos(e);
             for(let i=0;i<mirrors.length;i++){
                 if(mirrors[i].x===p.x&&mirrors[i].y===p.y){
+                    const deleted = mirrors[i];
                     mirrors.splice(i,1);
-                    if(selected===mirrors[i])selected=null;
+                    if(selected===deleted)selected=null;
                     checkWin();
                     break;
                 }
