@@ -201,10 +201,9 @@
             }
             draw() {
                 ctx.fillStyle = '#ffff00';
-                ctx.fillRect(this.x, this.y, this.width, this.height);
                 ctx.shadowBlur = 10;
                 ctx.shadowColor = '#ffff00';
-                ctx.fill();
+                ctx.fillRect(this.x, this.y, this.width, this.height);
                 ctx.shadowBlur = 0;
             }
             isOffScreen() {
@@ -234,7 +233,6 @@
                 ctx.lineTo(this.x, this.y + this.height);
                 ctx.lineTo(this.x + this.width, this.y + this.height);
                 ctx.closePath();
-                ctx.fill();
                 ctx.shadowBlur = 10;
                 ctx.shadowColor = '#ff0000';
                 ctx.fill();
@@ -299,7 +297,6 @@
             ctx.lineTo(player.x, player.y + player.height);
             ctx.lineTo(player.x + player.width, player.y + player.height);
             ctx.closePath();
-            ctx.fill();
             ctx.shadowBlur = 15;
             ctx.shadowColor = '#00ff88';
             ctx.fill();
