@@ -474,7 +474,7 @@
         // 暴露给触摸按钮
         window.changeDirection = changeDirection;
 
-        // 应用微风偏移（随机偏移）和小雨惯性（方向保持）
+        // 应用天气效果：微风随机偏移，小雨滑动惯性
         function applyWeatherEffects(x, y, currentDir) {
             // 微风效果：随机方向偏移
             if (currentWeather.drift > 0) {
@@ -487,7 +487,17 @@
                     }
                 }
             }
-            return {x, y, direction: currentDir};
+            // 小雨效果：滑动惯性，让方向变化有延迟（持续往原方向滑一点）
+            if (currentWeather.inertia > 0 && Math.random() < currentWeather.inertia * 0.5) {
+                // 保持一定的惯性继续往原方向滑动一小步
+                switch(currentDir) {
+                    case 0: y -= 0.3; break;
+                    case 1: x += 0.3; break;
+                    case 2: y += 0.3; break;
+                    case 3: x -= 0.3; break;
+                }
+            }
+            return {x: Math.round(x), y: Math.round(y), direction: currentDir};
         }
 
         // 更新游戏
@@ -565,7 +575,7 @@
                 highScoreEl.textContent = highScore;
             }
 
-            const delay = Math.max(50, gameSpeed - Math.floor(snake.length / 3) * 5);
+            const delay = Math.max(10, gameSpeed - Math.floor(snake.length / 3) * 5);
             setTimeout(() => {
                 animationId = requestAnimationFrame(update);
             }, delay);
