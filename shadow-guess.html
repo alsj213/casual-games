@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>影子猜画 - Shadow Guess</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #141e30 0%, #243b55 100%);
+            font-family: 'Segoe UI', sans-serif;
+            padding: 10px;
+        }
+        .game-container {
+            text-align: center;
+            max-width: 95vw;
+        }
+        h1 {
+            color: #ecf0f1;
+            margin-bottom: 8px;
+            font-size: 28px;
+        }
+        .subtitle {
+            color: #bdc3c7;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+        .main-content {
+            display: flex;
+            gap: 20px;
+            align-items: flex-start;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .drawing-area {
+            background: #0a0e1a;
+            border: 3px solid #34495e;
+            border-radius: 12px;
+            padding: 15px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+        }
+        #canvas {
+            background: white;
+            border-radius: 8px;
+            cursor: crosshair;
+            display: block;
+        }
+        .controls-panel {
+            background: #0a0e1a;
+            border: 3px solid #34495e;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            min-width: 280px;
+        }
+        .current-object {
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #34495e;
+        }
+        .current-object h3 {
+            color: #ecf0f1;
+            margin-bottom: 8px;
+        }
+        .hint {
+            color: #95a5a6;
+            font-size: 13px;
+            margin-bottom: 10px;
+        }
+        .difficulty {
+            color: #f39c12;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        .brush-size {
+            margin-bottom: 15px;
+        }
+        .brush-size label {
+            color: #ecf0f1;
+            display: block;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+        input[type="range"] {
+            width: 100%;
+        }
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .btn {
+            padding: 12px 20px;
+            font-size: 15px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: bold;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(231, 76, 60, 0.4);
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(231, 76, 60, 0.6);
+        }
+        .btn-secondary {
+            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(52, 152, 219, 0.4);
+        }
+        .btn-secondary:hover {
+            transform: translateY(-2px);
+        }
+        .btn-success {
+            background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(46, 204, 113, 0.4);
+        }
+        .btn-success:hover {
+            transform: translateY(-2px);
+        }
+        .score-info {
+            color: #ecf0f1;
+            text-align: left;
+            padding-top: 15px;
+            border-top: 1px solid #34495e;
+        }
+        .score-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        .score-item span {
+            color: #f1c40f;
+            font-weight: bold;
+        }
+        .result-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+        .result-modal.active {
+            display: flex;
+        }
+        .result-content {
+            background: #0a0e1a;
+            padding: 30px;
+            border-radius: 15px;
+            border: 3px solid #3498db;
+            text-align: center;
+            max-width: 400px;
+        }
+        .result-content h2 {
+            color: #ecf0f1;
+            margin-bottom: 15px;
+        }
+        .result-content p {
+            color: #bdc3c7;
+            margin-bottom: 10px;
+        }
+        .accuracy {
+            font-size: 32px;
+            font-weight: bold;
+            color: #f1c40f;
+            margin: 15px 0;
+        }
+        .instructions {
+            color: #95a5a6;
+            font-size: 12px;
+            line-height: 1.6;
+            margin-top: 10px;
+        }
+        .color-picker {
+            margin-bottom: 15px;
+        }
+        .color-picker label {
+            color: #ecf0f1;
+            display: block;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+        .color-options {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 8px;
+        }
+        .color-option {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: transform 0.2s;
+        }
+        .color-option:hover {
+            transform: scale(1.1);
+        }
+        .color-option.selected {
+            border-color: white;
+            transform: scale(1.2);
+        }
+        @media (max-width: 800px) {
+            .main-content {
+                flex-direction: column;
+                align-items: center;
+            }
+            #canvas {
+                width: 100%;
+                height: auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>🌓 影子猜画</h1>
+        <p class="subtitle">看剪影猜物体，手绘轮廓猜出答案，亲子聚会超好玩！</p>
+        
+        <div class="main-content">
+            <div class="drawing-area">
+                <canvas id="canvas" width="400" height="400"></canvas>
+            </div>
+
+            <div class="controls-panel">
+                <div class="current-object">
+                    <h3>当前目标: <span id="objectName">-</span></h3>
+                    <p class="hint">提示: <span id="objectHint">-</span></p>
+                    <div class="difficulty">难度: <span id="difficulty">-</span></div>
+                </div>
+
+                <div class="brush-size">
+                    <label>画笔大小: <span id="brushSizeValue">10</span>px</label>
+                    <input type="range" id="brushSize" min="3" max="30" value="10" oninput="document.getElementById('brushSizeValue').textContent = this.value">
+                </div>
+
+                <div class="color-picker">
+                    <label>画笔颜色:</label>
+                    <div class="color-options" id="colorOptions">
+                        <div class="color-option selected" style="background: black" data-color="#000000" onclick="selectColor(this)"></div>
+                        <div class="color-option" style="background: red" data-color="#e74c3c" onclick="selectColor(this)"></div>
+                        <div class="color-option" style="background: blue" data-color="#3498db" onclick="selectColor(this)"></div>
+                        <div class="color-option" style="background: green" data-color="#2ecc71" onclick="selectColor(this)"></div>
+                        <div class="color-option" style="background: yellow" data-color="#f1c40f" onclick="selectColor(this)"></div>
+                        <div class="color-option" style="background: purple" data-color="#9b59b6" onclick="selectColor(this)"></div>
+                        <div class="color-option" style="background: orange" data-color="#e67e22" onclick="selectColor(this)"></div>
+                    </div>
+                </div>
+
+                <div class="controls">
+                    <button class="btn btn-success" onclick="checkDrawing()">检查答案</button>
+                    <button class="btn btn-secondary" onclick="clearDrawing">清空画布</button>
+                    <button class="btn btn-primary" onclick="nextObject">下一题</button>
+                </div>
+
+                <div class="score-info">
+                    <div class="score-item">
+                        已过关: <span id="completed">0</span>/<span id="total">0</span>
+                    </div>
+                    <div class="score-item">
+                        得分: <span id="score">0</span>
+                    </div>
+                    <div class="score-item">
+                        当前准确率: <span id="accuracy">0%</span>
+                    </div>
+                </div>
+
+                <p class="instructions">
+                    <strong>玩法:</strong> 根据黑色剪影轮廓，在上面手绘出物体。画完点击"检查答案"，准确率达标即可过关！<br>
+                    支持聚会多人轮流猜画，非常适合亲子互动！
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div class="result-modal" id="resultModal">
+        <div class="result-content">
+            <h2 id="resultTitle">检查结果</h2>
+            <p id="resultMessage"></p>
+            <div class="accuracy" id="accuracyDisplay">0%</div>
+            <div class="controls">
+                <button class="btn btn-primary" onclick="closeResult(); nextObject();">下一题</button>
+                <button class="btn btn-secondary" onclick="closeResult();">继续修改</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 游戏配置
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const WIDTH = canvas.width;
+        const HEIGHT = canvas.height;
+
+        // 物体轮廓定义（简化版 - 基于中心简单形状）
+        const OBJECTS = [
+            {
+                name: '苹果',
+                hint: '一种常见的水果，红圆圆的',
+                difficulty: '简单',
+                points: 10,
+                // 圆心 + 半径定义圆形
+                shape: { type: 'circle', cx: 200, cy: 200, r: 80 }
+            },
+            {
+                name: '香蕉',
+                hint: '黄色弯弯的水果，成串生长',
+                difficulty: '简单',
+                points: 15,
+                shape: { type: 'curve', points: [[80, 250], [120, 150], [200, 130], [280, 150], [320, 250]] }
+            },
+            {
+                name: '月亮',
+                hint: '夜晚天空挂着，弯弯形状',
+                difficulty: '简单',
+                points: 15,
+                shape: { type: 'arc', cx: 150, cy: 200, r: 100, start: 0.2*Math.PI, end: 1.8*Math.PI }
+            },
+            {
+                name: '太阳',
+                hint: '白天天空中心，大大的圆形',
+                difficulty: '简单',
+                points: 10,
+                shape: { type: 'circle', cx: 200, cy: 200, r: 90 }
+            },
+            {
+                name: '心形',
+                hint: '代表爱的形状',
+                difficulty: '中等',
+                points: 20,
+                shape: { type: 'heart', cx: 200, cy: 180, size: 80 }
+            },
+            {
+                name: '星星',
+                hint: '夜晚天空一闪一闪，五个角',
+                difficulty: '中等',
+                points: 25,
+                shape: { type: 'star', cx: 200, cy: 200, r: 80, points: 5 }
+            },
+            {
+                name: '房子',
+                hint: '三角形屋顶，方形身体',
+                difficulty: '中等',
+                points: 25,
+                shape: { type: 'polygon', points: [[50, 250], [50, 150], [150, 80], [250, 150], [250, 250]] }
+            },
+            {
+                name: '一棵树',
+                hint: '圆形树冠，长方形树干',
+                difficulty: '中等',
+                points: 20,
+                shape: { type: 'tree', cx: 200, cy: 250, r: 80, h: 100 }
+            },
+            {
+                name: '飞机',
+                hint: '在天上飞的交通工具',
+                difficulty: '难',
+                points: 35,
+                shape: { type: 'polygon', points: [[50, 200], [150, 150], [200, 100], [250, 150], [350, 200], [250, 200], [250, 250], [150, 250], [150, 200]] }
+            },
+            {
+                name: '自行车',
+                hint: '两个轮子，骑行交通工具',
+                difficulty: '难',
+                points: 40,
+                shape: { type: 'twoCircles', c1x: 120, c1y: 200, r1: 70, c2x: 280, c2y: 200, r2: 70 }
+            }
+        ];
+
+        // 游戏状态
+        let currentObjectIndex = 0;
+        let completed = 0;
+        let score = 0;
+        let isDrawing = false;        let lastX = 0;
+        let lastY = 0;
+        let brushSize = 10;
+        let currentColor = '#000000';
+        let userDrawing = Array(WIDTH).fill().map(() => Array(HEIGHT).fill(false));
+        // 标记哪些像素在目标剪影内
+        let targetMask = Array(WIDTH).fill().map(() => Array(HEIGHT).fill(false));
+
+        // 初始化
+        function selectColor(el) {
+            document.querySelectorAll('.color-option').forEach(c => c.classList.remove('selected'));
+            el.classList.add('selected');
+            currentColor = el.dataset.color;
+        }
+
+        // 绘制目标剪影
+        function drawTargetShadow(obj) {
+            // 清空画布，绘制阴影剪影
+            ctx.clearRect(0, 0, WIDTH, HEIGHT);
+            ctx.fillStyle = '#2c3e50';
+            // 重置用户绘制标记
+            for (let x = 0; x < WIDTH; x++) {
+                for (let y = 0; y < HEIGHT; y++) {
+                    userDrawing[x][y] = false;
+                    targetMask[x][y] = false;
+                }
+            }
+
+            // 绘制目标形状并生成mask
+            drawShape(obj.shape, true);
+            // 创建目标mask数据
+            createTargetMask(obj.shape);
+        }
+
+        // 创建目标mask
+        function createTargetMask(shape) {
+            // 遍历画布标记哪些像素在目标形状内
+            for (let x = 0; x < WIDTH; x++) {
+                for (let y = 0; y < HEIGHT; y++) {
+                    targetMask[x][y] = isPointInShape(x, y, shape);
+                }
+            }
+        }
+
+        // 判断点是否在形状内
+        function isPointInShape(x, y, shape) {
+            switch (shape.type) {
+                case 'circle':
+                    const dx = x - shape.cx;
+                    const dy = y - shape.cy;
+                    return dx*dx + dy*dy <= shape.r*shape.r;
+                case 'twoCircles':
+                    const dx1 = x - shape.c1x;
+                    const dy1 = y - shape.c1y;
+                    const dx2 = x - shape.c2x;
+                    const dy2 = y - shape.c2y;
+                    return dx1*dx1 + dy1*dy1 <= shape.r1*shape.r1 || dx2*dx2 + dy2*dy2 <= shape.r2*shape.r2;
+                default:
+                    return false;
+            }
+        }
+
+        // 绘制形状
+        function drawShape(shape, isShadow) {
+            ctx.beginPath();
+            switch (shape.type) {
+                case 'circle':
+                    ctx.arc(shape.cx, shape.cy, shape.r, 0, Math.PI * 2);
+                    ctx.closePath();
+                    isShadow ? ctx.fill() : null;
+                    break;
+                case 'twoCircles':
+                    ctx.arc(shape.c1x, shape.c1y, shape.r1, 0, Math.PI * 2);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.beginPath();
+                    ctx.arc(shape.c2x, shape.c2y, shape.r2, 0, Math.PI * 2);
+                    ctx.closePath();
+                    isShadow ? ctx.fill() : null;
+                    break;
+                case 'polygon':
+                    shape.points.forEach((p, i) => {
+                        if (i === 0) ctx.moveTo(p[0], p[1]);
+                        else ctx.lineTo(p[0], p[1]);
+                    });
+                    ctx.closePath();
+                    isShadow ? ctx.fill() : null;
+                    break;
+            }
+        }
+
+        // 开始新游戏
+        function startGame() {
+            currentObjectIndex = 0;
+            completed = 0;
+            score = 0;
+            loadCurrentObject();
+            updateStats();
+        }
+
+        // 加载当前物体
+        function loadCurrentObject() {
+            const obj = OBJECTS[currentObjectIndex];
+            document.getElementById('objectName').textContent = obj.name;
+            document.getElementById('objectHint').textContent = obj.hint;
+            document.getElementById('difficulty').textContent = obj.difficulty;
+            drawTargetShadow(obj);
+        }
+
+        // 下一题
+        function nextObject() {
+            if (currentObjectIndex < OBJECTS.length - 1) {
+                currentObjectIndex++;
+            } else {
+                currentObjectIndex = 0;
+            }
+            loadCurrentObject();
+            updateStats();
+            closeResult();
+        }
+
+        // 清空画布
+        function clearDrawing() {
+            const obj = OBJECTS[currentObjectIndex];
+            drawTargetShadow(obj);
+            updateStats();
+        }
+
+        // 鼠标按下开始绘制
+        canvas.addEventListener('mousedown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = Math.round((e.clientX - rect.left) * (WIDTH / rect.width));
+            const y = Math.round((e.clientY - rect.top) * (HEIGHT / rect.height));
+            isDrawing = true;
+            lastX = x;
+            lastY = y;
+        });
+
+        // 鼠标移动绘制
+        canvas.addEventListener('mousemove', (e) => {
+            if (!isDrawing) return;
+            const rect = canvas.getBoundingClientRect();
+            const x = Math.round((e.clientX - rect.left) * (WIDTH / rect.width));
+            const y = Math.round((e.clientY - rect.top) * (HEIGHT / rect.height));
+            
+            // 连线
+            ctx.beginPath();
+            ctx.strokeStyle = currentColor;
+            ctx.lineWidth = brushSize * 2;
+            ctx.lineCap = 'round';
+            ctx.moveTo(lastX, lastY);
+            ctx.lineTo(x, y);
+            ctx.stroke();
+
+            // 标记绘制像素
+            markDrawn(x, y);
+            drawLineMark(lastX, lastY, x, y);
+
+            lastX = x;
+            lastY = y;
+        });
+
+        // 标记绘制的像素
+        function markDrawn(x, y) {
+            const r = Math.floor(brushSize / 2);
+            for (let dx = -r; dx <= r; dx++) {
+                for (let dy = -r; dy <= r; dy++) {
+                    const nx = x + dx;
+                    const ny = y + dy;
+                    if (nx >= 0 && nx < WIDTH && ny >= 0 && ny < HEIGHT) {
+                        userDrawing[nx][ny] = true;
+                    }
+                }
+            }
+        }
+
+        // 标记线段上的像素
+        function drawLineMark(x1, y1, x2, y2) {
+            const dx = Math.abs(x2 - x1);
+            const dy = Math.abs(y2 - y1);
+            const sx = x1 < x2 ? 1 : -1;
+            const sy = y1 < y2 ? 1 : -1;
+            let err = dx - dy;
+            let cx = x1;
+            let cy = y1;
+            
+            while (true) {
+                markDrawn(cx, cy);
+                if (cx === x2 && cy === y2) break;
+                const e2 = 2 * err;
+                if (e2 > -dy) {
+                    err -= dy;
+                    cx += sx;
+                }
+                if (e2 < dx) {
+                    err += dx;
+                    cy += sy;
+                }
+            }
+        }
+
+        // 鼠标结束绘制
+        canvas.addEventListener('mouseup', () => {
+            isDrawing = false;
+        });
+
+        canvas.addEventListener('mouseout', () => {
+            isDrawing = false;
+        });
+
+        // 触摸支持移动端
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            const rect = canvas.getBoundingClientRect();
+            const touch = e.touches[0];
+            const x = Math.round((touch.clientX - rect.left) * (WIDTH / rect.width));
+            const y = Math.round((touch.clientY - rect.top) * (HEIGHT / rect.height));
+            isDrawing = true;
+            lastX = x;
+            lastY = y;
+        }, { passive: false });
+
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            if (!isDrawing) return;
+            const rect = canvas.getBoundingClientRect();
+            const touch = e.touches[0];
+            const x = Math.round((touch.clientX - rect.left) * (WIDTH / rect.width));
+            const y = Math.round((touch.clientY - rect.top) * (HEIGHT / rect.height));
+            
+            ctx.beginPath();
+            ctx.strokeStyle = currentColor;
+            ctx.lineWidth = brushSize * 2;
+            ctx.lineCap = 'round';
+            ctx.moveTo(lastX, lastY);
+            ctx.lineTo(x, y);
+            ctx.stroke();
+
+            markDrawn(x, y);
+            drawLineMark(lastX, lasty, x, y);
+
+            lastX = x;
+            lastY = y;
+        }, { passive: false });
+
+        canvas.addEventListener('touchend', () => {
+            isDrawing = false;
+        });
+
+        // 画笔大小改变
+        document.getElementById('brushSize').addEventListener('input', function() {
+            brushSize = parseInt(this.value);
+        });
+
+        // 检查绘制结果
+        function checkDrawing() {
+            let correctPixels = 0;
+            let totalDrawnPixels = 0;
+            let totalTargetPixels = 0;
+
+            // 统计：计算用户画对了多少目标区域像素
+            for (let x = 0; x < WIDTH; x++) {
+                for (let y = 0; y < HEIGHT; y++) {
+                    if (targetMask[x][y]) totalTargetPixels++;
+                    if (userDrawing[x][y]) {
+                        totalDrawnPixels++;
+                        if (targetMask[x][y]) correctPixels++;
+                    }
+                }
+            }
+
+            // 计算准确率 = 正确绘制的像素 / 总目标像素
+            const accuracy = totalTargetPixels > 0 ? Math.round((correctPixels / totalTargetPixels) * 100) : 0;
+            document.getElementById('accuracyDisplay').textContent = accuracy + '%';
+            document.getElementById('accuracy').textContent = accuracy + '%';
+
+            const threshold = 50; // 准确率超过50%算对
+            if (accuracy >= threshold) {
+                document.getElementById('resultTitle').textContent = '🎉 恭喜猜对了！';
+                document.getElementById('resultMessage').textContent = `你的准确率 ${accuracy}%，达到了过关标准！`;
+                if (completed <= currentObjectIndex) {
+                    completed++;
+                    const obj = OBJECTS[currentObjectIndex];
+                    score += obj.points;
+                    updateStats();
+                }
+            } else {
+                document.getElementById('resultTitle').textContent = '结果还不对哦';
+                document.getElementById('resultMessage').textContent = `当前准确率 ${accuracy}%，需要至少 50% 才能过关，再补两笔吧！`;
+            }
+
+            document.getElementById('resultModal').classList.add('active');
+        }
+
+        // 关闭结果弹窗
+        function closeResult() {
+            document.getElementById('resultModal').classList.remove('active');
+        }
+
+        // 更新统计
+        function updateStats() {
+            document.getElementById('completed').textContent = completed;
+            document.getElementById('total').textContent = OBJECTS.length;
+            document.getElementById('score').textContent = score;
+        }
+
+        // 初始化开始
+        brushSize = parseInt(document.getElementById('brushSize').value);
+        startGame();
+    </script>
+</body>
+</html>
