@@ -173,6 +173,31 @@
         .fog-overlay.active {
             opacity: 1;
         }
+        .rain-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+            border-radius: 12px;
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+        .rain-overlay.active {
+            opacity: 1;
+        }
+        .rain-drop {
+            position: absolute;
+            width: 1px;
+            height: 8px;
+            background: rgba(100, 149, 237, 0.4);
+            animation: rain-fall linear infinite;
+        }
+        @keyframes rain-fall {
+            from { transform: translateY(-10px); }
+            to { transform: translateY(400px); }
+        }
     </style>
 </head>
 <body>
@@ -198,6 +223,7 @@
         <div class="relative-container">
             <canvas id="gameCanvas" width="400" height="400"></canvas>
             <div class="fog-overlay" id="fogOverlay"></div>
+            <div class="rain-overlay" id="rainOverlay"></div>
             <div class="game-over" id="gameOver">
                 <h2>游戏结束</h2>
                 <p>最终得分: <span id="finalScore">0</span></p>
@@ -237,6 +263,7 @@
         const highScoreEl = document.getElementById('highScore');
         const weatherEl = document.getElementById('weather');
         const fogOverlay = document.getElementById('fogOverlay');
+        const rainOverlay = document.getElementById('rainOverlay');
         const gameOverEl = document.getElementById('gameOver');
         const finalScoreEl = document.getElementById('finalScore');
         const finalLengthEl = document.getElementById('finalLength');
@@ -249,10 +276,10 @@
 
         // 天气类型
         const WEATHER = {
-            CLEAR: { name: '晴朗', drift: 0, fog: 0 },
-            BREEZE: { name: '微风', drift: 0.15, fog: 0 },
-            FOG: { name: '浓雾', drift: 0, fog: 0.8 },
-            DRIZZLE: { name: '小雨', drift: 0.08, fog: 0.2 }
+            CLEAR: { name: '晴朗', drift: 0, fog: 0, inertia: 0 },
+            BREEZE: { name: '微风', drift: 0.15, fog: 0, inertia: 0 },
+            FOG: { name: '浓雾', drift: 0, fog: 0.8, inertia: 0 },
+            DRIZZLE: { name: '小雨', drift: 0, fog: 0.2, inertia: 0.6 }
         };
 
         // 游戏状态
@@ -303,6 +330,19 @@
             food = newFood;
         }
 
+        // 创建雨滴效果
+        function createRainDrops() {
+            rainOverlay.innerHTML = '';
+            for (let i = 0; i < 30; i++) {
+                const drop = document.createElement('div');
+                drop.className = 'rain-drop';
+                drop.style.left = Math.random() * 400 + 'px';
+                drop.style.animationDuration = (0.2 + Math.random() * 0.3) + 's';
+                drop.style.animationDelay = Math.random() * 0.5 + 's';
+                rainOverlay.appendChild(drop);
+            }
+        }
+
         // 随机改变天气
         function maybeChangeWeather() {
             if (score > 0 && score % 500 === 0) {
@@ -315,10 +355,17 @@
                 weatherEl.textContent = currentWeather.name;
                 weatherTypesEncountered++;
                 // 更新雾效果
-                if (currentWeather.fog > 0) {
+                if (currentWeather.fog > 0.3) {
                     fogOverlay.classList.add('active');
                 } else {
                     fogOverlay.classList.remove('active');
+                }
+                // 更新雨效果
+                if (currentWeather.inertia > 0) {
+                    createRainDrops();
+                    rainOverlay.classList.add('active');
+                } else {
+                    rainOverlay.classList.remove('active');
                 }
             }
         }
@@ -427,36 +474,51 @@
         // 暴露给触摸按钮
         window.changeDirection = changeDirection;
 
-        // 应用微风偏移
-        function applyWindBreeze(x, y) {
+        // 应用微风偏移（随机偏移）和小雨惯性（方向保持）
+        function applyWeatherEffects(x, y, currentDir) {
+            // 微风效果：随机方向偏移
             if (currentWeather.drift > 0) {
-                // 随机方向偏移
                 if (Math.random() < currentWeather.drift) {
                     const driftDir = Math.random() > 0.5 ? 1 : -1;
-                    x += driftDir;
-                    // 边界处理保持穿墙逻辑
+                    if (Math.random() > 0.5) {
+                        x += driftDir;
+                    } else {
+                        y += driftDir;
+                    }
                 }
             }
-            return {x, y};
+            return {x, y, direction: currentDir};
         }
 
         // 更新游戏
         function update() {
             if (!gameRunning || gamePaused) return;
 
-            direction = pendingDirection;
+            // 小雨惯性：保持当前方向，不立即响应方向改变
+            let effectiveDirection = direction;
+            if (currentWeather.inertia > 0) {
+                // 有惯性概率不接受新方向，继续沿原方向走
+                if (Math.random() < currentWeather.inertia) {
+                    effectiveDirection = direction;
+                } else {
+                    effectiveDirection = pendingDirection;
+                }
+            } else {
+                effectiveDirection = pendingDirection;
+            }
+            direction = effectiveDirection;
 
             // 计算新头部位置
             let head = {x: snake[0].x, y: snake[0].y, softX: snake[0].x, softY: snake[0].y};
-            switch (direction) {
+            switch (effectiveDirection) {
                 case 0: head.y--; break;
                 case 1: head.x++; break;
                 case 2: head.y++; break;
                 case 3: head.x--; break;
             }
 
-            // 应用天气影响
-            const drifted = applyWindBreeze(head.x, head.y);
+            // 应用天气影响（微风随机偏移）
+            const drifted = applyWeatherEffects(head.x, head.y, effectiveDirection);
             head.x = drifted.x;
             head.y = drifted.y;
 
@@ -503,9 +565,10 @@
                 highScoreEl.textContent = highScore;
             }
 
+            const delay = Math.max(50, gameSpeed - Math.floor(snake.length / 3) * 5);
             setTimeout(() => {
                 animationId = requestAnimationFrame(update);
-            }, gameSpeed - (snake.length * 2));
+            }, delay);
         }
 
         // 开始游戏
@@ -516,6 +579,7 @@
             weatherTypesEncountered = 0;
             weatherEl.textContent = currentWeather.name;
             fogOverlay.classList.remove('active');
+            rainOverlay.classList.remove('active');
             gameRunning = true;
             gamePaused = false;
             scoreEl.textContent = '0';
