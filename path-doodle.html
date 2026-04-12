@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>路径涂鸦 - Path Doodle</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Segoe UI', sans-serif;
+        }
+        .game-container {
+            text-align: center;
+        }
+        h1 {
+            color: white;
+            margin-bottom: 15px;
+            text-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+            font-size: 28px;
+        }
+        #gameCanvas {
+            border: 3px solid white;
+            border-radius: 10px;
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.3);
+            background: #f8f9fa;
+        }
+        .info-board {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin: 15px 0;
+            color: white;
+            font-size: 16px;
+        }
+        .info-item {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 8px 20px;
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+        }
+        .info-item span {
+            font-weight: bold;
+            margin-left: 5px;
+        }
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .btn {
+            padding: 12px 30px;
+            font-size: 16px;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: bold;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #4ade80 0%, #16a34a 100%);
+            color: white;
+            box-shadow: 0 0 20px rgba(74, 222, 128, 0.4);
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0 30px rgba(74, 222, 128, 0.6);
+        }
+        .btn-danger {
+            background: linear-gradient(135deg, #f87171 0%, #dc2626 100%);
+            color: white;
+        }
+        .btn-danger:hover {
+            transform: translateY(-2px);
+        }
+        .size-selector {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin: 10px 0;
+        }
+        .size-btn {
+            padding: 6px 16px;
+            font-size: 14px;
+            border: 2px solid white;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border-radius: 15px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .size-btn:hover, .size-btn.active {
+            background: white;
+            color: #667eea;
+        }
+        .game-win {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            padding: 40px;
+            border-radius: 15px;
+            border: 2px solid #4ade80;
+            display: none;
+        }
+        .game-win h2 {
+            color: #4ade80;
+            margin-bottom: 20px;
+            font-size: 32px;
+        }
+        .game-win p {
+            color: white;
+            font-size: 18px;
+            margin-bottom: 20px;
+        }
+        .instructions {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 13px;
+            margin-top: 10px;
+        }
+        .relative-container {
+            position: relative;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>🎨 路径涂鸦</h1>
+        <div class="size-selector">
+            <button class="size-btn active" onclick="changeSize(5)">5×5</button>
+            <button class="size-btn" onclick="changeSize(6)">6×6</button>
+            <button class="size-btn" onclick="changeSize(7)">7×7</button>
+            <button class="size-btn" onclick="changeSize(8)">8×8</button>
+        </div>
+        <div class="info-board">
+            <div class="info-item">
+                已填充: <span id="filled">0</span>/<span id="total">0</span>
+            </div>
+            <div class="info-item">
+                关卡: <span id="level">1</span>
+            </div>
+        </div>
+        <div class="relative-container">
+            <canvas id="gameCanvas" width="400" height="400"></canvas>
+            <div class="game-win" id="gameWin">
+                <h2>🎉 恭喜通关！</h2>
+                <p>你已成功填满所有格子</p>
+                <button class="btn btn-primary" onclick="nextLevel()">下一关</button>
+            </div>
+        </div>
+        <div class="controls">
+            <button class="btn btn-primary" id="startBtn" onclick="startGame()">开始游戏</button>
+            <button class="btn btn-danger" id="undoBtn" onclick="undoLast()">撤销一步</button>
+            <button class="btn btn-danger" onclick="resetGame()">重新开始</button>
+        </div>
+        <p class="instructions">
+            从起点绘制一条路径到终点，不能交叉重复，填满所有格子即可通关。鼠标/触摸拖动绘制。
+        </p>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const filledEl = document.getElementById('filled');
+        const totalEl = document.getElementById('total');
+        const levelEl = document.getElementById('level');
+        const gameWinEl = document.getElementById('gameWin');
+
+        // 游戏配置
+        let gridSize = 5;
+        let cellSize = canvas.width / gridSize;
+        let level = 1;
+
+        // 游戏状态
+        let grid = [];
+        let path = [];
+        let isDrawing = false;
+        let gameStarted = false;
+        let startPos = { x: 0, y: 0 };
+        let endPos = { x: 0, y: 0 };
+
+        // 0 = 空, 1 = 已填充, 2 = 起点, 3 = 终点, 4 = 当前路径
+
+        // 改变网格大小
+        function changeSize(size) {
+            gridSize = size;
+            cellSize = canvas.width / gridSize;
+            document.querySelectorAll('.size-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            startGame();
+        }
+
+        // 生成随机可解网格
+        function generateGrid() {
+            grid = Array(gridSize).fill().map(() => Array(gridSize).fill(0));
+            
+            // 使用DFS生成一条覆盖所有格子的哈密顿路径
+            do {
+                resetGrid();
+            } while (!generateHamiltonianPath());
+
+            // 设置起点和终点
+            startPos = { ...path[0] };
+            endPos = { ...path[path.length - 1] };
+            grid[startPos.y][startPos.x] = 2;
+            grid[endPos.y][endPos.x] = 3;
+
+            // 清空路径供玩家绘制
+            path = [];
+            updateStats();
+        }
+
+        function resetGrid() {
+            for (let y = 0; y < gridSize; y++) {
+                for (let x = 0; x < gridSize; x++) {
+                    grid[y][x] = 0;
+                }
+            }
+        }
+
+        // 使用DFS生成哈密顿路径
+        function generateHamiltonianPath() {
+            // 随机选择起点 (左上角区域)
+            const startX = 0;
+            const startY = 0;
+            
+            path = [{ x: startX, y: startY }];
+            grid[startY][startX] = 1;
+
+            if (dfsHamiltonian(startX, startY)) {
+                // 终点在对角
+                return true;
+            }
+
+            return false;
+        }
+
+        function dfsHamiltonian(x, y) {
+            if (path.length === gridSize * gridSize) {
+                // 终点尽量在对角
+                const dist = Math.abs(x - (gridSize - 1)) + Math.abs(y - (gridSize - 1));
+                // 允许一定范围，不一定严格对角
+                return dist <= 2;
+            }
+
+            // 随机方向顺序
+            const dirs = [[0, 1], [1, 0], [0, -1], [-1, 0]];
+            shuffleArray(dirs);
+
+            for (const [dx, dy] of dirs) {
+                const nx = x + dx;
+                const ny = y + dy;
+                if (isValid(nx, ny) && grid[ny][nx] === 0) {
+                    grid[ny][nx] = 1;
+                    path.push({ x: nx, y: ny });
+                    if (dfsHamiltonian(nx, ny)) {
+                        return true;
+                    }
+                    grid[ny][nx] = 0;
+                    path.pop();
+                }
+            }
+
+            return false;
+        }
+
+        function isValid(x, y) {
+            return x >= 0 && x < gridSize && y >= 0 && y < gridSize;
+        }
+
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+
+        // 绘制网格
+        function drawGrid() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 绘制网格线
+            ctx.strokeStyle = '#cbd5e1';
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= gridSize; i++) {
+                ctx.beginPath();
+                ctx.moveTo(i * cellSize, 0);
+                ctx.lineTo(i * cellSize, canvas.height);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(0, i * cellSize);
+                ctx.lineTo(canvas.width, i * cellSize);
+                ctx.stroke();
+            }
+
+            // 绘制格子
+            for (let y = 0; y < gridSize; y++) {
+                for (let x = 0; x < gridSize; x++) {
+                    const cell = grid[y][x];
+                    const px = x * cellSize;
+                    const py = y * cellSize;
+                    const padding = 2;
+
+                    switch (cell) {
+                        case 0: // 空
+                            break;
+                        case 1: // 已填充
+                            ctx.fillStyle = '#818cf8';
+                            ctx.fillRect(px + padding, py + padding, cellSize - padding * 2, cellSize - padding * 2);
+                            break;
+                        case 2: // 起点
+                            ctx.fillStyle = '#4ade80';
+                            ctx.fillRect(px + padding, py + padding, cellSize - padding * 2, cellSize - padding * 2);
+                            ctx.fillStyle = 'white';
+                            ctx.font = 'bold 20px Arial';
+                            ctx.textAlign = 'center';
+                            ctx.textBaseline = 'middle';
+                            ctx.fillText('S', px + cellSize / 2, py + cellSize / 2);
+                            break;
+                        case 3: // 终点
+                            ctx.fillStyle = '#f87171';
+                            ctx.fillRect(px + padding, py + padding, cellSize - padding * 2, cellSize - padding * 2);
+                            ctx.fillStyle = 'white';
+                            ctx.font = 'bold 20px Arial';
+                            ctx.textAlign = 'center';
+                            ctx.textBaseline = 'middle';
+                            ctx.fillText('E', px + cellSize / 2, py + cellSize / 2);
+                            break;
+                        case 4: // 当前路径
+                            ctx.fillStyle = '#6366f1';
+                            ctx.fillRect(px + padding, py + padding, cellSize - padding * 2, cellSize - padding * 2);
+                            break;
+                    }
+                }
+            }
+        }
+
+        // 获取鼠标所在格子
+        function getGridPosition(event) {
+            const rect = canvas.getBoundingClientRect();
+            let clientX, clientY;
+            
+            if (event.touches) {
+                clientX = event.touches[0].clientX;
+                clientY = event.touches[0].clientY;
+            } else {
+                clientX = event.clientX;
+                clientY = event.clientY;
+            }
+
+            const x = Math.floor((clientX - rect.left) / (rect.width / gridSize));
+            const y = Math.floor((clientY - rect.top) / (rect.height / gridSize));
+            return { x, y };
+        }
+
+        // 开始绘制
+        function startDrawing(event) {
+            if (!gameStarted) return;
+            
+            const pos = getGridPosition(event);
+            if (pos.x === startPos.x && pos.y === startPos.y && path.length === 0) {
+                isDrawing = true;
+                addToPath(pos);
+            } else if (path.length > 0) {
+                // 允许从最后一个格子继续
+                const last = path[path.length - 1];
+                if (pos.x === last.x && pos.y === last.y) {
+                    isDrawing = true;
+                }
+            }
+        }
+
+        // 绘制中
+        function draw(event) {
+            if (!isDrawing || !gameStarted) return;
+            event.preventDefault();
+            
+            const pos = getGridPosition(event);
+            if (!isValid(pos.x, pos.y)) return;
+
+            // 检查是否已经在路径中
+            if (isInPath(pos.x, pos.y)) {
+                // 如果是最后一个格子，允许（停止时可能重复进入）
+                const last = path[path.length - 1];
+                if (!(pos.x === last.x && pos.y === last.y)) {
+                    return;
+                }
+            }
+
+            // 检查是否与最后一个格子相邻
+            const last = path[path.length - 1];
+            if (!isAdjacent(last, pos)) {
+                return;
+            }
+
+            // 检查格子是否可走 (起点允许，空格允许，终点允许当所有格子都填充了)
+            const cell = grid[pos.y][pos.x];
+            if (cell === 1) return; // 已填充不允许
+            if (cell === 2 && path.length > 1) return; // 起点除了第一步不允许
+
+            addToPath(pos);
+            drawGrid();
+            updateStats();
+            checkWin();
+        }
+
+        // 停止绘制
+        function stopDrawing() {
+            isDrawing = false;
+        }
+
+        // 添加到路径
+        function addToPath(pos) {
+            path.push({ x: pos.x, y: pos.y });
+            if (grid[pos.y][pos.x] !== 2 && grid[pos.y][pos.x] !== 3) {
+                grid[pos.y][pos.x] = 4;
+            }
+        }
+
+        // 检查是否在路径中
+        function isInPath(x, y) {
+            return path.some(p => p.x === x && p.y === y);
+        }
+
+        // 检查是否相邻
+        function isAdjacent(a, b) {
+            const dx = Math.abs(a.x - b.x);
+            const dy = Math.abs(a.y - b.y);
+            return (dx === 1 && dy === 0) || (dx === 0 && dy === 1);
+        }
+
+        // 撤销最后一步
+        function undoLast() {
+            if (!gameStarted || path.length <= 1) return;
+            
+            const removed = path.pop();
+            if (grid[removed.y][removed.x] !== 2 && grid[removed.y][removed.x] !== 3) {
+                grid[removed.y][removed.x] = 0;
+            }
+            drawGrid();
+            updateStats();
+        }
+
+        // 更新统计
+        function updateStats() {
+            let filled = 0;
+            for (let y = 0; y < gridSize; y++) {
+                for (let x = 0; x < gridSize; x++) {
+                    if (grid[y][x] === 1 || grid[y][x] === 4 || grid[y][x] === 2 || grid[y][x] === 3) {
+                        filled++;
+                    }
+                }
+            }
+            filledEl.textContent = filled - 2; // 起点终点不算
+            totalEl.textContent = gridSize * gridSize - 2;
+        }
+
+        // 检查是否获胜
+        function checkWin() {
+            if (path.length === 0) return false;
+            
+            const last = path[path.length - 1];
+            
+            // 检查是否到达终点
+            if (last.x !== endPos.x || last.y !== endPos.y) {
+                return false;
+            }
+
+            // 检查是否所有格子都被填充
+            let totalFilled = 0;
+            for (let y = 0; y < gridSize; y++) {
+                for (let x = 0; x < gridSize; x++) {
+                    if (grid[y][x] !== 0) {
+                        totalFilled++;
+                    }
+                }
+            }
+
+            if (totalFilled === gridSize * gridSize) {
+                // 获胜
+                gameWinEl.style.display = 'block';
+                gameStarted = false;
+                level++;
+                levelEl.textContent = level;
+                return true;
+            }
+
+            return false;
+        }
+
+        // 开始游戏
+        function startGame() {
+            generateGrid();
+            gameStarted = true;
+            gameWinEl.style.display = 'none';
+            drawGrid();
+            updateStats();
+        }
+
+        // 重置当前游戏
+        function resetGame() {
+            path = [];
+            generateGrid();
+            gameStarted = true;
+            gameWinEl.style.display = 'none';
+            drawGrid();
+            updateStats();
+        }
+
+        // 下一关
+        function nextLevel() {
+            resetGame();
+        }
+
+        // 鼠标事件
+        canvas.addEventListener('mousedown', startDrawing);
+        canvas.addEventListener('mousemove', draw);
+        document.addEventListener('mouseup', stopDrawing);
+        document.addEventListener('mouseleave', stopDrawing);
+
+        // 触摸事件支持移动端
+        canvas.addEventListener('touchstart', startDrawing, { passive: false });
+        canvas.addEventListener('touchmove', draw, { passive: false });
+        canvas.addEventListener('touchend', stopDrawing);
+
+        // 初始化
+        startGame();
+    </script>
+</body>
+</html>
