@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>像素接龙 - Pixel Solitaire</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            font-family: 'Segoe UI', sans-serif;
+            padding: 10px;
+        }
+        .game-container {
+            text-align: center;
+            max-width: 90vw;
+        }
+        h1 {
+            color: #e8e8e8;
+            margin-bottom: 8px;
+            font-size: 28px;
+        }
+        .subtitle {
+            color: #a0a0a0;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+        .main-content {
+            display: flex;
+            gap: 20px;
+            align-items: flex-start;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .pixel-board {
+            background: #0f0f1a;
+            border: 3px solid rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            padding: 10px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        }
+        .pixel-grid {
+            display: grid;
+            grid-template-columns: repeat(13, 25px);
+            gap: 2px;
+            background: #2a2a3e;
+            padding: 4px;
+            border-radius: 8px;
+        }
+        .pixel-cell {
+            width: 25px;
+            height: 25px;
+            background: #1a1a2e;
+            border-radius: 2px;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+        .pixel-cell:hover:not(.filled) {
+            transform: scale(1.1);
+            background: #2a2a4a;
+        }
+        .pixel-cell.filled {
+            transform: scale(1);
+        }
+        .game-area {
+            background: #16213e;
+            border: 3px solid rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            padding: 15px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            min-width: 320px;
+        }
+        .stock-pile {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-bottom: 15px;
+        }
+        .stock-card {
+            width: 60px;
+            height: 80px;
+            background: #2e4374;
+            border: 2px solid #4a5f99;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .stock-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+        .waste-pile {
+            display: flex;
+            gap: -30px;
+            min-height: 80px;
+            margin-bottom: 15px;
+            justify-content: center;
+        }
+        .foundations {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-bottom: 15px;
+        }
+        .foundation {
+            width: 50px;
+            height: 70px;
+            background: #0f3460;
+            border: 2px dashed #4a5f99;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 20px;
+        }
+        .foundation.filled {
+            border-style: solid;
+            border-color: #4a5f99;
+        }
+        .tableau {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 15px;
+            justify-content: center;
+        }
+        .tableau-pile {
+            width: 50px;
+            min-height: 80px;
+            background: #0f3460;
+            border: 2px solid #4a5f99;
+            border-radius: 6px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .card {
+            width: 46px;
+            height: 64px;
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 14px;
+            margin-top: -30px;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.2s;
+        }
+        .card:first-child {
+            margin-top: 0;
+        }
+        .card.selected {
+            transform: translateY(-8px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+        }
+        .card-red {
+            color: #e74c3c;
+        }
+        .card-black {
+            color: #2c3e50;
+        }
+        .score-info {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 15px;
+            color: #e8e8e8;
+            font-size: 14px;
+        }
+        .score-item {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 6px 16px;
+            border-radius: 15px;
+        }
+        .score-item span {
+            color: #70a1ff;
+            font-weight: bold;
+            margin-left: 4px;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .btn {
+            padding: 10px 20px;
+            font-size: 14px;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: bold;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #e94560 0%, #ff6b6b 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(233, 69, 96, 0.4);
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(233, 69, 96, 0.6);
+        }
+        .btn-secondary {
+            background: linear-gradient(135deg, #4a5f99 0%, #2e4374 100%);
+            color: white;
+        }
+        .btn-secondary:hover {
+            transform: translateY(-2px);
+        }
+        .instructions {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 12px;
+            margin-top: 10px;
+            line-height: 1.5;
+            max-width: 320px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .completed-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+        .completed-overlay.active {
+            display: flex;
+        }
+        .completed-modal {
+            background: #1a1a2e;
+            padding: 30px;
+            border-radius: 15px;
+            border: 3px solid #e94560;
+            text-align: center;
+        }
+        .completed-modal h2 {
+            color: white;
+            margin-bottom: 15px;
+        }
+        .completed-modal p {
+            color: #a0a0a0;
+            margin-bottom: 20px;
+        }
+        #canvasPreview {
+            border: 2px solid white;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+        @media (max-width: 800px) {
+            .main-content {
+                flex-direction: column;
+                align-items: center;
+            }
+            .pixel-grid {
+                grid-template-columns: repeat(13, 20px);
+            }
+            .pixel-cell {
+                width: 20px;
+                height: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>🎓 像素接龙</h1>
+        <p class="subtitle">传统克朗代克接龙，每完成一个花色绘制一块像素，完成后保存你的作品！</p>
+        
+        <div class="main-content">
+            <div class="pixel-board">
+                <div class="pixel-grid" id="pixelGrid"></div>
+            </div>
+
+            <div class="game-area">
+                <div class="stock-pile">
+                    <div class="stock-card" id="stockPile" onclick="dealCard()">
+                        发牌<br>📄
+                    </div>
+                </div>
+
+                <div class="waste-pile" id="wastePile"></div>
+
+                <div class="foundations">
+                    <div class="foundation" data-suit="hearts" id="foundationHearts">♥</div>
+                    <div class="foundation" data-suit="diamonds" id="foundationDiamonds">♦</div>
+                    <div class="foundation" data-suit="clubs" id="foundationClubs">♣</div>
+                    <div class="foundation" data-suit="spades" id="foundationSpades">♠</div>
+                </div>
+
+                <div class="tableau" id="tableau">
+                    <div class="tableau-pile" data-col="0"></div>
+                    <div class="tableau-pile" data-col="1"></div>
+                    <div class="tableau-pile" data-col="2"></div>
+                    <div class="tableau-pile" data-col="3"></div>
+                    <div class="tableau-pile" data-col="4"></div>
+                    <div class="tableau-pile" data-col="5"></div>
+                    <div class="tableau-pile" data-col="6"></div>
+                </div>
+
+                <div class="score-info">
+                    <div class="score-item">已绘制: <span id="pixelsFilled">0</span>/169</div>
+                    <div class="score-item">得分: <span id="score">0</span></div>
+                </div>
+
+                <div class="controls">
+                    <button class="btn btn-primary" onclick="startNewGame()">新游戏</button>
+                    <button class="btn btn-secondary" onclick="savePixelArt()">保存作品</button>
+                    <button class="btn btn-secondary" onclick="undoMove()">撤销</button>
+                </div>
+
+                <p class="instructions">
+                    <strong>玩法:</strong> 红黑交替降序排列牌堆，A到K升序放到基础堆。<br>
+                    每完成一个完整花色，随机点亮一个像素块。全部完成后可以下载你的像素作品，也可以自由点击编辑像素创作！
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div class="completed-overlay" id="completedOverlay">
+        <div class="completed-modal">
+            <h2>🎉 恭喜完成！</h2>
+            <p>你已经点亮了所有像素，创作了独一无二的像素作品！</p>
+            <canvas id="canvasPreview"></canvas>
+            <div class="controls">
+                <button class="btn btn-primary" onclick="downloadPixelArt()">下载图片</button>
+                <button class="btn btn-secondary" onclick="closeOverlay()">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 游戏配置
+        const GRID_SIZE = 13;
+        const SUITS = ['hearts', 'diamonds', 'clubs', 'spades'];
+        const SUIT_COLORS = {
+            hearts: 'red',
+            diamonds: 'red',
+            clubs: 'black',
+            spades: 'black'
+        };
+        const SUIT_SYMBOLS = {
+            hearts: '♥',
+            diamonds: '♦',
+            clubs: '♣',
+            spades: '♠'
+        };
+        const VALUES = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+        const VALUE_RANKS = { 'A': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, '10': 10, 'J': 11, 'Q': 12, 'K': 13 };
+        
+        // 预定义一些颜色，每个牌对应不同像素颜色
+        const PIXEL_COLORS = [
+            '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', 
+            '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E2', '#F8B500', '#00CED1',
+            '#FF8C42', '#A8E6CF', '#DCEDC1', '#FFD3B6', '#FFAAA5', '#FF8B94',
+            '#9AD1D4', '#C06C84', '#6C5B7B', '#355C7D', '#F8B195', '#F67280',
+            '#C06C84', '#45B7D1', '#2ECC71', '#3498DB', '#9B59B6', '#34495E',
+            '#16A085', '#27AE60', '#2980B9', '#8E44AD', '#2C3E50', '#F1C40F',
+            '#E67E22', '#E74C3C', '#95A5A6', '#1ABC9C', '#1ABC9C'
+        ];
+
+        // 游戏状态
+        let stock = [];
+        let waste = [];
+        let tableau = [[], [], [], [], [], [], []];
+        let foundations = { hearts: [], diamonds: [], clubs: [], spades: [] };
+        let selectedCard = null;
+        let selectedFrom = null;
+        let selectedIndex = 0;
+        let score = 0;
+        let filledPixels = 0;
+        let pixelGrid = Array(GRID_SIZE).fill().map(() => Array(GRID_SIZE).fill(null));
+        let moveHistory = [];
+
+        // 初始化像素网格
+        function initPixelGrid() {
+            const container = document.getElementById('pixelGrid');
+            container.innerHTML = '';
+            pixelGrid = Array(GRID_SIZE).fill().map(() => Array(GRID_SIZE).fill(null));
+            
+            for (let y = 0; y < GRID_SIZE; y++) {
+                for (let x = 0; x < GRID_SIZE; x++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'pixel-cell';
+                    cell.dataset.x = x;
+                    cell.dataset.y = y;
+                    cell.onclick = () => togglePixel(x, y);
+                    container.appendChild(cell);
+                }
+            }
+            filledPixels = 0;
+            updateScore();
+        }
+
+        // 点击切换像素颜色（用户可以自由创作）
+        function togglePixel(x, y) {
+            const cell = document.querySelector(`[data-x="${x}"][data-y="${y}"]`);
+            if (pixelGrid[y][x]) {
+                pixelGrid[y][x] = null;
+                cell.style.background = '';
+                cell.classList.remove('filled');
+                filledPixels = Math.max(0, filledPixels - 1);
+            } else {
+                const colorIndex = Math.floor(Math.random() * PIXEL_COLORS.length);
+                pixelGrid[y][x] = PIXEL_COLORS[colorIndex];
+                cell.style.background = PIXEL_COLORS[colorIndex];
+                cell.classList.add('filled');
+                filledPixels++;
+            }
+            updateScore();
+            checkCompletion();
+        }
+
+        // 填充一个像素（当完成一个基础堆时）
+        function fillRandomPixel() {
+            const emptyCells = [];
+            for (let y = 0; y < GRID_SIZE; y++) {
+                for (let x = 0; x < GRID_SIZE; x++) {
+                    if (!pixelGrid[y][x]) {
+                        emptyCells.push({x, y});
+                    }
+                }
+            }
+            if (emptyCells.length === 0) return;
+            
+            const randomCell = emptyCells[Math.floor(Math.random() * emptyCells.length)];
+            const colorIndex = Math.floor(Math.random() * PIXEL_COLORS.length);
+            const {x, y} = randomCell;
+            
+            pixelGrid[y][x] = PIXEL_COLORS[colorIndex];
+            const cell = document.querySelector(`[data-x="${x}"][data-y="${y}"]`);
+            cell.style.background = PIXEL_COLORS[colorIndex];
+            cell.classList.add('filled');
+            filledPixels++;
+            updateScore();
+            checkCompletion();
+        }
+
+        // 创建一副新牌
+        function createDeck() {
+            const deck = [];
+            SUITS.forEach(suit => {
+                VALUES.forEach(value => {
+                    deck.push({ suit, value, rank: VALUE_RANKS[value], color: SUIT_COLORS[suit] });
+                });
+            });
+            return shuffleDeck(deck);
+        }
+
+        // 洗牌
+        function shuffleDeck(deck) {
+            for (let i = deck.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [deck[i], deck[j]] = [deck[j], deck[i]];
+            }
+            return deck;
+        }
+
+        // 发牌
+        function dealTableau() {
+            for (let i = 0; i < 7; i++) {
+                for (let j = 0; j <= i; j++) {
+                    const card = stock.pop();
+                    card.faceUp = (j === i);
+                    tableau[i].push(card);
+                }
+            }
+        }
+
+        // 开始新游戏
+        function startNewGame() {
+            stock = createDeck();
+            waste = [];
+            tableau = [[], [], [], [], [], [], []];
+            foundations = { hearts: [], diamonds: [], clubs: [], spades: [] };
+            selectedCard = null;
+            selectedFrom = null;
+            selectedIndex = 0;
+            score = 0;
+            initPixelGrid();
+            dealTableau();
+            saveMove();
+            renderAll();
+        }
+
+        // 发一张牌到废牌堆
+        function dealCard() {
+            if (stock.length === 0) {
+                // 回收废牌堆
+                if (waste.length > 0) {
+                    stock = waste.reverse();
+                    waste = [];
+                    score -= 100;
+                    saveMove();
+                    renderAll();
+                }
+                return;
+            }
+            const card = stock.pop();
+            card.faceUp = true;
+            waste.push(card);
+            score += 5;
+            saveMove();
+            renderAll();
+        }
+
+        // 检查是否可以放到 tableau
+        function canPlaceOnTableau(card, targetPile) {
+            if (targetPile.length === 0) {
+                return card.value === 'K';
+            }
+            const topCard = targetPile[targetPile.length - 1];
+            return topCard.rank === card.rank + 1 && topCard.color !== card.color;
+        }
+
+        // 检查是否可以放到 foundation
+        function canPlaceOnFoundation(card, suit) {
+            if (card.suit !== suit) return false;
+            const foundation = foundations[suit];
+            if (foundation.length === 0) {
+                return card.rank === 1; // Ace
+            }
+            return foundation.length === card.rank;
+        }
+
+        // 移动牌
+        function moveCard(fromPile, fromIndex, toPile, isFoundation) {
+            const cardsToMove = fromPile.splice(fromIndex);
+            const previousState = saveCurrentState();
+            cardsToMove.forEach(card => {
+                toPile.push(card);
+                if (isFoundation && toPile.length === 13) {
+                    // 完成一个花色，填充一个像素
+                    fillRandomPixel();
+                    score += 100;
+                }
+                card.faceUp = true;
+            });
+            // 如果移动后最后一张牌是背面，翻过来
+            if (fromPile.length > 0 && !fromPile[fromPile.length - 1].faceUp) {
+                fromPile[fromPile.length - 1].faceUp = true;
+                score += 5;
+            }
+            score += 10;
+            selectedCard = null;
+            selectedFrom = null;
+            saveMove();
+            renderAll();
+        }
+
+        // 点击牌
+        function handleCardClick(card, pileType, pileIndex, cardIndex) {
+            if (!card.faceUp) {
+                card.faceUp = true;
+                score += 5;
+                saveMove();
+                renderAll();
+                return;
+            }
+
+            if (!selectedCard) {
+                selectedCard = card;
+                selectedFrom = { type: pileType, index: pileIndex, cardIndex: cardIndex };
+                renderAll();
+                return;
+            }
+
+            // 点击了同一张牌，取消选择
+            if (selectedFrom.type === pileType && selectedFrom.index === pileIndex && selectedFrom.cardIndex === cardIndex) {
+                selectedCard = null;
+                selectedFrom = null;
+                renderAll();
+                return;
+            }
+
+            // 尝试移动
+            let moved = false;
+
+            // 移动到 tableau
+            if (pileType === 'tableau') {
+                if (canPlaceOnTableau(selectedCard, tableau[pileIndex])) {
+                    moveCard(getSelectedPile(), selectedFrom.cardIndex, tableau[pileIndex], false);
+                    moved = true;
+                }
+            }
+
+            // 移动到 foundation
+            if (pileType === 'foundation') {
+                if (canPlaceOnFoundation(selectedCard, selectedCard.suit)) {
+                    moveCard(getSelectedPile(), selectedFrom.cardIndex, foundations[selectedCard.suit], true);
+                    moved = true;
+                }
+            }
+
+            if (!moved) {
+                selectedCard = card;
+                selectedFrom = { type: pileType, index: pileIndex, cardIndex: cardIndex };
+                renderAll();
+            }
+        }
+
+        // 获取选中的牌堆
+        function getSelectedPile() {
+            switch (selectedFrom.type) {
+                case 'waste': return waste;
+                case 'tableau': return tableau[selectedFrom.index];
+                default: return [];
+            }
+        }
+
+        // 自动移动可以去基础堆的牌
+        function autoMoveToFoundation() {
+            let moved = false;
+            
+            // 检查 tableau 每个牌堆顶牌
+            tableau.forEach((pile, index) => {
+                if (pile.length > 0) {
+                    const card = pile[pile.length - 1];
+                    if (card.faceUp && canPlaceOnFoundation(card, card.suit)) {
+                        moveCard(pile, pile.length - 1, foundations[card.suit], true);
+                        moved = true;
+                    }
+                }
+            });
+
+            // 检查废牌堆顶牌
+            if (waste.length > 0) {
+                const card = waste[waste.length - 1];
+                if (canPlaceOnFoundation(card, card.suit)) {
+                    moveCard(waste, waste.length - 1, foundations[card.suit], true);
+                    moved = true;
+                }
+            }
+
+            if (moved) {
+                score += 10;
+                saveMove();
+                renderAll();
+            }
+        }
+
+        // 保存当前状态用于撤销
+        function saveCurrentState() {
+            return {
+                stock: JSON.parse(JSON.stringify(stock)),
+                waste: JSON.parse(JSON.stringify(waste)),
+                tableau: JSON.parse(JSON.stringify(tableau)),
+                foundations: JSON.parse(JSON.stringify(foundations)),
+                score: score,
+                pixelGrid: JSON.parse(JSON.stringify(pixelGrid)),
+                filledPixels: filledPixels
+            };
+        }
+
+        function saveMove() {
+            moveHistory.push(saveCurrentState());
+            if (moveHistory.length > 20) {
+                moveHistory.shift();
+            }
+        }
+
+        function undoMove() {
+            if (moveHistory.length <= 1) {
+                alert('没有可以撤销的步数');
+                return;
+            }
+            moveHistory.pop();
+            const prevState = moveHistory[moveHistory.length - 1];
+            stock = prevState.stock;
+            waste = prevState.waste;
+            tableau = prevState.tableau;
+            foundations = prevState.foundations;
+            score = prevState.score;
+            pixelGrid = prevState.pixelGrid;
+            filledPixels = prevState.filledPixels;
+            selectedCard = null;
+            selectedFrom = null;
+            renderAll();
+            updateScore();
+            updatePixelGrid();
+        }
+
+        // 更新分数显示
+        function updateScore() {
+            document.getElementById('score').textContent = score;
+            document.getElementById('pixelsFilled').textContent = filledPixels;
+        }
+
+        // 更新像素网格显示
+        function updatePixelGrid() {
+            const container = document.getElementById('pixelGrid');
+            const cells = container.querySelectorAll('.pixel-cell');
+            let index = 0;
+            for (let y = 0; y < GRID_SIZE; y++) {
+                for (let x = 0; x < GRID_SIZE; x++) {
+                    const cell = cells[index++];
+                    if (pixelGrid[y][x]) {
+                        cell.style.background = pixelGrid[y][x];
+                        cell.classList.add('filled');
+                    } else {
+                        cell.style.background = '';
+                        cell.classList.remove('filled');
+                    }
+                }
+            }
+        }
+
+        // 检查是否全部完成
+        function checkCompletion() {
+            const allFilled = filledPixels >= GRID_SIZE * GRID_SIZE;
+            if (allFilled) {
+                setTimeout(showCompletion, 500);
+            }
+        }
+
+        // 显示完成弹窗
+        function showCompletion() {
+            document.getElementById('completedOverlay').classList.add('active');
+            renderPreviewCanvas();
+        }
+
+        function closeOverlay() {
+            document.getElementById('completedOverlay').classList.remove('active');
+        }
+
+        // 渲染预览 canvas
+        function renderPreviewCanvas() {
+            const canvas = document.getElementById('canvasPreview');
+            const scale = 10;
+            canvas.width = GRID_SIZE * scale;
+            canvas.height = GRID_SIZE * scale;
+            const ctx = canvas.getContext('2d');
+            
+            for (let y = 0; y < GRID_SIZE; y++) {
+                for (let x = 0; x < GRID_SIZE; x++) {
+                    if (pixelGrid[y][x]) {
+                        ctx.fillStyle = pixelGrid[y][x];
+                    } else {
+                        ctx.fillStyle = '#1a1a2e';
+                    }
+                    ctx.fillRect(x * scale, y * scale, scale, scale);
+                }
+            }
+        }
+
+        // 保存像素画
+        function savePixelArt() {
+            renderPreviewCanvas();
+            showCompletion();
+        }
+
+        // 下载像素画
+        function downloadPixelArt() {
+            const canvas = document.getElementById('canvasPreview');
+            canvas.toBlob((blob) => {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.download = `pixel-art-${Date.now()}.png`;
+                a.href = url;
+                a.click();
+                URL.revokeObjectURL(url);
+            });
+        }
+
+        // 渲染所有
+        function renderAll() {
+            // 渲染废牌堆
+            const wasteEl = document.getElementById('wastePile');
+            wasteEl.innerHTML = '';
+            if (waste.length > 0) {
+                const lastCard = waste[waste.length - 1];
+                const cardEl = document.createElement('div');
+                cardEl.className = `card ${lastCard.color === 'red' ? 'card-red' : 'card-black'}${selectedCard === lastCard ? ' selected' : ''}`;
+                cardEl.innerHTML = `${lastCard.value}${SUIT_SYMBOLS[lastCard.suit]}`;
+                cardEl.onclick = () => handleCardClick(lastCard, 'waste', 0, waste.length - 1);
+                wasteEl.appendChild(cardEl);
+            }
+
+            // 渲染基础堆
+            SUITS.forEach(suit => {
+                const el = document.getElementById(`foundation${suit.charAt(0).toUpperCase() + suit.slice(1)}`);
+                const pile = foundations[suit];
+                if (pile.length > 0) {
+                    el.classList.add('filled');
+                    const lastCard = pile[pile.length - 1];
+                    el.innerHTML = `${lastCard.value}${SUIT_SYMBOLS[suit]}`;
+                } else {
+                    el.classList.remove('filled');
+                    el.innerHTML = SUIT_SYMBOLS[suit];
+                }
+                el.onclick = () => {
+                    if (selectedCard && canPlaceOnFoundation(selectedCard, suit)) {
+                        moveCard(getSelectedPile(), selectedFrom.cardIndex, foundations[suit], true);
+                    }
+                };
+            });
+
+            // 渲染 tableau
+            tableau.forEach((pile, i) => {
+                const el = document.querySelector(`[data-col="${i}"]`);
+                el.innerHTML = '';
+                pile.forEach((card, j) => {
+                    const div = document.createElement('div');
+                    const colorClass = card.color === 'red' ? 'card-red' : 'card-black';
+                    const selected = selectedCard === card ? 'selected' : '';
+                    div.className = `card ${colorClass} ${selected}`;
+                    if (!card.faceUp) {
+                        div.style.background = '#2e4374';
+                        div.style.color = 'transparent';
+                    } else {
+                        div.innerHTML = `${card.value}${SUIT_SYMBOLS[card.suit]}`;
+                    }
+                    div.onclick = () => handleCardClick(card, 'tableau', i, j);
+                    el.appendChild(div);
+                });
+            });
+
+            // 更新发牌堆显示
+            const stockEl = document.getElementById('stockPile');
+            if (stock.length === 0) {
+                stockEl.style.opacity = '0.5';
+                stockEl.innerHTML = '重新<br>发牌';
+            } else {
+                stockEl.style.opacity = '1';
+                stockEl.innerHTML = '发牌<br>📄';
+            }
+
+            updateScore();
+            updatePixelGrid();
+
+            // 自动移动 - 每次移动后检查是否有可以自动移动到基础堆的牌
+            setTimeout(autoMoveToFoundation, 100);
+        }
+
+        // 初始化游戏
+        initPixelGrid();
+        startNewGame();
+    </script>
+</body>
+</html>
