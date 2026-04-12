@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>云朵贪吃蛇 - Cloud Snake</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #87CEEB 0%, #E0F6FF 50%, #B0E0E6 100%);
+            font-family: 'Segoe UI', sans-serif;
+        }
+        .game-container {
+            text-align: center;
+        }
+        h1 {
+            color: #4682B4;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 4px rgba(255, 255, 255, 0.8);
+            font-size: 28px;
+        }
+        .subtitle {
+            color: #5F9EA0;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+        #gameCanvas {
+            border: 3px solid rgba(255, 255, 255, 0.8);
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(70, 130, 180, 0.3);
+            background: linear-gradient(to bottom, #E0F6FF 0%, #B0E0F0 100%);
+        }
+        .score-board {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin: 15px 0;
+            color: #2C5C80;
+            font-size: 15px;
+        }
+        .score-item {
+            background: rgba(255, 255, 255, 0.5);
+            padding: 8px 18px;
+            border-radius: 20px;
+            border: 1px solid rgba(70, 130, 180, 0.3);
+        }
+        .score-item span {
+            color: #4682B4;
+            font-weight: bold;
+            margin-left: 5px;
+        }
+        .weather-item {
+            background: rgba(200, 230, 255, 0.6);
+        }
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .btn {
+            padding: 12px 28px;
+            font-size: 16px;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: bold;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #87CEEB 0%, #4682B4 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(135, 206, 235, 0.4);
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(135, 206, 235, 0.6);
+        }
+        .btn-danger {
+            background: linear-gradient(135deg, #FF6B6B 0%, #EE5A5A 100%);
+            color: white;
+        }
+        .btn-danger:hover {
+            transform: translateY(-2px);
+        }
+        .game-over {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 255, 255, 0.95);
+            padding: 40px;
+            border-radius: 20px;
+            border: 3px solid #4682B4;
+            display: none;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        }
+        .game-over h2 {
+            color: #4682B4;
+            margin-bottom: 20px;
+            font-size: 30px;
+        }
+        .game-over p {
+            color: #2C5C80;
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+        .game-over p span {
+            color: #4682B4;
+            font-weight: bold;
+        }
+        .instructions {
+            color: rgba(44, 92, 128, 0.7);
+            font-size: 13px;
+            margin-top: 10px;
+            max-width: 350px;
+            line-height: 1.5;
+        }
+        .relative-container {
+            position: relative;
+        }
+        .touch-controls {
+            display: none;
+            margin-top: 15px;
+        }
+        .d-pad {
+            display: grid;
+            grid-template-columns: repeat(3, 60px);
+            grid-template-rows: repeat(3, 60px);
+            gap: 8px;
+            justify-content: center;
+        }
+        .dpad-btn {
+            background: rgba(255, 255, 255, 0.6);
+            border: 2px solid #87CEEB;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 24px;
+            color: #4682B4;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .dpad-btn:active {
+            background: #87CEEB;
+            color: white;
+        }
+        @media (max-width: 600px) {
+            .touch-controls {
+                display: block;
+            }
+        }
+        .fog-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: radial-gradient(ellipse at center, transparent 30%, rgba(200, 220, 240, 0.6) 100%);
+            pointer-events: none;
+            border-radius: 12px;
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+        .fog-overlay.active {
+            opacity: 1;
+        }
+        .rain-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+            border-radius: 12px;
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+        .rain-overlay.active {
+            opacity: 1;
+        }
+        .rain-drop {
+            position: absolute;
+            width: 1px;
+            height: 8px;
+            background: rgba(100, 149, 237, 0.4);
+            animation: rain-fall linear infinite;
+        }
+        @keyframes rain-fall {
+            from { transform: translateY(-10px); }
+            to { transform: translateY(400px); }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>☁️ 云朵贪吃蛇</h1>
+        <p class="subtitle">柔软云朵，天空漫步，碰撞边界不会死亡哦～</p>
+        <div class="score-board">
+            <div class="score-item">
+                得分: <span id="score">0</span>
+            </div>
+            <div class="score-item">
+                长度: <span id="length">3</span>
+            </div>
+            <div class="score-item">
+                最高分: <span id="highScore">0</span>
+            </div>
+        </div>
+        <div class="score-board">
+            <div class="score-item weather-item">
+                天气: <span id="weather">晴朗</span>
+            </div>
+        </div>
+        <div class="relative-container">
+            <canvas id="gameCanvas" width="400" height="400"></canvas>
+            <div class="fog-overlay" id="fogOverlay"></div>
+            <div class="rain-overlay" id="rainOverlay"></div>
+            <div class="game-over" id="gameOver">
+                <h2>游戏结束</h2>
+                <p>最终得分: <span id="finalScore">0</span></p>
+                <p>蛇身长度: <span id="finalLength">3</span></p>
+                <p>天气经历: <span id="weatherCount">0</span>种</p>
+                <button class="btn btn-primary" onclick="startGame()">再来一局</button>
+            </div>
+        </div>
+        <div class="controls">
+            <button class="btn btn-primary" id="startBtn" onclick="startGame()">开始游戏</button>
+            <button class="btn btn-danger" id="pauseBtn" onclick="togglePause()">暂停</button>
+        </div>
+        <div class="touch-controls">
+            <div class="d-pad">
+                <div></div>
+                <button class="dpad-btn" onclick="changeDirection(0)">↑</button>
+                <div></div>
+                <button class="dpad-btn" onclick="changeDirection(3)">←</button>
+                <div></div>
+                <button class="dpad-btn" onclick="changeDirection(1)">→</button>
+                <div></div>
+                <button class="dpad-btn" onclick="changeDirection(2)">↓</button>
+                <div></div>
+            </div>
+        </div>
+        <p class="instructions">
+            <strong>玩法说明:</strong> 方向键控制贪吃蛇，吃云朵长大。撞边界会从另一边出来，不会死！只有撞到自己才会结束。<br>
+            随机天气会影响移动: 微风会轻轻推你，浓雾降低能见度，小雨让蛇滑一点。
+        </p>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreEl = document.getElementById('score');
+        const lengthEl = document.getElementById('length');
+        const highScoreEl = document.getElementById('highScore');
+        const weatherEl = document.getElementById('weather');
+        const fogOverlay = document.getElementById('fogOverlay');
+        const rainOverlay = document.getElementById('rainOverlay');
+        const gameOverEl = document.getElementById('gameOver');
+        const finalScoreEl = document.getElementById('finalScore');
+        const finalLengthEl = document.getElementById('finalLength');
+        const weatherCountEl = document.getElementById('weatherCount');
+
+        // 游戏配置
+        const GRID_SIZE = 20;
+        const COLS = canvas.width / GRID_SIZE;
+        const ROWS = canvas.height / GRID_SIZE;
+
+        // 天气类型
+        const WEATHER = {
+            CLEAR: { name: '晴朗', drift: 0, fog: 0, inertia: 0 },
+            BREEZE: { name: '微风', drift: 0.15, fog: 0, inertia: 0 },
+            FOG: { name: '浓雾', drift: 0, fog: 0.8, inertia: 0 },
+            DRIZZLE: { name: '小雨', drift: 0, fog: 0.2, inertia: 0.6 }
+        };
+
+        // 游戏状态
+        let gameRunning = false;
+        let gamePaused = false;
+        let score = 0;
+        let highScore = localStorage.getItem('cloudSnakeHighScore') || 0;
+        let direction = 1; // 0: up, 1: right, 2: down, 3: left
+        let pendingDirection = 1;
+        let snake = [];
+        let food = null;
+        let currentWeather = WEATHER.CLEAR;
+        let weatherTypesEncountered = 0;
+        let lastWeatherChange = 0;
+        let animationId = null;
+        let gameSpeed = 150;
+
+        // 初始化
+        highScoreEl.textContent = highScore;
+
+        // 创建云朵贪吃蛇（柔软弹性节）
+        function initSnake() {
+            snake = [];
+            const startX = Math.floor(COLS / 2);
+            const startY = Math.floor(ROWS / 2);
+            // 初始三节
+            for (let i = 0; i < 3; i++) {
+                snake.push({
+                    x: startX - i,
+                    y: startY,
+                    softX: startX - i,
+                    softY: startY
+                });
+            }
+            direction = 1;
+            pendingDirection = 1;
+        }
+
+        // 随机生成食物云朵
+        function spawnFood() {
+            let newFood;
+            do {
+                newFood = {
+                    x: Math.floor(Math.random() * COLS),
+                    y: Math.floor(Math.random() * ROWS)
+                };
+            } while (snake.some(segment => segment.x === newFood.x && segment.y === newFood.y));
+            food = newFood;
+        }
+
+        // 创建雨滴效果
+        function createRainDrops() {
+            rainOverlay.innerHTML = '';
+            for (let i = 0; i < 30; i++) {
+                const drop = document.createElement('div');
+                drop.className = 'rain-drop';
+                drop.style.left = Math.random() * 400 + 'px';
+                drop.style.animationDuration = (0.2 + Math.random() * 0.3) + 's';
+                drop.style.animationDelay = Math.random() * 0.5 + 's';
+                rainOverlay.appendChild(drop);
+            }
+        }
+
+        // 随机改变天气
+        function maybeChangeWeather() {
+            if (score > 0 && score % 500 === 0) {
+                const weatherKeys = Object.keys(WEATHER);
+                let newWeather;
+                do {
+                    newWeather = WEATHER[weatherKeys[Math.floor(Math.random() * weatherKeys.length)]];
+                } while (newWeather === currentWeather);
+                currentWeather = newWeather;
+                weatherEl.textContent = currentWeather.name;
+                weatherTypesEncountered++;
+                // 更新雾效果
+                if (currentWeather.fog > 0.3) {
+                    fogOverlay.classList.add('active');
+                } else {
+                    fogOverlay.classList.remove('active');
+                }
+                // 更新雨效果
+                if (currentWeather.inertia > 0) {
+                    createRainDrops();
+                    rainOverlay.classList.add('active');
+                } else {
+                    rainOverlay.classList.remove('active');
+                }
+            }
+        }
+
+        // 绘制圆形云朵节
+        function drawCloudSegment(x, y, scale = 1) {
+            const pixelX = x * GRID_SIZE;
+            const pixelY = y * GRID_SIZE;
+            const radius = (GRID_SIZE / 2) * scale;
+            
+            // 云朵渐变
+            const gradient = ctx.createRadialGradient(
+                pixelX + radius, pixelY + radius, 0,
+                pixelX + radius, pixelY + radius, radius
+            );
+            gradient.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
+            gradient.addColorStop(0.7, 'rgba(240, 248, 255, 0.9)');
+            gradient.addColorStop(1, 'rgba(220, 240, 255, 0.8)');
+            
+            ctx.beginPath();
+            ctx.arc(pixelX + radius, pixelY + radius, radius, 0, Math.PI * 2);
+            ctx.fillStyle = gradient;
+            ctx.fill();
+            
+            // 高光
+            ctx.beginPath();
+            ctx.arc(pixelX + radius * 0.5, pixelY + radius * 0.5, radius * 0.3, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+            ctx.fill();
+        }
+
+        // 绘制食物云朵
+        function drawFood() {
+            if (!food) return;
+            const pixelX = food.x * GRID_SIZE;
+            const pixelY = food.y * GRID_SIZE;
+            const radius = GRID_SIZE / 2;
+            
+            // 食物是小小的彩色云朵
+            const gradient = ctx.createRadialGradient(
+                pixelX + radius, pixelY + radius, 0,
+                pixelX + radius, pixelY + radius, radius
+            );
+            gradient.addColorStop(0, 'rgba(135, 206, 235, 0.95)');
+            gradient.addColorStop(0.7, 'rgba(100, 180, 220, 0.9)');
+            gradient.addColorStop(1, 'rgba(70, 130, 180, 0.8)');
+            
+            ctx.beginPath();
+            ctx.arc(pixelX + radius, pixelY + radius, radius, 0, Math.PI * 2);
+            ctx.fillStyle = gradient;
+            ctx.fill();
+            
+            // 高光
+            ctx.beginPath();
+            ctx.arc(pixelX + radius * 0.4, pixelY + radius * 0.4, radius * 0.25, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+            ctx.fill();
+        }
+
+        // 绘制网格背景
+        function drawBackground() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // 轻柔网格线
+            ctx.strokeStyle = 'rgba(70, 130, 180, 0.1)';
+            ctx.lineWidth = 0.5;
+            for (let i = 0; i <= COLS; i++) {
+                ctx.beginPath();
+                ctx.moveTo(i * GRID_SIZE, 0);
+                ctx.lineTo(i * GRID_SIZE, canvas.height);
+                ctx.stroke();
+            }
+            for (let i = 0; i <= ROWS; i++) {
+                ctx.beginPath();
+                ctx.moveTo(0, i * GRID_SIZE);
+                ctx.lineTo(canvas.width, i * GRID_SIZE);
+                ctx.stroke();
+            }
+        }
+
+        // 更新柔软位置（弹性跟随）
+        function updateSoftPositions() {
+            for (let i = 1; i < snake.length; i++) {
+                const prev = snake[i - 1];
+                const curr = snake[i];
+                
+                // 平滑插值跟随前一节
+                curr.softX += (prev.x - curr.softX) * 0.3;
+                curr.softY += (prev.y - curr.softY) * 0.3;
+            }
+        }
+
+        // 改变方向
+        function changeDirection(newDir) {
+            if (!gameRunning || gamePaused) return;
+            // 不允许180度转弯
+            if ((direction === 0 && newDir === 2) ||
+                (direction === 2 && newDir === 0) ||
+                (direction === 1 && newDir === 3) ||
+                (direction === 3 && newDir === 1)) {
+                return;
+            }
+            pendingDirection = newDir;
+        }
+
+        // 暴露给触摸按钮
+        window.changeDirection = changeDirection;
+
+        // 应用微风偏移（随机偏移）和小雨惯性（方向保持）
+        function applyWeatherEffects(x, y, currentDir) {
+            // 微风效果：随机方向偏移
+            if (currentWeather.drift > 0) {
+                if (Math.random() < currentWeather.drift) {
+                    const driftDir = Math.random() > 0.5 ? 1 : -1;
+                    if (Math.random() > 0.5) {
+                        x += driftDir;
+                    } else {
+                        y += driftDir;
+                    }
+                }
+            }
+            return {x, y, direction: currentDir};
+        }
+
+        // 更新游戏
+        function update() {
+            if (!gameRunning || gamePaused) return;
+
+            // 小雨惯性：保持当前方向，不立即响应方向改变
+            let effectiveDirection = direction;
+            if (currentWeather.inertia > 0) {
+                // 有惯性概率不接受新方向，继续沿原方向走
+                if (Math.random() < currentWeather.inertia) {
+                    effectiveDirection = direction;
+                } else {
+                    effectiveDirection = pendingDirection;
+                }
+            } else {
+                effectiveDirection = pendingDirection;
+            }
+            direction = effectiveDirection;
+
+            // 计算新头部位置
+            let head = {x: snake[0].x, y: snake[0].y, softX: snake[0].x, softY: snake[0].y};
+            switch (effectiveDirection) {
+                case 0: head.y--; break;
+                case 1: head.x++; break;
+                case 2: head.y++; break;
+                case 3: head.x--; break;
+            }
+
+            // 应用天气影响（微风随机偏移）
+            const drifted = applyWeatherEffects(head.x, head.y, effectiveDirection);
+            head.x = drifted.x;
+            head.y = drifted.y;
+
+            // 穿墙处理 - 碰撞边界不死，从另一边出来
+            if (head.x < 0) head.x = COLS - 1;
+            if (head.x >= COLS) head.x = 0;
+            if (head.y < 0) head.y = ROWS - 1;
+            if (head.y >= ROWS) head.y = 0;
+
+            // 撞到自己检查 - 只有撞自己才死
+            if (snake.some(segment => segment.x === head.x && segment.y === head.y)) {
+                endGame();
+                return;
+            }
+
+            // 添加新头部
+            snake.unshift(head);
+            updateSoftPositions();
+
+            // 吃食物
+            if (food && head.x === food.x && head.y === food.y) {
+                score += 100;
+                scoreEl.textContent = score;
+                lengthEl.textContent = snake.length;
+                spawnFood();
+                maybeChangeWeather();
+            } else {
+                // 移除尾巴
+                snake.pop();
+            }
+
+            // 绘制
+            drawBackground();
+            snake.forEach((segment, index) => {
+                // 轻微大小变化，头部大一点
+                const scale = index === 0 ? 1.1 : 0.9;
+                drawCloudSegment(segment.softX, segment.softY, scale);
+            });
+            drawFood();
+
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('cloudSnakeHighScore', highScore);
+                highScoreEl.textContent = highScore;
+            }
+
+            const delay = Math.max(50, gameSpeed - Math.floor(snake.length / 3) * 5);
+            setTimeout(() => {
+                animationId = requestAnimationFrame(update);
+            }, delay);
+        }
+
+        // 开始游戏
+        function startGame() {
+            initSnake();
+            score = 0;
+            currentWeather = WEATHER.CLEAR;
+            weatherTypesEncountered = 0;
+            weatherEl.textContent = currentWeather.name;
+            fogOverlay.classList.remove('active');
+            rainOverlay.classList.remove('active');
+            gameRunning = true;
+            gamePaused = false;
+            scoreEl.textContent = '0';
+            lengthEl.textContent = '3';
+            spawnFood();
+            document.getElementById('pauseBtn').textContent = '暂停';
+            gameOverEl.style.display = 'none';
+            animationId = requestAnimationFrame(update);
+        }
+
+        // 结束游戏
+        function endGame() {
+            gameRunning = false;
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('cloudSnakeHighScore', highScore);
+            }
+            finalScoreEl.textContent = score;
+            finalLengthEl.textContent = snake.length;
+            weatherCountEl.textContent = weatherTypesEncountered;
+            gameOverEl.style.display = 'block';
+            cancelAnimationFrame(animationId);
+        }
+
+        // 暂停切换
+        function togglePause() {
+            if (!gameRunning) return;
+            gamePaused = !gamePaused;
+            document.getElementById('pauseBtn').textContent = gamePaused ? '继续' : '暂停';
+            if (!gamePaused) {
+                animationId = requestAnimationFrame(update);
+            }
+        }
+
+        // 键盘控制
+        document.addEventListener('keydown', (e) => {
+            switch(e.key) {
+                case 'ArrowUp': changeDirection(0); e.preventDefault(); break;
+                case 'ArrowRight': changeDirection(1); e.preventDefault(); break;
+                case 'ArrowDown': changeDirection(2); e.preventDefault(); break;
+                case 'ArrowLeft': changeDirection(3); e.preventDefault(); break;
+            }
+        });
+
+        // 滑动支持移动端
+        let touchStartX = 0;
+        let touchStartY = 0;
+        canvas.addEventListener('touchstart', (e) => {
+            touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
+        }, { passive: true });
+
+        canvas.addEventListener('touchend', (e) => {
+            if (!gameRunning || gamePaused) return;
+            const touchEndX = e.changedTouches[0].clientX;
+            const touchEndY = e.changedTouches[0].clientY;
+            const dx = touchEndX - touchStartX;
+            const dy = touchEndY - touchStartY;
+            
+            if (Math.abs(dx) > Math.abs(dy)) {
+                changeDirection(dx > 0 ? 1 : 3);
+            } else {
+                changeDirection(dy > 0 ? 2 : 0);
+            }
+        }, { passive: true });
+
+        // 初始绘制
+        drawBackground();
+    </script>
+</body>
+</html>
