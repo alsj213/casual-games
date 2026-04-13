@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>成语填字 - Idiom Crossword</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 10px;
+        }
+        .game-container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0, 0.15);
+            max-width: 90vw;
+            text-align: center;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 8px;
+            font-size: 28px;
+        }
+        .subtitle {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+        .toolbar {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 15px;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .stat {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .stat span {
+            color: #ffd700;
+            margin-left: 4px;
+            font-weight: bold;
+        }
+        .level-selector {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+        .level-btn {
+            padding: 6px 12px;
+            border-radius: 15px;
+            border: 2px solid #ddd;
+            background: white;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 13px;
+        }
+        .level-btn.active {
+            border-color: #f5576c;
+            background: #f8e9ff;
+            color: #f5576c;
+            font-weight: bold;
+        }
+        .game-area {
+            position: relative;
+            margin: 0 auto 15px;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            background: #f8f8f8;
+        }
+        #gameContainer {
+            display: grid;
+            gap: 2px;
+            background: #ddd;
+            padding: 2px;
+            margin: 0 auto;
+        }
+        .cell {
+            aspect-ratio: 1/1;
+            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: bold;
+            font-size: min(5vw, 20px);
+        }
+        .cell:hover {
+            background: #e8f4ff;
+            transform: scale(1.05);
+        }
+        .cell-filled {
+            background: #f0f8ff;
+        }
+        .cell-selected {
+            background: #f5576c !important;
+            color: white !important;
+        }
+        .cell-correct {
+            background: #4caf50 !important;
+            color: white !important;
+        }
+        .cell-wrong {
+            background: #f44336 !important;
+            color: white !important;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 15px;
+        }
+        .btn {
+            padding: 10px 20px;
+            font-size: 15px;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(245, 87, 158, 0.4);
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(245, 87, 158, 0.6);
+        }
+        .btn-secondary {
+            background: linear-gradient(135deg, #a8edea 0%, #fed6ab 100%);
+            color: #333;
+        }
+        .game-over {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0, 0.7);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            border-radius: 12px;
+            z-index: 10;
+        }
+        .game-over.active {
+            display: flex;
+        }
+        .result-modal {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            max-width: 80%;
+        }
+        .result-modal h2 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+        .instructions {
+            color: #666;
+            font-size: 13px;
+            text-align: left;
+            line-height: 1.5;
+        }
+        @media (max-width: 600px) {
+            #gameContainer {
+                gap: 1px;
+            }
+            h1 {
+                font-size: 24px;
+            }
+        }
+    </style>
+<body>
+    <div class="game-container">
+        <h1>📖 成语填字</h1>
+        <p class="subtitle">九宫格里填成语，横竖交叉考验你的词汇量！</p>
+
+        <div class="toolbar">
+            <div class="stat">关卡: <span id="currentLevel">初级</span></div>
+            <div class="stat">已完成: <span id="completed">0</span>/<span id="total">0</span></div>
+        </div>
+
+        <div class="level-selector">
+            <button class="level-btn level-btn active" data-level="easy" onclick="selectLevel('easy')">初级</button>
+            <button class="level-btn level-btn" data-level="medium" onclick="selectLevel('medium')">中级</button>
+           <button class="level-btn level-btn" data-level="hard" onclick="selectLevel('hard')">高级</button>
+        </div>
+
+        <div class="game-area">
+            <div id="gameContainer"></div>
+            <div class="controls">
+                <button class="btn btn-primary" onclick="startGame">开始游戏</button>
+                <button class="btn btn-secondary" onclick="showHint">提示</button>
+            </div>
+        </div>
+
+        <p class="instructions">
+            <strong>玩法规则：</strong><br>
+            • 点击格子输入文字，横竖都要是完整成语<br>
+            • 全部填对通关成功，考验你的成语储量！
+        </p>
+    </div>
+
+    <script>
+        // 成语数据库 - 按难度分类
+        const IDIOM_DATA = {
+            easy: [
+                {word: "一举两得", clueH: "做一件事得到两方面好处", clueV: "", row: 0, col: 0},
+                {word: "三长两短", clueH: "指意外的灾祸</>", clueV: "", row: 1, col: 0},
+                {word: "四面八方", clueH: "指各个方面或各个地方</>", clueV: "", row: 2, col: 0},
+                {word: "五光十色", clueH: "形容色彩鲜艳，花样繁多", clueV: "", row: 3, col: 0},
+                {word: "天长地久", clueH: "形容爱情长久</>", clueV: "", row: 4, col: 0},
+                {word: "水落石出", clueH: "事情真相大白</>", clueV: "", row: 5, col: 0},
+                {word: "画龙点睛", clueH: "画画要点睛，比喻作文写完润色</>", clueV: "", row: 6, col: 0},
+                {word: "马到成功", clueH: "形容工作顺利完成</>", clueV: "", row: 7, col: 0},
+                {word: "龙盘虎踞", clueH: "形容地势雄伟险要</>", clueV: "", row: 8, col: 0},
+                {word: "名正言顺", clueH: "指名分正当，说话顺理成章</>", clueV: "", row: 9, col: 0},
+                {word: "安居乐业", clueH: "指安定愉快地生活和劳动</>", clueV: "", row: 10, col: 0},
+                {word: "百发百中", clueH: "形容射箭准确，枪法准</>", clueV: "", row: 11, col: 0},
+                {word: "问心无愧", clueH: "道家语，指心地坦然，无愧于心</>", clueV: "", row: 12, col: 0},
+                {word: "完璧归赵", clueH: "蔺相如将和氏璧完好地送回赵国</>", clueV: "", row: 13, col: 0},
+                {word: "卧薪尝胆", clueH: "形容人刻苦自励，发奋图强</>", clueV: "", row: 14, col: 0},
+                {word: "美不胜收", clueH: "美好的东西很多，一时看不过来</>", clueV: "", row: 15, col: 0},
+            ];
+            medium: [
+                {word: "一诺千金", clueH: "一个人许下诺言</>", clueV: "", row: 0, col: 0},
+                {word: "一毛不拔", clueH: "一根汗毛也不肯拔，比喻非常吝啬</>", clueV: "", row: 1, col: 0},
+                {word: "一心一意", clueH: "只有一个心眼儿，没有别的考虑</>", clueV: "", row: 2, col: 0},
+                {word: "三三两两", clueH: "三个一群两个一伙，形容人或物聚集在一起</>", clueV: "", row: 3, col: 0},
+                {word: "三言两语", clueH: "几句话就能把事情说清楚</>", clueV: "", row: 4, col: 0},
+                {word: "上行下效", clueH: "上面的人怎么做，下面的人就跟着怎么干</>", clueV: "", row: 5, col: 0},
+                {word: "不可救药", clueH: "病已重到无法用药医治</>", clueV: "", row: 6, col: 0},
+                {word: "不知所措", clueH: "不知道怎么办才好</>", clueV: "", row: 7, col: 0},
+                {word: "不亦乐乎", clueH: "不也是非常快乐的</>", clueV: "", row: 8, col: 0},
+                {word: "风尘仆仆", clueH: "形容旅途劳累</>", clueV: "", row: 9, col: 0},
+                {word: "金榜题名", clueH: "科举考试被录取</>", clueV: "", row: 10, col: 0},
+                {word: "锦上添花", clueH: "在好的事物上再添好，让它更好</>", clueV: "", row: 11, col: 0},
+                {word: "锦绣前程", clueH: "形容前途十分美好</>", clueV: "", row: 12, col: 0},
+                {word: "鹤立鸡群", clueH: "比喻一个人的仪表或才能在周围一群人里显得很突出</>", clueV: "", row: 13, col: 0},
+                {word: "黔驴技穷", clueH: "比喻有限的一点本领也已经用完了</>", clueV: "", row: 14, col: 0},
+                {word: "物是人非", clueH: "景物还是那景物，人已经不是那旧时人</>", clueV: "", row: 15, col: 0},
+                {word: "美轮美奂", clueH: "形容房屋高大华丽</>", clueV: "", row: 16, col: 0},
+                {word: "一针见血", clueH: "比喻说话直截了当，切中要害</>", clueV: "", row: 17, col: 0},
+            ],
+            hard: [
+                {word: "万紫千红", clueH: "形容百花齐放，色彩艳丽</>", clueV: "", row: 0, col: 0},
+                {word: "才疏学浅", clueH: "见识少而浅薄，谦辞</>", clueV: "", row: 1, col: 0},
+                {word: "人山人海", clueH: "形容人聚集得非常多</>", clueV: "", row: 2, col: 0},
+                {word: "亡羊补牢", clueH: "羊因为逃跑丢了牢，比喻出了问题以后想办法补救</>", clueV: "", row: 3, col: 0},
+                {word: "司空见惯", clueH: "指看得多了，不以为奇</>", clueV: "", row: 4, col: 0},
+                {word: "对答如流", clueH: "回答问话象流水一样流畅</>", clueV: "", row: 5, col: 0},
+                {word: "对症下药", clueH: "针对病症用药，比喻针对事物的问题所在，采取有效的处理</>", clueV: "", row: 6, col: 0},
+                {word: "融会贯通", clueH: "把各方面的知识和道理融化汇合，得到全面透彻的理解</>", clueV: "", row: 7, col: 0},
+                {word: "触类旁通", clueH: "掌握了一事物的规律，就能推知同类事物</>", clueV: "", row: 8, col: 0},
+                {word: "自给自足", clueH: "依靠自己的生产，满足自己的需要</>", clueV: "", row: 9, col: 0},
+                {word: "精兵简政", clueH: "缩小机构，精简人员</>", clueV: "", row: 10, col: 0},
+                {word: "落井下石", clueH: "看见人要掉进陷井里，不伸手救他，反而推他下去</>", clueV: "", row: 11, col: 0},
+                {word: "喜出望外", clueH: "由于没有想到的好事而非常高兴</>", clueV: "", row: 12, col: 0},
+                {word: "焕然一新", clueH: "改变陈旧的面貌，呈现出崭新的样子</>", clueV: "", row: 13, col: 0},
+                {word: "南腔北调", clueH:原指口音不纯，引申为说话夹杂各地方言</>", clueV: "", row: 14, col: 0},
+                {word: "昭然若揭", clueH: "形容坏事真相完全暴露出来</>", clueV: "", row: 15, col: 0},
+                {word: "豁然开朗", clueH: "一下子明白了某个道理</>", clueV: "", row: 16, col: 0},
+                {word: "众口铄金", clueH: "原指舆论能够伤人，指错误舆论能够把金属熔化，比喻众口一词可以混淆是非</>", clueV: "", row: 17, col: 0},
+                {word: "道貌岸然", clueH: "神态庄重严肃，装作一本正经的样子</>", clueV: "", row: 18, col: 0},
+                {word: "黯然销魂", clueH: "心怀沮丧得好像丢了魂似的，形容非常悲伤</>", clueV: "", row: 19, col: 0},
+                {word: "龙马精神", clueH: "形容人的健旺精神</>", clueV: "", row: 20, col: 0},
+            ];
+        };
+
+        let currentLevel = 'easy';
+        let grid = [];
+        let selected = null;
+        let selectedCell = null;
+
+        function selectLevel(level) {
+            currentLevel = level;
+            startGame();
+        }
+
+        function startGame() {
+            const container = document.getElementById('gameContainer');
+            container.innerHTML = '';
+            const data = currentLevel === 'easy' ? IDIOM_DATA.easy : currentLevel === 'medium' ? IDIOM_DATA.medium : IDIOM_DATA.hard;
+            const size = currentLevel === 'easy' ? 8 : currentLevel === 'medium' ? 10 : 15;
+            container.style.gridTemplateColumns = `repeat(${size}, 1fr)`;
+            grid = [];
+            // Generate empty grid
+            for (let row = 0; row < size; row++) {
+                const rowDiv = document.createElement('div');
+                rowDiv.style.display = 'contents';
+                for (let col = 0; col < size; col++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    cell.addEventListener('click', () => selectCell(row, col));
+                    rowDiv.appendChild(cell);
+                    container.appendChild(rowDiv);
+                    grid.push({
+                        row: row,
+                        col: col,
+                        word: '',
+                        horizontal: '',
+                        vertical: '',
+                        correct: false,
+                    });
+                });
+            }
+            // Add prefilled crossword
+            data.forEach(({row, col, word, horizontal, vertical, correct}) => {
+                grid[row][col] = {
+                    word: word,
+                    clueH: horizontal,
+                    clueV: vertical,
+                    correct: false,
+                };
+            });
+            document.getElementById('gameContainer').appendChild(...grid);
+            document.getElementById('completed').textContent = 0;
+            document.getElementById('total').textContent = data.length.toString();
+        }
+
+        function selectCell(row, col) {
+            const cell = grid[row][col];
+            if (cell.correct) {
+                // Already solved
+                return;
+            }
+            // Check if already selected
+            if (selectedCell) {
+                // Deselect
+                document.getElementById(cell.word).classList.toggle('cell-selected', false);
+                selectedCell = null;
+                return;
+            }
+            selectedCell = {row, col};
+            document.getElementById(cell.row).getElementsByClassName('cell')[col].classList.add('cell-selected');
+            // Focus input for the current clue
+            // Show clue
+            const clueText = cell.horizontal ? cell.horizontal : cell.vertical;
+            const clueText = clueText || cell.vertical;
+            alert(`📍 ${row + 1}, ${col + 1}\n${clueText}`);
+        }
+
+        function showHint() {
+            let filled = 0;
+            grid.forEach(row => {
+                row.forEach(cell => {
+                    if (!cell.correct && cell.word) {
+                        filled++;
+                        const {row, col} = cell;
+                        if (!grid[row][col].correct) {
+                            cell.word = cell.horizontal || cell.vertical;
+                            alert(`${row + 1}, ${col + 1}\n${cell.word}`);
+                        }
+                    });
+            });
+            if (filled === 0) {
+                alert('⚠️ 没有未填的格子了，恭喜你完成了！');
+            }
+        }
+
+        function checkWord(word, row, col, isHorizontal, correct) {
+            // Place the word into the grid and mark correct
+            if (isHorizontal) {
+                for (let i = 0; i < word.length; i++) {
+                    const cell = grid[row][col + i];
+                    cell.correct = correct;
+                    cell.selected = false;
+                }
+            }
+            updateStats();
+        }
+
+        function updateStats() {
+            let completed = 0;
+            grid.forEach(row => {
+                row.forEach(cell => {
+                    if (cell.correct) completed++;
+                });
+            });
+            document.getElementById('completed').textContent = completed.toString();
+        }
+
+        startGame();
+    </script>
+</body>
+</html>
