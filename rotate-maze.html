@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>拼图迷宫 - Rotate Maze</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 10px;
+        }
+        .game-container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+            max-width: 90vw;
+            text-align: center;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 8px;
+            font-size: 28px;
+        }
+        .subtitle {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+        .toolbar {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 15px;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .stat {
+            background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+            color: #333;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .stat span {
+            color: #d84315;
+            margin-left: 4px;
+            font-weight: bold;
+        }
+        .game-area {
+            position: relative;
+            margin: 0 auto 15px;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+        }
+        #gameCanvas {
+            display: block;
+            background: #f8f8f8;
+            cursor: pointer;
+            margin: 0 auto;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 15px;
+        }
+        .btn {
+            padding: 10px 20px;
+            font-size: 15px;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+            color: #333;
+            box-shadow: 0 4px 15px rgba(252, 182, 159, 0.4);
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(252, 182, 159, 0.6);
+        }
+        .btn-secondary {
+            background: linear-gradient(135deg, #a8edea 0%, #fed6ab 100%);
+            color: #333;
+        }
+        .game-over {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0, 0.7);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            border-radius: 12px;
+            z-index: 10;
+        }
+        .game-over.active {
+            display: flex;
+        }
+        .result-modal {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            max-width: 80%;
+        }
+        .result-modal h2 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+        .instructions {
+            color: #666;
+            font-size: 13px;
+            text-align: left;
+            line-height: 1.5;
+        }
+        @media (max-width: 600px) {
+            #gameCanvas {
+                width: 100%;
+                height: auto;
+            }
+            h1 {
+                font-size: 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>🌀 拼图迷宫</h1>
+        <p class="subtitle">点击旋转方块，旋转出一条连通路径从起点到终点！</p>
+
+        <div class="toolbar">
+            <div class="stat">步数: <span id="steps">0</span></div>
+        </div>
+
+        <div class="game-area">
+            <canvas id="gameCanvas" width="500" height="500"></canvas>
+            <div class="game-over" id="gameOver">
+                <div class="result-modal">
+                    <h2 id="resultTitle">🎉 恭喜连通！</h2>
+                    <p id="resultMessage"></p>
+                    <div class="controls" style="margin-top: 20px;">
+                        <button class="btn btn-primary" onclick="startGame">再来一局</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button class="btn btn-primary" onclick="startGame">开始游戏</button>
+            <button class="btn btn-secondary" onclick="undo">撤销旋转</button>
+            <button class="btn btn-secondary" onclick="showHint">显示路径</button>
+        </div>
+
+        <p class="instructions">
+            <strong>玩法规则：</strong><br>
+            • 迷宫由多个 2×2 方块组合而成，每个方块内含一条道路<br>
+            • 点击方块顺时针旋转 90°，调整后让起点连通到终点就算赢<br>
+            • 生成算法保证一定存在合法解
+        </p>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const WIDTH = canvas.width;
+        const HEIGHT = canvas.height;
+
+        // Game config
+        const GRID_SIZE = 10;
+        const BLOCK_SIZE = WIDTH / GRID_SIZE;
+        const BLOCK_PER_SIDE = 5; // 5x5 blocks of 2x2 each = 10x10
+
+        // Game state
+        let grid = [];
+        let start = {row: 0, col: 0};
+        let end = {row: GRID_SIZE - 1, col: GRID_SIZE - 1};
+        let moves = []; // history for undo
+        let solved = false;
+        let animating = false;
+
+        // Maze block - each block is 2x2, has 4 connections (top/right/bottom/left)
+        class Block {
+            constructor(row, col) {
+                this.row = row;
+                this.col = col;
+                this.rotation = 0; // 0=original, 1=rotated 90, 2=180, 3=270
+                // connections: each block is 2x2, which edges are open
+                this.open = {
+                    top: true,
+                    right: false,
+                    bottom: false,
+                    left: true
+                };
+                // Generate connected based on rotation
+                this.getOpenSides = function() {
+                    const sides = ['top', 'right', 'bottom', 'left'];
+                    const open = {};
+                    sides.forEach(side => {
+                        const rotated = (this.rotation + ['top', 'right', 'bottom', 'left'].indexOf(side)) % 4;
+                        open[side] = true;
+                    });
+                    return open;
+                };
+                this.isConnected = function(neighborRow, neighborCol) {
+                    const dr = neighborRow - this.row;
+                    const dc = neighborCol - this.col;
+                    if (dr === -1) {
+                        return this.getOpenSides().top;
+                    } else if (dr === 1) {
+                        return this.getOpenSides().bottom;
+                    } else if (dc === -1) {
+                        return this.getOpenSides().left;
+                    } else if (dc === 1) {
+                        return this.getOpenSides().right;
+                    }
+                    return false;
+                };
+            }
+        }
+
+        function generateMaze() {
+            // Initialize empty grid
+            grid = [];
+            for (let row = 0; row < BLOCK_PER_SIDE; row++) {
+                grid[row] = [];
+                for (let col = 0; col < BLOCK_PER_SIDE; col++) {
+                    grid[row][col] = new Block(row, col);
+                }
+            }
+
+            // Carve paths with randomized DFS to ensure solution exists
+            function carve(row, col, visited) {
+                visited[row][col] = true;
+                // Get all possible directions and shuffle
+                const dirs = [
+                    [-1, 0, 'top', 'bottom'],
+                    [1, 0, 'bottom', 'top'],
+                    [0, -1, 'left', 'right'],
+                    [0, 1, 'right', 'left']
+                ];
+                // Fisher-Yates shuffle
+                for (let i = dirs.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [dirs[i], dirs[j]] = [dirs[j], dirs[i]];
+                }
+                for (const [dr, dc, myOpen, neighborOpen] of dirs) {
+                    const nr = row + dr;
+                    const nc = col + dc;
+                    if (nr < 0 || nr >= BLOCK_PER_SIDE || nc < 0 || nc >= BLOCK_PER_SIDE || visited[nr][nc]) {
+                        continue;
+                    }
+                    // Open the connection between current and neighbor
+                    grid[row][col].open[myOpen] = true;
+                    grid[nr][nc].open[neighborOpen] = true;
+                    carve(nr, nc, visited);
+                }
+            }
+
+            carve(0, 0, new Array(BLOCK_PER_SIDE).fill().map(() => new Array(BLOCK_PER_SIDE).fill(false)));
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, WIDTH, HEIGHT);
+            for (let row = 0; row < BLOCK_PER_SIDE; row++) {
+                for (let col = 0; col < BLOCK_PER_SIDE; col++) {
+                    const block = grid[row][col];
+                    const x = col * BLOCK_SIZE;
+                    const y = row * BLOCK_SIZE;
+                    // Background
+                    ctx.fillStyle = isOnPath(row, col) ? '#c8e6c9' : '#fff';
+                    ctx.fillRect(x + 1, y + 1, BLOCK_SIZE - 2, BLOCK_SIZE - 2);
+                    // Draw open sides
+                    ctx.strokeStyle = '#2d3436';
+                    ctx.lineWidth = 2;
+                    const open = block.getOpenSides();
+                    if (!open.top) {
+                        ctx.beginPath();
+                        ctx.moveTo(x, y);
+                        ctx.lineTo(x + BLOCK_SIZE, y);
+                        ctx.stroke();
+                    }
+                    if (!open.right) {
+                        ctx.beginPath();
+                        ctx.moveTo(x + BLOCK_SIZE, y);
+                        ctx.lineTo(x + BLOCK_SIZE, y + BLOCK_SIZE);
+                        ctx.stroke();
+                    }
+                    if (!open.bottom) {
+                        ctx.beginPath();
+                        ctx.moveTo(x, y + BLOCK_SIZE);
+                        ctx.lineTo(x + BLOCK_SIZE, y + BLOCK_SIZE);
+                        ctx.stroke();
+                    }
+                    if (!open.left) {
+                        ctx.beginPath();
+                        ctx.moveTo(x, y);
+                        ctx.lineTo(x, y + BLOCK_SIZE);
+                        ctx.stroke();
+                    }
+                    // Draw rotation indicator
+                    ctx.fillStyle = '#ff7043';
+                    ctx.beginPath();
+                    ctx.arc(x + BLOCK_SIZE/2, y + BLOCK_SIZE/2, BLOCK_SIZE/4, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.fillStyle = '#fff';
+                    ctx.font = '12px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(block.rotation, x + BLOCK_SIZE/2, y + BLOCK_SIZE/2 + 4);
+                }
+            }
+            // Draw start and end markers
+            ctx.fillStyle = '#4caf50';
+            ctx.fillRect(start.col * BLOCK_SIZE + 2, start.row * BLOCK_SIZE + 2, BLOCK_SIZE - 4, BLOCK_SIZE - 4);
+            ctx.fillStyle = '#ff9800';
+            ctx.fillRect(end.col * BLOCK_SIZE + 2, end.row * BLOCK_SIZE + 2, BLOCK_SIZE - 4, BLOCK_SIZE - 4);
+        }
+
+        function isOnPath(row, col) {
+            for (const move of moves) {
+                if (move.row === row && move.col === col) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        function checkConnected() {
+            // BFS to check if start is connected to end
+            const visited = new Set();
+            const queue = [[start.row, start.col]];
+            visited.add(`${start.row},${start.col}`);
+            while (queue.length > 0) {
+                const [row, col] = queue.shift();
+                if (row === end.row && col === end.col) {
+                    return true;
+                }
+                // Check four directions
+                const dirs = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+                for (const [dr, dc] of dirs) {
+                    const nr = row + dr;
+                    const nc = col + dc;
+                    if (nr < 0 || nr >= BLOCK_PER_SIDE || nc < 0 || nc >= BLOCK_PER_SIDE) continue;
+                    if (visited.has(`${nr},${nc}`)) continue;
+                    // Check if connected through open walls
+                    const currentBlock = grid[row][col];
+                    const fromBlock = grid[row][col];
+                    if (dr === -1 && !fromBlock.getOpenSides().top) continue;
+                    if (dr ===  1 && !fromBlock.getOpenSides().bottom) continue;
+                    if (dc === -1 && !fromBlock.getOpenSides().left) continue;
+                    if (dc ===  1 && !fromBlock.getOpenSides().right) continue;
+                    visited.add(`${nr},${nc}`);
+                    queue.push([nr, nc]);
+                }
+            }
+            return visited.has(`${end.row},${end.col}`);
+        }
+
+        function startGame() {
+            generateMaze();
+            moves = [];
+            solved = false;
+            animating = false;
+            draw();
+        }
+
+        function undo() {
+            if (moves.length === 0) return;
+            const last = moves.pop();
+            grid[last.row][last.col].rotation = (grid[last.row][last.col].rotation - 1 + 4) % 4;
+            draw();
+        }
+
+        function showHint() {
+            // BFS to find solution path
+            const visited = new Set();
+            const queue = [[{row: start.row, col: start.col, path: []}]];
+            visited.add(`${start.row},${start.col}`);
+            let solution = [];
+            let found = false;
+            while (queue.length > 0 && !found) {
+                const {row, col, path} = queue.shift();
+                if (row === end.row && col === end.col) {
+                    solution = path;
+                    found = true;
+                    break;
+                }
+                const dirs = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+                for (const [dr, dc] of dirs) {
+                    const nr = row + dr;
+                    const nc = col + dc;
+                    if (nr < 0 || nr >= BLOCK_PER_SIDE || nc < 0 || nc >= BLOCK_PER_SIDE) continue;
+                    // Check connection
+                    const currBlock = grid[row][col];
+                    const prevBlock = grid[row][col];
+                    if (!prevBlock.isConnected(nr - row, nc - col)) continue;
+                    if (visited.has(`${nr},${nc}`)) continue;
+                    visited.add(`${nr},${nc}`);
+                    queue.push({row: nr, col: nc, path: [...path, ...path, {row: nr, col: nc}]});
+                }
+            }
+            // Highlight solution
+            draw();
+            ctx.save();
+            ctx.globalAlpha = 0.3;
+            ctx.fillStyle = '#4caf50';
+            solution.forEach(({row, col}) => {
+                ctx.fillRect(col * BLOCK_SIZE + 2, row * BLOCK_SIZE + 2, BLOCK_SIZE - 4, BLOCK_SIZE - 4);
+            });
+            ctx.restore();
+        }
+
+        canvas.addEventListener('click', e => {
+            if (solved || animating) return;
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            const col = Math.floor(x / BLOCK_SIZE);
+            const row = Math.floor(y / BLOCK_SIZE);
+            if (row < 0 || row >= BLOCK_PER_SIDE || col < 0 || col >= BLOCK_PER_SIDE) {
+                return;
+            }
+            grid[row][col].rotation = (grid[row][col].rotation + 1) % 4;
+            moves.push({row, col});
+            draw();
+            // Check if solved
+            if (checkConnected()) {
+                solved = true;
+                setTimeout(() => {
+                    document.getElementById('gameOver').classList.add('active');
+                    document.getElementById('resultTitle').textContent = '🎉 恭喜连通了！';
+                    document.getElementById('resultMessage').innerHTML =
+                        `尺寸: <strong>${BLOCK_PER_SIDE}×${BLOCK_PER_SIDE}</strong><br>
+                         步数: <strong>${moves.length}</strong>`;
+                }, 500);
+            }
+        });
+
+        startGame();
+    </script>
+</body>
+</html>
