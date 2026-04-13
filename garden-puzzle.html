@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>花园拼拼乐 - Garden Puzzle</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #8ed691 0%, #4eaa52 100%);
+            font-family: 'Segoe UI', sans-serif;
+            padding: 10px;
+        }
+        .game-container {
+            text-align: center;
+            max-width: 90vw;
+        }
+        h1 {
+            color: #ffffff;
+            margin-bottom: 8px;
+            font-size: 28px;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        .subtitle {
+            color: #e8f5e9;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+        .game-area {
+            background: #2d5016;
+            border: 3px solid #1b3b0c;
+            border-radius: 16px;
+            padding: 15px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            display: inline-block;
+        }
+        #gameCanvas {
+            display: block;
+            background: #3a6b20;
+            border-radius: 8px;
+        }
+        .info-board {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 15px;
+            gap: 15px;
+        }
+        .info-item {
+            background: rgba(255, 255, 255, 0.15);
+            color: white;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-size: 14px;
+            backdrop-filter: blur(10px);
+        }
+        .info-item span {
+            font-weight: bold;
+            margin-left: 4px;
+            color: #f9e79f;
+        }
+        .controls {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 15px;
+        }
+        .btn {
+            padding: 12px 28px;
+            font-size: 16px;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: bold;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #ffd89b 0%, #e0ac69 100%);
+            color: #2d5016;
+            box-shadow: 0 4px 15px rgba(224, 172, 105, 0.4);
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(224, 172, 105, 0.6);
+        }
+        .btn-secondary {
+            background: linear-gradient(135deg, #aed581 0%, #7cb342 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(124, 179, 66, 0.4);
+        }
+        .btn-secondary:hover {
+            transform: translateY(-2px);
+        }
+        .instructions {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 12px;
+            margin-top: 10px;
+            line-height: 1.5;
+            max-width: 480px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .game-over {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            border-radius: 16px;
+            z-index: 10;
+        }
+        .game-over.active {
+            display: flex;
+        }
+        .game-over-modal {
+            background: rgba(45, 80, 22, 0.95);
+            padding: 30px;
+            border-radius: 15px;
+            border: 3px solid #ffd89b;
+            text-align: center;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+        }
+        .game-over-modal h2 {
+            color: #ffd89b;
+            margin-bottom: 15px;
+        }
+        .game-over-stats {
+            color: #e8f5e9;
+            margin-bottom: 20px;
+        }
+        .flower-emoji {
+            font-size: 60px;
+            margin-bottom: 10px;
+            animation: swing 1s infinite alternate;
+        }
+        @keyframes swing {
+            from { transform: rotate(-5deg); }
+            to { transform: rotate(5deg); }
+        }
+        @media (max-width: 600px) {
+            #gameCanvas {
+                width: 100%;
+                height: auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>🌼 花园拼拼乐</h1>
+        <p class="subtitle">六边形网格种花，相邻相同自动合并，培育更大花朵，治愈解压！</p>
+        
+        <div class="game-area">
+            <div class="info-board">
+                <div class="info-item">
+                    得分: <span id="score">0</span>
+                </div>
+                <div class="info-item">
+                    步数: <span id="moves">0</span>
+                </div>
+                <div class="info-item">
+                    最高: <span id="bestScore">0</span>
+                </div>
+            </div>
+
+            <canvas id="gameCanvas" width="480" height="480"></canvas>
+
+            <div class="controls">
+                <button class="btn btn-primary" onclick="startNewGame()">新游戏</button>
+                <button class="btn btn-secondary" onclick="undoMove()">撤销</button>
+            </div>
+
+            <p class="instructions">
+                <strong>玩法:</strong> 点击空格放置花朵，相邻相同花朵会自动合并升级。从种子开始，培育出最大花朵！<br>
+                没有时间限制，慢慢种植享受治愈时光，挑战最高分数！
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // 游戏配置
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const WIDTH = canvas.width;
+        const HEIGHT = canvas.height;
+        
+        // 网格尺寸 - 9x9 六边形网格
+        const GRID_COLS = 9;
+        const GRID_ROWS = 9;
+        const HEX_SIZE = 24;
+        
+        // 花卉等级和颜色
+        const FLOWERS = [
+            { name: '种子', emoji: '🌱', color: '#8d6e63', size: 0.6 },
+            { name: '嫩芽', emoji: '🌿', color: '#66bb6a', size: 0.7 },
+            { name: '花苞', emoji: '🌷', color: '#ec407a', size: 0.8 },
+            { name: '玫瑰', emoji: '🌹', color: '#e91e63', size: 0.9 },
+            { name: '郁金香', emoji: '🌷', color: '#ba68c8', size: 1.0 },
+            { name: '向日葵', emoji: '🌻', color: '#ffb300', size: 1.1 },
+            { name: '百合花', emoji: '🌸', color: '#f8bbd0', size: 1.2 },
+            { name: '牡丹花', emoji: '🌺', color: '#e91e63', size: 1.3 },
+            { name: '莲花', emoji: '🪷', color: '#4fc3f7', size: 1.4 },
+            { name: '菊花', emoji: '🌼', color: '#ffd54f', size: 1.5 },
+            { name: '大花园', emoji: '🌳', color: '#2e7d32', size: 1.8 },
+        ];
+
+        // 游戏状态
+        let grid = [];
+        let score = 0;
+        let bestScore = localStorage.getItem('gardenPuzzleBest') || 0;
+        let moves = 0;
+        let gameOver = false;
+        let nextLevel = 0; // 下一个放置的花等级
+        let history = [];
+
+        // 六边形坐标转换
+        function hexToPixel(col, row) {
+            const centerX = WIDTH / 2 - (GRID_COLS * HEX_SIZE * 0.8);
+            const centerY = HEIGHT / 2 - (GRID_ROWS * HEX_SIZE * 0.7);
+            const x = centerX + col * HEX_SIZE * 1.6 + (row % 2 === 1 ? HEX_SIZE * 0.8 : 0);
+            const y = centerY + row * HEX_SIZE * 1.4;
+            return {x, y};
+        }
+
+        // 获取相邻格子坐标
+        function getNeighbors(col, row) {
+            const offsets = row % 2 === 0 
+                ? [[-1, 0], [-1, -1], [0, -1], [1, 0], [0, 1], [-1, 1]]
+                : [[-1, 0], [0, -1], [1, -1], [1, 0], [1, 1], [0, 1]];
+            return offsets.map(([dc, dr]) => ({col: col + dc, row: row + dr}))
+                .filter(({col: c, row: r}) => c >= 0 && c < GRID_COLS && r >= 0 && r < GRID_ROWS);
+        }
+
+        // 绘制六边形
+        function drawHex(x, y, size, color) {
+            ctx.beginPath();
+            for (let i = 0; i < 6; i++) {
+                const angle = 2 * Math.PI / 6 * (i + 0.5);
+                const px = x + size * Math.cos(angle);
+                const py = y + size * Math.sin(angle);
+                if (i === 0) ctx.moveTo(px, py);
+                else ctx.lineTo(px, py);
+            }
+            ctx.closePath();
+            ctx.fillStyle = color;
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+        }
+
+        // 绘制花朵 emoji 在六边形中心
+        function drawFlowerEmoji(x, y, level, scale) {
+            const fontSize = Math.floor(HEX_SIZE * 0.8 * FLOWERS[level].size);
+            ctx.font = fontSize + 'px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(FLOWERS[level].emoji, x, y);
+        }
+
+        // 初始化网格
+        function initGrid() {
+            grid = Array(GRID_COLS).fill().map(() => Array(GRID_ROWS).fill(null));
+            score = 0;
+            moves = 0;
+            gameOver = false;
+            nextLevel = 0;
+            history = [];
+            // 随机开始一个种子
+            const startCol = Math.floor(GRID_COLS / 2);
+            const startRow = Math.floor(GRID_ROWS / 2);
+            grid[startCol][startRow] = 0;
+        }
+
+        // 保存当前状态用于撤销
+        function saveState() {
+            history.push({
+                grid: JSON.parse(JSON.stringify(grid)),
+                score: score,
+                moves: moves,
+                nextLevel: nextLevel
+            });
+            if (history.length > 20) {
+                history.shift();
+            }
+        }
+
+        // 撤销一步
+        function undoMove() {
+            if (history.length === 0) {
+                alert('没有可以撤销的步数');
+                return;
+            }
+            const prevState = history.pop();
+            grid = prevState.grid;
+            score = prevState.score;
+            moves = prevState.moves;
+            nextLevel = prevState.nextLevel;
+            gameOver = false;
+            updateScore();
+            draw();
+        }
+
+        // 检查点击位置
+        function getGridAtPixel(mouseX, mouseY) {
+            for (let col = 0; col < GRID_COLS; col++) {
+                for (let row = 0; row < GRID_ROWS; row++) {
+                    const {x, y} = hexToPixel(col, row);
+                    const dx = mouseX - x;
+                    const dy = mouseY - y;
+                    if (dx*dx + dy*dy <= HEX_SIZE*HEX_SIZE) {
+                        return {col, row};
+                    }
+                }
+            }
+            return null;
+        }
+
+        // 点击放置花朵
+        canvas.addEventListener('click', (e) => {
+            if (gameOver) return;
+
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            const scaleX = WIDTH / rect.width;
+            const scaleY = HEIGHT / rect.height;
+            const canvasX = x * scaleX;
+            const canvasY = y * scaleY;
+
+            const pos = getGridAtPixel(canvasX, canvasY);
+            if (!pos) return;
+
+            const {col, row} = pos;
+            if (grid[col][row] !== null) return;
+
+            // 放置花朵
+            saveState();
+            grid[col][row] = nextLevel;
+            moves++;
+
+            // 检查相邻合并 - 链式合并
+            let merged;
+            do {
+                merged = false;
+                const neighbors = getNeighbors(col, row);
+                const sameNeighbors = neighbors.filter(({col: c, row: r}) => 
+                    grid[c][r] === nextLevel
+                );
+
+                if (sameNeighbors.length > 0) {
+                    // 合并所有相同相邻为下一级
+                    sameNeighbors.forEach(({col: c, row: r}) => {
+                        grid[c][r] = null;
+                        score += (nextLevel + 1) * 10;
+                    });
+                    nextLevel++;
+                    grid[col][row] = nextLevel - 1;
+                    score += nextLevel * 10;
+                    merged = true;
+                    // 如果合并完成到最高级，奖励分数，下一个从0开始
+                    if (nextLevel >= FLOWERS.length) {
+                        nextLevel = 0;
+                        score += 100; // 合并大奖
+                    }
+                }
+            } while (merged);
+
+            // 随机新的下一级别（0到当前最高合并后等级-1）
+            if (nextLevel >= FLOWERS.length || nextLevel === 0 || Math.random() > 0.7) {
+                nextLevel = Math.floor(Math.random() * Math.min(4, Math.max(1, nextLevel)));
+            }
+
+            // 检查游戏是否结束（满格）
+            let emptyCount = 0;
+            for (let c = 0; c < GRID_COLS; c++) {
+                for (let r = 0; r < GRID_ROWS; r++) {
+                    if (grid[c][r] === null) emptyCount++;
+                }
+            }
+            if (emptyCount === 0) {
+                endGame();
+            }
+
+            updateScore();
+            draw();
+        });
+
+        // 游戏结束
+        function endGame() {
+            gameOver = true;
+            if (score > bestScore) {
+                bestScore = score;
+                localStorage.setItem('gardenPuzzleBest', bestScore);
+            }
+            document.getElementById('bestScore').textContent = bestScore;
+        }
+
+        // 更新分数显示
+        function updateScore() {
+            document.getElementById('score').textContent = score;
+            document.getElementById('moves').textContent = moves;
+            document.getElementById('bestScore').textContent = bestScore;
+        }
+
+        // 开始新游戏
+        function startNewGame() {
+            initGrid();
+            updateScore();
+            draw();
+        }
+
+        // 绘制整个游戏
+        function draw() {
+            ctx.clearRect(0, 0, WIDTH, HEIGHT);
+
+            // 绘制网格背景六边形
+            for (let col = 0; col < GRID_COLS; col++) {
+                for (let row = 0; row < GRID_ROWS; row++) {
+                    const {x, y} = hexToPixel(col, row);
+                    if (grid[col][row] === null) {
+                        drawHex(x, y, HEX_SIZE, '#3a6b20');
+                    } else {
+                        const level = grid[col][row];
+                        const flower = FLOWERS[level];
+                        drawHex(x, y, HEX_SIZE, flower.color);
+                        drawFlowerEmoji(x, y, level, flower.size);
+                    }
+                }
+            }
+
+            // 显示下一个花朵预览在角落
+            const previewX = 30;
+            const previewY = 30;
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+            ctx.beginPath();
+            ctx.arc(previewX, previewY, 25, 0, Math.PI * 2);
+            ctx.fill();
+            const nextFlower = FLOWERS[nextLevel];
+            ctx.font = '30px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(nextFlower.emoji, previewX, previewY);
+            ctx.fillStyle = 'white';
+            ctx.font = '10px Arial';
+            ctx.fillText('下一个', previewX, previewY + 35);
+        }
+
+        // 初始化
+        document.getElementById('bestScore').textContent = bestScore;
+        initGrid();
+        updateScore();
+        draw();
+    </script>
+</body>
+</html>
