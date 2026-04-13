@@ -1,245 +1,561 @@
 <!DOCTYPE html>
-<html lang="zh">
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>光线反射</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>光线折射 - 镜片迷宫</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        *{margin:0;padding:0;box-sizing:border-box;}
-        body{background:#1a1a2e;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:'Segoe UI',sans-serif;}
-        h1{color:#fff;margin:10px 0;text-shadow:0 0 10px #0f3460;}
-        #info{color:#e94560;margin-bottom:10px;}
-        canvas{border:3px solid #16213e;border-radius:10px;box-shadow:0 0 20px rgba(15,52,96,0.5)cursor:crosshair;}
-        #controls{margin-top:15px;display:flex;gap:10px;flex-wrap:wrap;justify-content:center;}
-        button{padding:10px 25px;background:#e94560;color:#fff;border:none;border-radius:25px;cursor:pointer;font-size:16px;transition:0.3s;}
-        button:hover{background:#ff6b6b;transform:scale(1.05);}
-        button:disabled{background:#555;cursor:not-allowed;transform:none;}
-        #levelDisplay{color:#0f3460;font-size:18px;margin-bottom:5px;}
-        .success{animation:pulse 0.5s infinite alternate;}
-        @keyframes pulse{from{box-shadow:0 0 20px rgba(233,69,96,0.5);}to{box-shadow:0 0 40px rgba(0,255,100,0.8);}}
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 10px;
+        }
+        .game-container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+            max-width: 90vw;
+            text-align: center;
+        }
+        h1 {
+            color: #1e88e5;
+            margin-bottom: 8px;
+            font-size: 28px;
+        }
+        .subtitle {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+        .toolbar {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 15px;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .btn {
+            padding: 10px 20px;
+            border-radius: 10px;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #1e88e5 0%, #0d47a1 100%);
+            color: white;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(30, 136, 229, 0.4);
+        }
+        .btn-secondary {
+            background: linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%);
+            color: #333;
+        }
+        .mirror-tool {
+            background: #f5f5f5;
+            border-radius: 10px;
+            padding: 10px;
+            margin-bottom: 15px;
+        }
+        .mirror-item {
+            display: inline-block;
+            padding: 8px 12px;
+            margin: 5px;
+            border-radius: 8px;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: all 0.2s;
+        }
+        .mirror-item.selected {
+            border-color: #1e88e5;
+            background: #e3f2fd;
+        }
+        #canvas-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        canvas {
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            background: #fafafa;
+        }
+        .level-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            color: #555;
+            font-size: 14px;
+        }
+        .level-desc {
+            text-align: left;
+            line-height: 1.5;
+        }
     </style>
 </head>
 <body>
-    <h1>🔦 光线反射</h1>
-    <div id="levelDisplay">关卡: <span id="level">1</span></div>
-    <div id="info">激光(红) → 放置并点击旋转镜子 → 击中目标(绿)</div>
-    <canvas id="game" width="600" height="500"></canvas>
-    <div id="controls">
-        <button onclick="resetLevel()">重置</button>
-        <button onclick="prevLevel()">上一关</button>
-        <button onclick="nextLevel()">下一关</button>
+    <div class="game-container">
+        <h1>🔍 光线折射 - 镜片迷宫</h1>
+        <p class="subtitle">放置镜片改变光线方向，照亮所有目标点</p>
+        
+        <div class="mirror-tool">
+            <div style="font-weight: 600; margin-bottom: 8px; color: #333;">选择镜片：</div>
+            <div id="mirror-list"></div>
+        </div>
+
+        <div class="toolbar">
+            <button class="btn btn-primary" id="btn-reset">重置关卡</button>
+            <button class="btn btn-secondary" id="btn-light">显示/隐藏光线</button>
+            <button class="btn btn-secondary" id="btn-verify">检查完成</button>
+        </div>
+
+        <div class="level-info">
+            <span>关卡：<span id="current-level">1</span> / <span id="total-levels">15</span></span>
+        </div>
+
+        <div id="canvas-container">
+            <canvas id="game-canvas" width="600" height="500"></canvas>
+        </div>
+
+        <div class="level-desc" id="level-description"></div>
     </div>
+
     <script>
-        const canvas=document.getElementById('game');
-        const ctx=canvas.getContext('2d');
-        const CELL=50;
-        let level=1,mirrors=[],selected=null,isDragging=false,dragOffset={};
-        
-        const levels=[
-            {laser:{x:2,y:5,dir:1},target:{x:8,y:5},maxMirrors:2,walls:[]},
-            {laser:{x:2,y:2,dir:1},target:{x:8,y:8},maxMirrors:3,walls:[]},
-            {laser:{x:1,y:5,dir:1},target:{x:9,y:5},maxMirrors:3,walls:[{x:5,y:1,h:true,w:8},{x:5,y:9,h:true,w:8}]},
-            {laser:{x:1,y:9,dir:0},target:{x:1,y:1},maxMirrors:4,walls:[{x:5,y:1,h:true,w:8},{x:5,y:9,h:true,w:8}]},
-            {laser:{x:1,y:5,dir:1},target:{x:9,y:5},maxMirrors:5,walls:[{x:5,y:2,h:true,w:6},{x:5,y:8,h:true,w:6},{x:2,y:5,v:true,h:6},{x:8,y:5,v:true,h:6}]}
+        // 游戏常量
+        const CELL_SIZE = 40;
+        const TYPES = {
+            EMPTY: 0,
+            WALL: 1,
+            LIGHT_SOURCE: 2,
+            TARGET: 3,
+            MIRROR_FLAT: 4,    // 平面镜 - 反射改变90度
+            MIRROR_45: 5,     // 45度平面镜
+            PRISM: 6,         // 棱镜 - 分裂光线
+            LENS: 7          // 凸透镜 - 汇聚光线
+        };
+
+        // 方向
+        const DIR = {
+            UP: 0,
+            RIGHT: 1,
+            DOWN: 2,
+            LEFT: 3
+        };
+
+        // 镜片定义
+        const MIRRORS = [
+            { id: TYPES.MIRROR_FLAT, name: '平面镜', emoji: '🪞', desc: '垂直反射' },
+            { id: TYPES.MIRROR_45, name: '45° 镜', emoji: '🔁', desc: '45度旋转反射' },
+            { id: TYPES.PRISM, name: '棱镜', emoji: '💎', desc: '分裂光线' },
+            { id: TYPES.LENS, name: '凸透镜', emoji: '🔍', desc: '光线穿透' }
         ];
-        
-        function resetLevel(){mirrors=[];selected=null;checkWin()}
-        function nextLevel(){level=(level%levels.length)+1;resetLevel()}
-        function prevLevel(){level=level===1?levels.length:level-1;resetLevel()}
-        
-        function drawGrid(){
-            ctx.strokeStyle='#2d3436';
-            for(let x=0;x<=canvas.width;x+=CELL){
-                ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,canvas.height);ctx.stroke();
+
+        // 关卡数据
+        const LEVELS = [
+            {
+                name: '第一关：入门',
+                desc: '放置一面平面镜，反射光线照亮目标',
+                grid: [
+                    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+                    [1,0,0,0,0,0,0,2,0,0,0,0,0,0,1],
+                    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+                    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+                    [1,0,0,0,0,0,0,0,0,0,0,0,3,0,1],
+                    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+                ]
+            },
+            {
+                name: '第二关：转角',
+                desc: '需要两面镜片让光线转弯',
+                grid: [
+                    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+                    [1,2,0,0,0,0,0,0,0,0,0,0,0,0,1],
+                    [1,1,1,1,1,1,1,0,0,0,0,0,0,0,1],
+                    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+                    [1,0,0,0,0,0,0,0,0,0,0,0,3,0,1],
+                    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+                ]
+            },
+            {
+                name: '第三关：双出口',
+                desc: '照亮两个目标点，需要棱镜分裂光线',
+                grid: [
+                    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+                    [1,2,0,0,0,0,0,0,0,0,0,0,0,0,1],
+                    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+                    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+                    [1,0,0,0,0,0,0,0,0,0,0,3,0,3,1],
+                    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+                ]
+            },
+            {
+                name: '第四关：迷宫',
+                desc: '找到正确路径让光线到达终点',
+                grid: [
+                    [1,1,1,1,1,1,1,1,1,1],
+                    [1,2,1,0,1,0,0,0,3,1],
+                    [1,0,0,0,1,0,1,0,0,1],
+                    [1,0,1,0,0,0,1,0,0,1],
+                    [1,0,1,1,1,1,1,1,0,1],
+                    [1,0,0,0,0,0,0,0,0,1],
+                    [1,1,1,1,1,1,1,1,1,1]
+                ]
             }
-            for(let y=0;y<=canvas.height;y+=CELL){
-                ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(canvas.width,y);ctx.stroke();
+        ];
+
+        // 游戏状态
+        let canvas, ctx;
+        let currentLevel;
+        let grid;
+        let mirrorsPlaced;
+        let selectedMirror;
+        let showLight;
+        let litCells;
+
+        // 初始化
+        function init() {
+            canvas = document.getElementById('game-canvas');
+            ctx = canvas.getContext('2d');
+            currentLevel = 0;
+            showLight = true;
+            loadLevel(currentLevel);
+            render();
+            setupEventListeners();
+            updateMirrorList();
+        }
+
+        // 加载关卡
+        function loadLevel(levelIndex) {
+            currentLevel = levelIndex;
+            grid = JSON.parse(JSON.stringify(LEVELS[levelIndex].grid));
+            mirrorsPlaced = [];
+            litCells = new Set();
+            document.getElementById('current-level').textContent = levelIndex + 1;
+            document.getElementById('total-levels').textContent = LEVELS.length;
+            document.getElementById('level-description').textContent = LEVELS[levelIndex].desc;
+        }
+
+        // 设置事件监听
+        function setupEventListeners() {
+            canvas.addEventListener('click', onCanvasClick);
+            document.getElementById('btn-reset').addEventListener('click', () => loadLevel(currentLevel));
+            document.getElementById('btn-light').addEventListener('click', () => {
+                showLight = !showLight;
+                render();
+            });
+            document.getElementById('btn-verify').addEventListener('click', verifyCompletion);
+        }
+
+        // 更新镜片列表
+        function updateMirrorList() {
+            const container = document.getElementById('mirror-list');
+            container.innerHTML = '';
+            MIRRORS.forEach(mirror => {
+                const div = document.createElement('div');
+                div.className = `mirror-item ${selectedMirror === mirror.id ? 'selected' : ''}`;
+                div.innerHTML = `${mirror.emoji} ${mirror.name}`;
+                div.onclick = () => {
+                    selectedMirror = mirror.id;
+                    updateMirrorList();
+                };
+                container.appendChild(div);
+            });
+        }
+
+        // 画布点击
+        function onCanvasClick(e) {
+            const rect = canvas.getBoundingClientRect();
+            const x = Math.floor((e.clientX - rect.left) / CELL_SIZE);
+            const y = Math.floor((e.clientY - rect.top) / CELL_SIZE);
+            
+            if (x < 0 || x >= grid[0].length || y < 0 || y >= grid.length) return;
+            
+            const cell = grid[y][x];
+            if (cell === TYPES.EMPTY) {
+                if (selectedMirror) {
+                    grid[y][x] = selectedMirror;
+                    mirrorsPlaced.push({x, y, type: selectedMirror});
+                    calculateLight();
+                    render();
+                }
+            } else if (cell >= TYPES.MIRROR_FLAT && cell <= TYPES.LENS) {
+                // 移除已放置的镜片
+                grid[y][x] = TYPES.EMPTY;
+                mirrorsPlaced = mirrorsPlaced.filter(m => !(m.x === x && m.y === y));
+                calculateLight();
+                render();
             }
         }
-        
-        function drawLaser(){
-            const l=levels[level-1].laser;
-            let px=l.x*CELL+CELL/2,py=l.y*CELL+CELL/2;
-            let dx=[0,1,0,-1][l.dir],dy=[-1,0,1,0][l.dir];
+
+        // 计算光线路径
+        function calculateLight() {
+            litCells.clear();
             
-            ctx.strokeStyle='#ff6b6b';
-            ctx.lineWidth=3;
-            ctx.shadowColor='#ff6b6b';
-            ctx.shadowBlur=15;
-            ctx.beginPath();ctx.moveTo(px,py);
-            
-            const visited=new Set();
-            for(let step=0;step<50;step++){
-                let hit=false;
-                for(let m of mirrors){
-                    const mx=m.x*CELL+CELL/2,my=m.y*CELL+CELL/2;
-                    if(Math.abs(px-mx)<25&&Math.abs(py-my)<25&&m.active){
-                        const d=dx*m.sx+dy*m.sy;
-                        if(Math.abs(d)>0.9){
-                            const ndx=dx-2*d*m.sx,ndy=dy-2*d*m.sy;
-                            dx=ndx;dy=ndy;
-                            hit=true;
-                            if(m.frozen){m.active=false;}
-                            break;
-                        }
+            // 找到光源
+            let startX, startY;
+            for (let y = 0; y < grid.length; y++) {
+                for (let x = 0; x < grid[y].length; x++) {
+                    if (grid[y][x] === TYPES.LIGHT_SOURCE) {
+                        startX = x;
+                        startY = y;
                     }
-                    if(hit)break;
                 }
-                px+=dx*CELL;py+=dy*CELL;
-                if(px<0||px>canvas.width||py<0||py>canvas.height)break;
-                ctx.lineTo(px,py);
-                const t=levels[level-1].target;
-                if(Math.abs(px-t.x*CELL-CELL/2)<20&&Math.abs(py-t.y*CELL-CELL/2)<20)
-                    document.getElementById('game').classList.add('success');
-                else document.getElementById('game').classList.remove('success');
-                for(let w of levels[level-1].walls){
-                    if(w.h&&Math.abs(py-w.y*CELL-CELL/2)<15&&px>=(w.x-2)*CELL&&px<=(w.x+w.w)*CELL)hit=true;
-                    if(w.v&&Math.abs(px-w.x*CELL-CELL/2)<15&&py>=(w.y-2)*CELL&&py<=(w.y+w.h)*CELL)hit=true;
-                }
-                if(hit)break;
-            }
-            ctx.stroke();
-            ctx.shadowBlur=0;
-        }
-        
-        function drawMirror(m){
-            ctx.save();
-            ctx.translate(m.x*CELL+CELL/2,m.y*CELL+CELL/2);
-            ctx.rotate(m.angle*Math.PI/180);
-            
-            ctx.fillStyle = '#ffd700';
-            ctx.shadowColor='#ffd700';
-            ctx.shadowBlur=m===selected?20:10;
-            ctx.fillRect(-22,-5,44,10);
-            
-            ctx.fillStyle='#fff';
-            ctx.font='12px Arial';
-            ctx.textAlign='center';
-            ctx.fillText(m.frozen?'冻结':m.angle+'°',0,20);
-            ctx.restore();
-        }
-        
-        function draw(){
-            ctx.fillStyle='#1a1a2e';
-            ctx.fillRect(0,0,canvas.width,canvas.height);
-            drawGrid();
-            
-            const l=levels[level-1].laser;
-            ctx.fillStyle='#ff4757';
-            ctx.beginPath();
-            ctx.arc(l.x*CELL+CELL/2,l.y*CELL+CELL/2,15,0,Math.PI*2);
-            ctx.fill();
-            ctx.fillStyle='#fff';
-            ctx.font='20px Arial';
-            ctx.textAlign='center';
-            ctx.fillText('LASER',l.x*CELL+CELL/2,l.y*CELL-25);
-            
-            const t=levels[level-1].target;
-            ctx.fillStyle='#2ed573';
-            ctx.shadowColor='#2ed573';
-            ctx.shadowBlur=20;
-            ctx.beginPath();
-            ctx.arc(t.x*CELL+CELL/2,t.y*CELL+CELL/2,12,0,Math.PI*2);
-            ctx.fill();
-            ctx.shadowBlur=0;
-            
-            for(let w of levels[level-1].walls){
-                ctx.fillStyle='#636e72';
-                if(w.h)ctx.fillRect((w.x-2)*CELL,w.y*CELL-5,w.w*CELL,10);
-                if(w.v)ctx.fillRect(w.x*CELL-5,(w.y-2)*CELL,10,w.h*CELL);
             }
             
-            for(let m of mirrors)drawMirror(m);
-            drawLaser();
-            document.getElementById('level').textContent=level;
+            // 从光源向右发射光线
+            let rays = [{x: startX, y: startY, dir: DIR.RIGHT}];
+            let visited = new Set();
             
-            ctx.fillStyle='#fff';
-            ctx.font='14px Arial';
-            ctx.textAlign='left';
-            ctx.fillText(`镜子: ${mirrors.length}/${levels[level-1].maxMirrors}`,10,20);
-        }
-        
-        function checkWin(){
-            const t=levels[level-1].target;
-            let px=levels[level-1].laser.x*CELL+CELL/2;
-            let py=levels[level-1].laser.y*CELL+CELL/2;
-            let dx=[0,1,0,-1][levels[level-1].laser.dir];
-            let dy=[-1,0,1,0][levels[level-1].laser.dir];
-            
-            for(let step=0;step<50;step++){
-                for(let m of mirrors){
-                    const mx=m.x*CELL+CELL/2,my=m.y*CELL+CELL/2;
-                    if(Math.abs(px-mx)<25&&Math.abs(py-my)<25&&m.active){
-                        const d=dx*m.sx+dy*m.sy;
-                        if(Math.abs(d)>0.9){
-                            const ndx=dx-2*d*m.sx,ndy=dy-2*d*m.sy;
-                            dx=ndx;dy=ndy;
-                            break;
+            while (rays.length > 0) {
+                let ray = rays.pop();
+                let {x, y, dir} = ray;
+                
+                // 移动光线到下一个格子
+                switch (dir) {
+                    case DIR.UP: y--; break;
+                    case DIR.RIGHT: x++; break;
+                    case DIR.DOWN: y++; break;
+                    case DIR.LEFT: x--; break;
+                }
+                
+                // 检查边界
+                if (x < 0 || x >= grid[0].length || y < 0 || y >= grid.length) {
+                    continue;
+                }
+                
+                // 检查访问过避免循环
+                const key = `${x},${y},${dir}`;
+                if (visited.has(key)) continue;
+                visited.add(key);
+                
+                // 标记点亮
+                litCells.add(`${x},${y}`);
+                
+                const cell = grid[y][x];
+                
+                // 碰到墙停止
+                if (cell === TYPES.WALL) {
+                    continue;
+                }
+                
+                // 根据镜片类型改变方向
+                switch (cell) {
+                    case TYPES.EMPTY:
+                    case TYPES.TARGET:
+                    case TYPES.LIGHT_SOURCE:
+                        // 继续直行
+                        rays.push({x, y, dir});
+                        break;
+                        
+                    case TYPES.MIRROR_FLAT:
+                        // 平面镜反射，反向垂直
+                        if (dir === DIR.UP || dir === DIR.DOWN) {
+                            // 垂直入射，反射反向水平
+                            rays.push({x, y, dir: (dir === DIR.UP) ? DIR.DOWN : DIR.UP});
+                        } else {
+                            // 水平入射，反射反向垂直
+                            rays.push({x, y, dir: (dir === DIR.RIGHT) ? DIR.LEFT : DIR.RIGHT});
                         }
+                        break;
+                        
+                    case TYPES.MIRROR_45:
+                        // 45度反射顺时针旋转90度
+                        rays.push({x, y, dir: (dir + 1) % 4});
+                        break;
+                        
+                    case TYPES.PRISM:
+                        // 棱镜分裂，继续直行加折射
+                        rays.push({x, y, dir});
+                        rays.push({x, y, dir: (dir + 1) % 4});
+                        break;
+                        
+                    case TYPES.LENS:
+                        // 凸透镜，继续直行
+                        rays.push({x, y, dir});
+                        break;
+                }
+            }
+        }
+
+        // 检查完成
+        function verifyCompletion() {
+            let allTargetsLit = true;
+            for (let y = 0; y < grid.length; y++) {
+                for (let x = 0; x < grid[y].length; x++) {
+                    if (grid[y][x] === TYPES.TARGET && !litCells.has(`${x},${y}`)) {
+                        allTargetsLit = false;
+                        break;
                     }
                 }
-                px+=dx*CELL;py+=dy*CELL;
-                if(Math.abs(px-t.x*CELL-CELL/2)<20&&Math.abs(py-t.y*CELL-CELL/2)<20){
-                    setTimeout(()=>{alert('过关！关卡 '+level);nextLevel();},300);
-                    return;
+            }
+            
+            if (allTargetsLit) {
+                if (currentLevel < LEVELS.length - 1) {
+                    alert('🎉 恭喜过关！进入下一关！');
+                    loadLevel(currentLevel + 1);
+                    render();
+                } else {
+                    alert('🏆 恭喜通关！你掌握了光线折射的奥秘！');
                 }
-                if(px<0||px>canvas.width||py<0||py>canvas.height)break;
-                for(let w of levels[level-1].walls){
-                    if(w.h&&Math.abs(py-w.y*CELL-CELL/2)<15&&px>=(w.x-2)*CELL&&px<=(w.x+w.w)*CELL)return;
-                    if(w.v&&Math.abs(px-w.x*CELL-CELL/2)<15&&py>=(w.y-2)*CELL&&py<=(w.y+w.h)*CELL)return;
+            } else {
+                alert('❌ 还有目标点没有被照亮，再试试吧！');
+            }
+        }
+
+        // 渲染
+        function render() {
+            const width = grid[0].length * CELL_SIZE;
+            const height = grid.length * CELL_SIZE;
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // 绘制网格
+            for (let y = 0; y < grid.length; y++) {
+                for (let x = 0; x < 0; x < grid.length; x++) {
+                    drawCell(x, y);
                 }
             }
         }
-        
-        function getPos(e){
-            const rect=canvas.getBoundingClientRect();
-            return{x:Math.floor((e.clientX-rect.left)/CELL),y:Math.floor((e.clientY-rect.top)/CELL)};
-        }
-        
-        canvas.onmousedown=e=>{
-            const p=getPos(e);
-            if(p.x<0||p.x>11||p.y<0||p.y>9)return;
+
+        // 绘制单个格子
+        function drawCell(x, y) {
+            const px = x * CELL_SIZE;
+            const py = y * CELL_SIZE;
+            const cell = grid[y][x];
             
-            for(let m of mirrors){
-                if(m.x===p.x&&m.y===p.y){
-                    if(selected===m){m.angle=(m.angle+45)%360;}
-                    selected=m;
-                    isDragging=true;
-                    dragOffset={};
-                    return;
-                }
+            // 底色
+            if (litCells.has(`${x},${y}`) && showLight) {
+                ctx.fillStyle = '#fffde7';
+            } else if (cell === TYPES.WALL) {
+                ctx.fillStyle = '#555';
+            } else {
+                ctx.fillStyle = '#fafafa';
             }
             
-            if(mirrors.length<levels[level-1].maxMirrors){
-                mirrors.push({x:p.x,y:p.y,angle:45,sx:Math.cos(Math.PI/4),sy:Math.sin(Math.PI/4),active:true,frozen:false});
-                selected=mirrors[mirrors.length-1];
-                checkWin();
-            }
-        };
-        
-        canvas.onmousemove=e=>{
-            if(isDragging&&selected){
-                const p=getPos(e);
-                if(p.x>=0&&p.x<=11&&p.y>=0&&p.y<=9){
-                    selected.x=p.x;
-                    selected.y=p.y;
-                }
-            }
-        };
-        
-        canvas.onmouseup=()=>{isDragging=false;checkWin();};
-        canvas.ondblclick=e=>{
-            const p=getPos(e);
-            for(let i=0;i<mirrors.length;i++){
-                if(mirrors[i].x===p.x&&mirrors[i].y===p.y){
-                    const deleted = mirrors[i];
-                    mirrors.splice(i,1);
-                    if(selected===deleted)selected=null;
-                    checkWin();
+            ctx.fillRect(px + 1, py + 1, CELL_SIZE - 2, CELL_SIZE - 2);
+            
+            // 绘制内容
+            switch (cell) {
+                case TYPES.WALL:
+                    ctx.fillStyle = '#333';
+                    ctx.font = '20px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('🧱', px + CELL_SIZE/2, py + CELL_SIZE/2 + 7);
                     break;
-                }
+                    
+                case TYPES.LIGHT_SOURCE:
+                    ctx.fillStyle = '#ffeb3b';
+                    ctx.beginPath();
+                    ctx.arc(px + CELL_SIZE/2, py + CELL_SIZE/2, CELL_SIZE/3, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.fillStyle = '#ff9800';
+                    ctx.font = '20px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('💡', px + CELL_SIZE/2, py + CELL_SIZE/2 + 7);
+                    break;
+                    
+                case TYPES.TARGET:
+                    ctx.fillStyle = '#e8f5e9';
+                    ctx.fillRect(px + 1, py + 1, CELL_SIZE - 2, CELL_SIZE - 2);
+                    ctx.fillStyle = '#4caf50';
+                    ctx.font = '20px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('🎯', px + CELL_SIZE/2, py + CELL_SIZE/2 + 7);
+                    break;
+                    
+                case TYPES.MIRROR_FLAT:
+                    ctx.fillStyle = '#bbdefb';
+                    ctx.fillRect(px + 1, py + 1, CELL_SIZE - 2, CELL_SIZE - 2);
+                    ctx.strokeStyle = '#1e88e5';
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.moveTo(px + 5, py + CELL_SIZE/2);
+                    ctx.lineTo(px + CELL_SIZE - 5, py + CELL_SIZE/2);
+                    ctx.stroke();
+                    ctx.fillStyle = '#1e88e5';
+                    ctx.font = '16px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('🪞', px + CELL_SIZE/2, py + CELL_SIZE/2 + 6);
+                    break;
+                    
+                case TYPES.MIRROR_45:
+                    ctx.fillStyle = '#e3f2fd';
+                    ctx.fillRect(px + 1, py + 1, CELL_SIZE - 2, CELL_SIZE - 2);
+                    ctx.strokeStyle = '#7e57c2';
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.moveTo(px + 5, py + 5);
+                    ctx.lineTo(px + CELL_SIZE - 5, py + CELL_SIZE - 5);
+                    ctx.stroke();
+                    ctx.fillStyle = '#7e57c2';
+                    ctx.font = '16px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('🔁', px + CELL_SIZE/2, py + CELL_SIZE/2 + 6);
+                    break;
+                    
+                case TYPES.PRISM:
+                    ctx.fillStyle = '#f3e5f5';
+                    ctx.fillRect(px + 1, py + 1, CELL_SIZE - 2, CELL_SIZE - 2);
+                    ctx.strokeStyle = '#f44336';
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.moveTo(px + CELL_SIZE/2, py + 5);
+                    ctx.lineTo(px + CELL_SIZE/2, py + CELL_SIZE - 5);
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.moveTo(px + 5, py + CELL_SIZE/2);
+                    ctx.lineTo(px + CELL_SIZE - 5, py + CELL_SIZE/2);
+                    ctx.stroke();
+                    ctx.fillStyle = '#f44336';
+                    ctx.font = '16px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('💎', px + CELL_SIZE/2, py + CELL_SIZE/2 + 6);
+                    break;
+                    
+                case TYPES.LENS:
+                    ctx.fillStyle = '#fff3e0';
+                    ctx.fillRect(px + 1, py + 1, CELL_SIZE - 2, CELL_SIZE - 2);
+                    ctx.strokeStyle = '#ff9800';
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.arc(px + CELL_SIZE/2, py + CELL_SIZE/2, CELL_SIZE/3 - 2, 0, Math.PI * 2);
+                    ctx.stroke();
+                    ctx.fillStyle = '#ff9800';
+                    ctx.font = '16px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('🔍', px + CELL_SIZE/2, py + CELL_SIZE/2 + 6);
+                    break;
             }
+            
+            // 绘制网格线
+            ctx.strokeStyle = '#e0e0e0';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(px, py, CELL_SIZE, CELL_SIZE);
+        }
+
+        // 页面加载完成初始化
+        window.onload = () => {
+            selectedMirror = TYPES.MIRROR_FLAT;
+            init();
         };
-        setInterval(draw,30);
     </script>
 </body>
 </html>
