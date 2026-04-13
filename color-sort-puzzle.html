@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>色块归位 - 滑动排序</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 10px;
+        }
+        .game-container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+            max-width: 95vw;
+            text-align: center;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 8px;
+            font-size: 28px;
+        }
+        .subtitle {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+        .toolbar {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 15px;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .stat {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .stat span {
+            color: #ffd700;
+            margin-left: 4px;
+            font-weight: bold;
+        }
+        .size-selector {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+        .size-btn {
+            padding: 6px 12px;
+            border-radius: 15px;
+            border: 2px solid #ddd;
+            background: white;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 13px;
+        }
+        .size-btn.active {
+            border-color: #4facfe;
+            background: #e6f7ff;
+            color: #4facfe;
+            font-weight: bold;
+        }
+        .game-area {
+            position: relative;
+            margin: 0 auto 15px;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            background: #f8f8f8;
+            display: inline-block;
+            padding: 8px;
+        }
+        #game-grid {
+            display: grid;
+            gap: 4px;
+            background: #ddd;
+            padding: 4px;
+            margin: 0 auto;
+        }
+        .grid-cell {
+            aspect-ratio: 1/1;
+            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            border-radius: 6px;
+            font-weight: bold;
+            font-size: min(5vw, 18px);
+        }
+        .grid-cell:hover {
+            transform: scale(1.05);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+        .grid-cell-selected {
+            border: 3px solid #4facfe;
+            background: #e6f7ff;
+        }
+        .color-red { background: #ff4444; color: white; }
+        .color-blue { background: #4444ff; color: white; }
+        .color-green { background: #44ff44; color: #333; }
+        .color-yellow { background: #ffdd44; color: #333; }
+        .color-purple { background: #cc44ff; color: white; }
+        .color-cyan { background: #44ffff; color: #333; }
+        .color-orange { background: #ff9944; color: #333; }
+        .color-gray { background: #aaaaaa; color: white; }
+        .controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 15px;
+        }
+        .btn {
+            padding: 10px 20px;
+            font-size: 15px;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(79, 172, 254, 0.4);
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(79, 172, 254, 0.6);
+        }
+        .btn-secondary {
+            background: linear-gradient(135deg, #a8edea 0%, #fed6ab 100%);
+            color: #333;
+        }
+        .game-over {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            border-radius: 12px;
+            z-index: 10;
+        }
+        .game-over.active {
+            display: flex;
+        }
+        .result-modal {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            max-width: 80%;
+        }
+        .result-modal h2 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+        .instructions {
+            color: #666;
+            font-size: 13px;
+            text-align: left;
+            line-height: 1.6;
+        }
+        @media (max-width: 600px) {
+            h1 {
+                font-size: 24px;
+            }
+        }
+    </style>
+<body>
+    <div class="game-container">
+        <h1>🎨 色块归位</h1>
+        <p class="subtitle">滑动整行整列，让所有同色色块连通在一起！</p>
+
+        <div class="toolbar">
+            <div class="stat">尺寸: <span id="gridSize">3×3</span></div>
+            <div class="stat">步数: <span id="moves">0</span></div>
+            <div class="stat">用时: <span id="timer">0</span>s</div>
+        </div>
+
+        <div class="size-selector">
+            <button class="size-btn active" data-size="3" onclick="selectSize(3)">初级 3×3 (4色)</button>
+            <button class="size-btn" data-size="4" onclick="selectSize(4)">中级 4×4 (5色)</button>
+            <button class="size-btn" data-size="5" onclick="selectSize(5)">高级 5×5 (6色)</button>
+            <button class="size-btn" data-size="6" onclick="selectSize(6)">专家 6×6 (7色)</button>
+        </div>
+
+        <div class="game-area">
+            <div id="game-grid"></div>
+            <div class="game-over" id="gameOver">
+                <div class="result-modal">
+                    <h2 id="resultTitle">🎉 恭喜归位完成！</h2>
+                    <p id="resultText">你用 <span id="resultMoves">0</span> 步，用时 <span id="resultTime">0</span> 秒归位成功！</p>
+                    <div class="controls mt-4">
+                        <button class="btn btn-primary" onclick="restartGame()">再来一局</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button class="btn btn-primary" onclick="startGame">重新开始</button>
+            <button class="btn btn-secondary" onclick="undoMove()">撤销一步</button>
+        </div>
+
+        <div class="instructions">
+            <strong>玩法规则：</strong><br>
+            • 点击行/列头选中整行/列，点击边缘位置滑动移动<br>
+            • 目标：<strong>让每一种颜色所有色块连通在一起</strong><br>
+            • 从正确解打乱生成，保证一定有解
+        </div>
+    </div>
+
+    <script>
+        const colors = [
+            {name: 'red', css: 'color-red'},
+            {name: 'blue', css: 'color-blue'},
+            {name: 'green', css: 'color-green'},
+            {name: 'yellow', css: 'color-yellow'},
+            {name: 'purple', css: 'color-purple'},
+            {name: 'cyan', css: 'color-cyan'},
+            {name: 'orange', css: 'color-orange'}
+        ];
+
+        let gridSize = 3;
+        let grid = [];
+        let selected = null;
+        let moveHistory = [];
+        let moves = 0;
+        let startTime = 0;
+        let timerInterval = null;
+
+        function selectSize(size) {
+            document.querySelectorAll('.size-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            gridSize = size;
+            document.getElementById('gridSize').textContent = `${size}×${size}`;
+            startGame();
+        }
+
+        function generatePuzzle() {
+            const numColors = gridSize + 1; // n+1 colors for n x n grid
+            grid = [];
+
+            // Step 1: create solved puzzle - each color gets one row (or column)
+            for (let y = 0; y < gridSize; y++) {
+                grid[y] = [];
+                for (let x = 0; x < gridSize; x++) {
+                    // Each row is mostly one color, one cell empty (to allow sliding)
+                    const color = y < numColors ? y : null;
+                    grid[y][x] = color;
+                }
+            }
+
+            // Step 2: randomly shuffle by sliding rows and columns
+            const shuffleCount = gridSize * gridSize * 2;
+            for (let i = 0; i < shuffleCount; i++) {
+                if (Math.random() < 0.5) {
+                    // Slide random row
+                    const row = Math.floor(Math.random() * gridSize);
+                    const dir = Math.random() < 0.5 ? 1 : -1;
+                    slideRow(row, dir, false);
+                } else {
+                    // Slide random column
+                    const col = Math.floor(Math.random() * gridSize);
+                    const dir = Math.random() < 0.5 ? 1 : -1;
+                    slideCol(col, dir, false);
+                }
+            }
+
+            // Clear history
+            moveHistory = [];
+            moves = 0;
+            selected = null;
+        }
+
+        function slideRow(row, dir, record=true) {
+            // Shift row by dir steps (dir = +1 right, -1 left)
+            const oldRow = [...grid[row]];
+            if (dir > 0) {
+                // Shift right: pop last, put first into first empty
+                const last = grid[row].pop();
+                grid[row].unshift(last);
+            } else {
+                // Shift left: shift first out, push to end
+                const first = grid[row].shift();
+                grid[row].push(first);
+            }
+
+            if (record) {
+                moveHistory.push({type: 'row', row, old: oldRow});
+                moves++;
+                document.getElementById('moves').textContent = moves;
+            }
+        }
+
+        function slideCol(col, dir, record=true) {
+            // Shift column by dir
+            const oldCol = [];
+            for (let y = 0; y < gridSize; y++) {
+                oldCol[y] = grid[y][col];
+            }
+            if (dir > 0) {
+                // Shift down: pop last, unshift
+                for (let y = gridSize - 1; y >= 0; y--) {
+                    grid[y][col] = oldCol[y - 1 < 0 ? oldCol[gridSize - 1] : oldCol[y - 1];
+                }
+            } else {
+                // Shift up: shift top out, push to end
+                for (let y = 0; y < gridSize; y++) {
+                    grid[y][col] = oldCol[y + 1 >= gridSize ? oldCol[0] : oldCol[y + 1];
+                }
+            }
+
+            if (record) {
+                moveHistory.push({type: 'col', col, old: oldCol});
+                moves++;
+                document.getElementById('moves').textContent = moves;
+            }
+        }
+
+        function renderGrid() {
+            const container = document.getElementById('game-grid');
+            container.innerHTML = '';
+            container.style.gridTemplateColumns = `repeat(${gridSize}, 1fr)`;
+            container.style.width = `${gridSize * 40 + 8}px`;
+
+            for (let y = 0; y < gridSize; y++) {
+                for (let x = 0; x < gridSize; x++) {
+                    const cell = document.createElement('div');
+                    const color = grid[y][x];
+                    cell.className = 'grid-cell';
+                    if (color !== null) {
+                        cell.classList.add(colors[color].css);
+                        cell.textContent = colors[color].name[0].toUpperCase();
+                    }
+                    if (selected && selected.type === 'row' && selected.index === y) {
+                        cell.classList.add('grid-cell-selected');
+                    }
+                    if (selected && selected.type === 'col' && selected.index === x) {
+                        cell.classList.add('grid-cell-selected');
+                    }
+                    cell.onclick = () => handleCellClick(y, x);
+                    container.appendChild(cell);
+                }
+            }
+        }
+
+        function handleCellClick(y, x) {
+            // If nothing selected, select this row/col
+            if (!selected) {
+                // Is this row mostly empty? or check if this row/col clicked
+                // Click cell selects entire row/col
+                const rowHasEmpty = grid[y].some(c => c === null);
+                const colHasEmpty = false;
+                for (let yy = 0; yy < gridSize; yy++) {
+                    if (grid[yy][x] === null) {
+                        colHasEmpty = true;
+                        break;
+                    }
+                }
+                if (rowHasEmpty) {
+                    selected = {type: 'row', index: y};
+                } else if (colHasEmpty) {
+                    selected = {type: 'col', index: x};
+                } else {
+                    // Neither has empty - can't slide this row/col, deselect
+                    selected = null;
+                }
+                renderGrid();
+                return;
+            }
+
+            // Already have selection - check if clicking another cell in same row/col to slide
+            if (selected.type === 'row' && selected.index === y) {
+                // Click cell in this row, we want to slide
+                const emptyPos = grid[y].findIndex(c => c === null);
+                if (emptyPos === -1) return; // no empty, can't slide
+                // x is the position to slide towards: if x > emptyPos slide right to move empty towards x, else left
+                const dir = x > emptyPos ? 1 : -1;
+                for (let i = 0; i < Math.abs(x - emptyPos); i++) {
+                    slideRow(y, dir, true);
+                }
+                selected = null;
+                renderGrid();
+                checkWin();
+                return;
+            }
+
+            if (selected.type === 'col' && selected.index === x) {
+                // Click cell in this col, slide towards it
+                let emptyPos = -1;
+                for (let y = 0; y < gridSize; y++) {
+                    if (grid[y][x] === null) {
+                        emptyPos = y;
+                        break;
+                    }
+                }
+                if (emptyPos === -1) return;
+                const dir = y > emptyPos ? 1 : -1;
+                for (let i = 0; i < Math.abs(y - emptyPos); i++) {
+                    slideCol(x, dir, true);
+                }
+                selected = null;
+                renderGrid();
+                checkWin();
+                return;
+            }
+        }
+
+        function checkWin() {
+            // Check all colors are connected
+            // For each color, check all non-null cells form a single connected region
+            const numColors = gridSize + 1;
+            for (let c = 0; c < numColors; c++) {
+                // Find first cell of this color
+                let firstY = -1, firstX = -1;
+                let count = 0;
+                for (let y = 0; y < gridSize; y++) {
+                    for (let x = 0; x < gridSize; x++) {
+                        if (grid[y][x] === c) {
+                            if (firstY === -1) {
+                                firstY = y;
+                                firstX = x;
+                            }
+                            count++;
+                        }
+                    }
+                }
+                if (count === 0) continue; // no cells of this color (shouldn't happen)
+
+                // Flood fill from first cell
+                const visited = new Set();
+                const queue = [[firstY, firstX]];
+                visited.add(`${firstY},${firstX}`);
+                const dx = [1, -1, 0, 0];
+                const dy = [0, 0, 1, -1];
+                let connectedCount = 1;
+
+                while (queue.length > 0) {
+                    const [y, x] = queue.shift();
+                    for (let d = 0; d < 4; d++) {
+                        const ny = y + dy[d];
+                        const nx = x + dx[d];
+                        if (ny < 0 || ny >= gridSize || nx < 0 || nx >= gridSize) continue;
+                        const key = `${ny},${nx}`;
+                        if (!visited.has(key) && grid[ny][nx] === c) {
+                            visited.add(key);
+                            connectedCount++;
+                            queue.push([ny, nx]);
+                        }
+                    }
+                }
+
+                if (connectedCount !== count) {
+                    return false; // not all connected
+                }
+            }
+
+            // All colors connected - win
+            stopTimer();
+            document.getElementById('resultMoves').textContent = moves;
+            const elapsed = Math.floor((Date.now() - startTime) / 1000);
+            document.getElementById('resultTime').textContent = elapsed;
+            document.getElementById('gameOver').classList.add('active');
+            return true;
+        }
+
+        function undoMove() {
+            if (moveHistory.length === 0) {
+                alert('没有可撤销的步数！');
+                return;
+            }
+            const last = moveHistory.pop();
+            if (last.type === 'row') {
+                // Restore old row
+                grid[last.row] = last.old;
+            } else {
+                // Restore old column
+                for (let y = 0; y < gridSize; y++) {
+                    grid[y][last.col] = last.old[y];
+                }
+            }
+            moves--;
+            document.getElementById('moves').textContent = moves;
+            selected = null;
+            renderGrid();
+        }
+
+        function startGame() {
+            generatePuzzle();
+            renderGrid();
+            document.getElementById('gameOver').classList.remove('active');
+            startTimer();
+        }
+
+        function restartGame() {
+            document.getElementById('gameOver').classList.remove('active');
+            startGame();
+        }
+
+        function startTimer() {
+            startTime = Date.now();
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                const elapsed = Math.floor((Date.now() - startTime) / 1000);
+                document.getElementById('timer').textContent = elapsed;
+            }, 1000);
+        }
+
+        function stopTimer() {
+            if (timerInterval) clearInterval(timerInterval);
+        }
+
+        // Initialize
+        startGame();
+    </script>
+</body>
+</html>
