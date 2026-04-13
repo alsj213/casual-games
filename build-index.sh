@@ -74,7 +74,7 @@ emoji_list=(
 "🔯" "💡" "🧩" "🃏" "🌀" "🃏" "💣" "💣" "🔢" "🏓"
 "✏️" "🔍" "💥" "🏓" "🎵" "☁️" "🧩" "🐍" "🐍" "🧩" "⚽"
 "📦" "👾" "🧱" "🔵" "🔲" "🛡️" "🏗️" "💧" "🔨" "🔤"
-"☁️" "🌻" "🎨" "🍉" "🀄️" "☁️" "🔵" "🎨"
+"☁️" "🌻" "🎨" "🍉" "🀄️" "☁️" "🔵" "🎨" "✏️"
 );
 
 desc_list=(
@@ -139,6 +139,7 @@ desc_list=(
 "质点弹簧柔体物理模拟，拖动挤压拼出目标形状，解压放松。"
 "画线引导弹珠滚动进洞，有限长度规划路径，物理模拟益智解谜。"
 "你的颜料不断扩散，躲避袭来的方块坚持越久得分越高！"
+"根据单词画画，AI识别猜词，你画我猜单机版。"
 );
 
 display_list=(
@@ -203,6 +204,7 @@ display_list=(
 "云朵变变变"
 "弹珠入洞"
 "涂鸦躲避"
+"单词猜谜"
 );
 
 for file in $games; do
@@ -255,7 +257,7 @@ cat >> index.html << 'ENDOFFOOTER'
                 <div class="text-center">
                     <div class="w-12 h-12 gradient-bg rounded-full flex items-center justify-center mx-auto mb-4">
                         <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecapround" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2 2H6a2 2 0 00-2 2z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2 2H6a2 2 0 00-2-2z"></path>
                         </svg>
                     </div>
                     <h3 class="font-semibold text-gray-900 mb-2">完全免费</h3>
