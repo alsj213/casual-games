@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>二进制猜数字 - Binary Guess</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 10px;
+        }
+        .game-container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0, 0.15);
+            max-width: 90vw;
+            text-align: center;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 8px;
+            font-size: 28px;
+        }
+        .subtitle {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+        .toolbar {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 15px;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .stat {
+            background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .stat span {
+            color: #ffd700;
+            margin-left: 4px;
+            font-weight: bold;
+        }
+        .size-selector {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+        .size-btn {
+            padding: 6px 12px;
+            border-radius: 15px;
+            border: 2px solid #ddd;
+            background: white;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 13px;
+        }
+        .size-btn.active {
+            border-color: #2c3e50;
+            background: #ecf0f1;
+            color: #2c3e50;
+            font-weight: bold;
+        }
+        .game-area {
+            position: relative;
+            margin: 0 auto 15px;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0, 0.15);
+            background: #f8f8f8;
+        }
+        #guessGrid {
+            display: grid;
+            gap: 4px;
+            background: #ddd;
+            padding: 4px;
+            margin: 0 auto;
+        }
+        .guess-cell {
+            aspect-ratio: 1/1;
+            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: bold;
+            font-size: min(5vw, 20px);
+        }
+        .guess-cell:hover {
+            background: #e8f4ff;
+            transform: scale(1.05);
+        }
+        .guess-cell-guessed {
+            background: #a5d8ff;
+        }
+        .guess-cell-correct {
+            background: #4caf50 !important;
+            color: white !important;
+        }
+        .guess-cell-wrong {
+            background: #f44336 !important;
+            color: white !important;
+        }
+        .guess-cell-selected {
+            background: #2196f3 !important;
+            color: white !important;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 15px;
+        }
+        .btn {
+            padding: 10px 20px;
+            font-size: 15px;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(44, 156, 208, 0.4);
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(44, 156, 208, 0.6);
+        }
+        .btn-secondary {
+            background: linear-gradient(135deg, #a8edea 0%, #fed6ab 100%);
+            color: #333;
+        }
+        .game-over {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0, 0.7);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            border-radius: 12px;
+            z-index: 10;
+        }
+        .game-over.active {
+            display: flex;
+        }
+        .result-modal {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            max-width: 80%;
+        }
+        .result-modal h2 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+        .instructions {
+            color: #666;
+            font-size: 13px;
+            text-align: left;
+            line-height: 1.5;
+        }
+        @media (max-width: 600px) {
+            #guessGrid {
+                gap: 1px;
+            }
+            h1 {
+                font-size: 24px;
+            }
+        }
+    </style>
+<body>
+    <div class="game-container">
+        <h1>🔢 二进制猜数字</h1>
+        <p class="subtitle">猜一个 0 ~ 2^n - 1 之间的数，二分查找解谜！</p>
+
+        <div class="toolbar">
+            <div class="stat">位数: <span id="bitLength">4</span></div>
+            <div class="stat">猜测次数: <span id="guessCount">0</span>/<span id="maxCount">7</span></div>
+        </div>
+
+        <div class="size-selector">
+            <button class="size-btn size-btn active" data-bits="4" onclick="selectSize(4)">4位</button>
+            <button class="size-btn" data-bits="6" onclick="selectSize(6)">6位</button>
+            <button class="size-btn" data-bits="8" onclick="selectSize(8)">8位</button>
+        </div>
+
+        <div class="game-area">
+            <div id="guessGrid"></div>
+            <div class="controls">
+                <button class="btn btn-primary" onclick="startGame">开始游戏</button>
+                <button class="btn btn-secondary" onclick="giveHint">提示</button>
+            </div>
+        </div>
+
+        <p class="instructions">
+            <strong>玩法规则：</strong><br>
+            • 计算机随机生成一个 <strong>N 位二进制</strong> ，你来猜是哪个位置，每次告诉你猜高了还是猜低了<br>
+            • 利用二分查找一步步缩小范围，直到猜对正确数字
+        </p>
+    </div>
+    </div>
+
+    <script>
+        let secretNumber = 0;
+        let maxGuesses = 7;
+        let guessesLeft = maxGuesses;
+        let currentGuesses = [];
+
+        function selectSize(bits) {
+            document.querySelectorAll('.size-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            maxGuesses = bits === 4 ? 7 : 2**bits - 1;
+            guessesLeft = maxGuesses;
+            currentGuesses = [];
+            generateSecret(bits);
+            renderGrid();
+        }
+
+        function generateSecret(bits) {
+            const max = 2**bits;
+            secretNumber = Math.floor(Math.random() * max);
+        }
+
+        function renderGrid() {
+            const container = document.getElementById('guessGrid');
+            container.innerHTML = '';
+            const size = 2**bits;
+            container.style.gridTemplateColumns = `repeat(${size}, 1fr)`;
+            for (let i = 0; i < size; i++) {
+                for (let j = 0; j < size; j++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'guess-cell';
+                    cell.classList.add = 'guess-cell';
+                    cell.addEventListener('click', () => handleGuess(i, j));
+                    container.appendChild(cell);
+                }
+            }
+        }
+
+        function handleGuess(row, col) {
+            if (guessesLeft <= 0) {
+                alert(`没机会了！正确数字是 ${secretNumber}`);
+                startGame();
+                return;
+            }
+            const guess = parseInt(document.getElementById('guessInput').value);
+            if (guess === secretNumber) {
+                // correct!
+                document.querySelector('.guess-cell').classList.add('guess-cell-correct');
+                document.getElementById('gameOver').classList.add('active');
+                document.getElementById('resultMessage').innerHTML = `<h2>🎉 恭喜猜对了！</h2><p>你用了 ${maxGuesses - guessesLeft + 1} 次猜中了数字 ${secretNumber}`</p>;
+                return;
+            }
+            let resultHtml = '';
+            if (guess > secretNumber) {
+                resultHtml = '😮 你猜<strong style="color:red">太大了</strong>！';
+            } else if (guess < secretNumber) {
+                resultHtml = '👀 你猜<strong style="color:green">太小了</strong>！';
+            }
+            document.getElementById('resultModal').innerHTML = resultHtml;
+            document.getElementById('resultModal').classList.add('active');
+            currentGuesses.push({row, col, guess});
+            document.querySelector('.guess-cell').classList.add guess > secretNumber ? 'guess-cell-wrong' : 'guess-cell-correct';
+        }
+        function giveHint() {
+            // Show all previous guesses
+            if (currentGuesses.length === 0) {
+                alert('还没有猜过呢，点格子猜吧！');
+                return;
+            }
+            console.log('');
+            currentGuesses.forEach(({row, col, guess}) => {
+                document.querySelector(`[data-row="${row}"][data-col="${col}"]`).classList.add guess > secretNumber ? 'guess-cell-wrong' : 'guess-cell-correct';
+            });
+        }
+        function startGame() {
+            const bits = parseInt(document.querySelector('.size-btn.active').dataset.bits);
+            selectSize(bits);
+        }
+    </script>
+</body>
+</html>
