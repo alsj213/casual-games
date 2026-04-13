@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>你画我猜 - Draw Guess</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 10px;
+        }
+        .game-container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+            max-width: 90vw;
+            width: 100%;
+            max-width: 800px;
+            text-align: center;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 8px;
+            font-size: 28px;
+        }
+        .subtitle {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+        .game-area {
+            position: relative;
+            margin-bottom: 15px;
+        }
+        #drawCanvas {
+            display: block;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            cursor: crosshair;
+            margin: 0 auto;
+        }
+        .toolbar {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+            margin: 10px 0;
+            padding: 10px;
+            background: #f8f8f8;
+            border-radius: 12px;
+        }
+        .tool-group {
+            display: flex;
+            gap: 5px;
+            align-items: center;
+        }
+        .color-btn {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            border: 2px solid white;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .color-btn:hover {
+            transform: scale(1.1);
+        }
+        .color-btn.active {
+            border-color: #333;
+            transform: scale(1.2);
+        }
+        .brush-size {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .btn {
+            padding: 8px 16px;
+            font-size: 14px;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+            color: #333;
+            box-shadow: 0 4px 15px rgba(252, 182, 159, 0.4);
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(252, 182, 159, 0.6);
+        }
+        .btn-secondary {
+            background: #e0e0e0;
+            color: #333;
+        }
+        .guess-area {
+            background: #f8f8f8;
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 15px;
+            text-align: left;
+        }
+        .guess-word {
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 10px;
+            letter-spacing: 8px;
+        }
+        .guess-word span {
+            display: inline-block;
+            min-width: 20px;
+            border-bottom: 2px solid #ddd;
+            margin: 0 2px;
+        }
+        .hints {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+        .topic {
+            display: inline-block;
+            background: #ffeaa7;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            color: #d35400;
+            margin-bottom: 8px;
+        }
+        .result-area {
+            background: #f0f0f0;
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 15px;
+            min-height: 50px;
+        }
+        .result-item {
+            padding: 5px 0;
+            border-bottom: 1px solid #ddd;
+        }
+        .result-item:last-child {
+            border-bottom: none;
+        }
+        .confidence {
+            float: right;
+            color: #888;
+            font-size: 12px;
+        }
+        .game-over {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0, 0.7);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+        .game-over.active {
+            display: flex;
+        }
+        .result-modal {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            max-width: 80%;
+        }
+        .mode-selector {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-bottom: 15px;
+        }
+        .mode-btn {
+            padding: 8px 16px;
+            border-radius: 20px;
+            border: 2px solid #ddd;
+            background: white;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 14px;
+        }
+        .mode-btn.active {
+            border-color: #fcb69f;
+            background: #fff8e8;
+            color: #d35400;
+            font-weight: bold;
+        }
+        .instructions {
+            color: #666;
+            font-size: 13px;
+            text-align: left;
+            line-height: 1.5;
+        }
+        .share-area {
+            background: #f0f0f0;
+            border-radius: 12px;
+            padding: 10px;
+            margin-bottom: 15px;
+            word-break: break-all;
+        }
+        @media (max-width: 600px) {
+            #drawCanvas {
+                width: 100%;
+                height: auto;
+            }
+            h1 {
+                font-size: 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>🎨 你画我猜</h1>
+        <p class="subtitle">画布绘画词语，AI 识别猜词，单人闯关多人对战</p>
+
+        <div class="mode-selector">
+            <button class="mode-btn active" onclick="setMode('single')">单人闯关</button>
+            <button class="mode-btn" onclick="setMode('multi')">多人对战</button>
+        </div>
+
+        <div class="toolbar">
+            <div class="tool-group">
+                <div class="color-btn active" style="background: #000000" data-color="#000000" onclick="selectColor(this)"></div>
+                <div class="color-btn" style="background: #ff0000" data-color="#ff0000" onclick="selectColor(this)"></div>
+                <div class="color-btn" style="background: #00ff00" data-color="#00ff00" onclick="selectColor(this)"></div>
+                <div class="color-btn" style="background: #0000ff" data-color="#0000ff" onclick="selectColor(this)"></div>
+                <div class="color-btn" style="background: #ffff00" data-color="#ffff00" onclick="selectColor(this)"></div>
+                <div class="color-btn" style="background: #ff8800" data-color="#ff8800" onclick="selectColor(this)"></div>
+                <div class="color-btn" style="background: #8800ff" data-color="#8800ff" onclick="selectColor(this)"></div>
+            </div>
+            <div class="brush-size">
+                <span>粗细:</span>
+                <button class="btn btn-secondary" onclick="changeBrushSize(-1)">➖</button>
+                <span id="brushSize">5</span>
+                <button class="btn btn-secondary" onclick="changeBrushSize(1)">➕</button>
+            </div>
+            <button class="btn btn-secondary" onclick="clearCanvas">清空</button>
+            <button class="btn btn-secondary" onclick="undo()">撤销</button>
+            <button class="btn btn-primary" onclick="guessWord">识别猜词</button>
+        </div>
+
+        <div id="topicArea" class="guess-area">
+            <div id="topic" class="topic"></div>
+            <div id="hint" class="hints"></div>
+            <div class="guess-word" id="guessWord"></div>
+        </div>
+
+        <div class="game-area">
+            <canvas id="drawCanvas" width="600" height="400"></canvas>
+            <div class="result-area" id="resultArea">
+                <em>点击"识别猜词"获取 AI 识别结果</em>
+            </div>
+        </div>
+
+        <div id="multiShare" class="share-area" style="display: none;">
+            <strong>房间链接:</strong> <span id="roomLink"></span>
+            <button class="btn btn-secondary" onclick="copyLink">复制链接</button>
+        </div>
+
+        <div class="controls">
+            <button class="btn btn-primary" onclick="startGame">开始游戏</button>
+        </div>
+
+        <p class="instructions">
+            <strong>单人模式：</strong> 系统给出词语，你画出来后点击识别，AI 猜对了就过关<br>
+            <strong>多人模式：</strong> 生成分享链接发给好友，你画你的好友猜，无需后端服务器，全部在链接中<br>
+            <strong>提示：</strong> 需要配置 AI API Key 才能识别，没有配置也可以纯手动多人游玩～
+        </p>
+    </div>
+
+    <div class="game-over" id="gameOver">
+        <div class="result-modal">
+            <h2 id="resultTitle">🎉 恭喜过关！</h2>
+            <p id="resultMessage"></p>
+            <div class="controls" style="margin-top: 20px;">
+                <button class="btn btn-primary" onclick="nextLevel">下一关</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 词语题库按主题分类
+        const WORD_BANK = {
+            '动物': [
+                '熊猫', '老虎', '大象', '猴子', '长颈鹿', '斑马', '狐狸', '熊', '鹿',
+                '兔子', '猫', '狗', '猪', '马', '牛', '羊', '鸡', '鸭',
+                '鲨鱼', '鲸鱼', '鳄鱼', '章鱼', '企鹅', '猫头鹰', '蝙蝠',
+                '蝴蝶', '蜜蜂', '蚂蚁', '蜻蜓', '青蛙', '乌龟', '蛇',
+                '苹果', '香蕉', '橙子', '西瓜', '葡萄', '草莓', '柠檬', '菠萝',
+                '圣诞树', '月亮', '太阳', '星星', '云朵', '雪山', '火山', '花朵'
+            ],
+            '食物': [
+                '汉堡', '披萨', '面条', '米饭', '火锅', '蛋糕', '面包', '牛奶',
+                '咖啡', '茶', '冰淇淋', '巧克力', '三明治', '薯条', '寿司',
+                '鸡蛋', '香肠', '胡萝卜', '西红柿', '土豆', '白菜',
+                '巧克力', '甜甜圈','酸奶', '奶酪'
+            ],
+            '物品': [
+                '手机', '电脑', '书本', '桌子', '椅子', '沙发', '床', '杯子',
+                '瓶子', '雨伞', '眼镜', '手表', '项链', '戒指', '钥匙', '钱包',
+                '包包', '鞋子', '帽子', '飞机', '火车', '汽车', '自行车', '轮船',
+                '时钟', '台灯', '剪刀', '镜子', '相机', '电话'
+            ],
+            '自然': [
+                '山脉', '河流', '大海', '湖泊', '森林', '草原', '沙漠', '岛屿',
+                '花朵', '树木', '云彩', '彩虹', '闪电', '下雪', '下雨', '日出',
+                '月亮', '星星', '太阳', '山峰', '峡谷', '瀑布'
+            ],
+            '建筑': [
+                '房子', '城堡', '桥梁', '高塔', '教堂', '铁塔', '金字塔',
+                '长城', '大楼', '工厂', '学校', '医院', '车站', '机场'
+            ]
+        };
+
+        // Game state
+        const canvas = document.getElementById('drawCanvas');
+        const ctx = canvas.getContext('2d');
+        let currentMode = 'single';
+        let currentTopic = '';
+        let currentWord = '';
+        let currentWordDisplay = '';
+        let revealedLetters = 0;
+        let drawing = false;
+        let lastX = 0;
+        let lastY = 0;
+        let currentColor = '#000000';
+        let currentBrushSize = 5;
+        let drawingHistory = [];
+        let currentHistoryIndex = -1;
+        let apiKey = ''; // Can be set by user from URL or prompt
+        let roomData = null;
+
+        // Initialize
+        document.getElementById('brushSize').textContent = currentBrushSize;
+
+        function selectColor(btn) {
+            document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentColor = btn.dataset.color;
+        }
+
+        function changeBrushSize(delta) {
+            currentBrushSize = Math.max(2, Math.min(30, currentBrushSize + delta));
+            document.getElementById('brushSize').textContent = currentBrushSize;
+        }
+
+        function startDrawing(e) {
+            drawing = true;
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            lastX = (e.clientX - rect.left) * scaleX;
+            lastY = (e.clientY - rect.top) * scaleY;
+            saveState();
+        }
+
+        function draw(e) {
+            if (!drawing) return;
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            const x = (e.clientX - rect.left) * scaleX;
+            const y = (e.clientY - rect.top) * scaleY;
+
+            ctx.beginPath();
+            ctx.moveTo(lastX, lastY);
+            ctx.lineTo(x, y);
+            ctx.strokeStyle = currentColor;
+            ctx.lineWidth = currentBrushSize;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.stroke();
+
+            lastX = x;
+            lastY = y;
+        }
+
+        function stopDrawing() {
+            drawing = false;
+        }
+
+        // Touch events
+        canvas.addEventListener('mousedown', startDrawing);
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('mouseup', stopDrawing);
+        canvas.addEventListener('mouseout', stopDrawing);
+        canvas.addEventListener('touchstart', e => {
+            e.preventDefault();
+            startDrawing(e.touches[0]);
+        });
+        canvas.addEventListener('touchmove', e => {
+            e.preventDefault();
+            draw(e.touches[0]);
+        });
+        canvas.addEventListener('touchend', e => {
+            e.preventDefault();
+            stopDrawing();
+        });
+
+        function clearCanvas() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawingHistory = [];
+            currentHistoryIndex = -1;
+        }
+
+        function saveState() {
+            // Save canvas image data for undo
+            drawingHistory.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+            currentHistoryIndex = drawingHistory.length - 1;
+        }
+
+        function undo() {
+            if (currentHistoryIndex <= 0) {
+                alert('没有可以撤销的步骤了');
+                return;
+            }
+            currentHistoryIndex--;
+            ctx.putImageData(drawingHistory[currentHistoryIndex], 0, 0);
+        }
+
+        function selectMode(mode) {
+            currentMode = mode;
+            document.querySelectorAll('.mode-btn').forEach(b => b.classList.toggle('active', b.textContent.includes(mode === 'single' ? '单人' : '多人')));
+            document.getElementById('multiShare').style.display = mode === 'multi' ? 'block' : 'none';
+            clearCanvas();
+            if (mode === 'multi') {
+                // Generate new room
+                generateMultiRoom();
+            }
+        }
+
+        function generateMultiRoom() {
+            const words = [];
+            // Collect all words from all topics
+            for (let topic in WORD_BANK) {
+                words.push(...WORD_BANK[topic]);
+            }
+            const word = words[Math.floor(Math.random() * words.length)];
+            currentWord = word;
+            revealedLetters = 0;
+            updateGuessDisplay();
+            // Encode room data to URL hash
+            const data = {
+                mode: 'multi',
+                word: currentWord,
+                canvas: canvas.toDataURL()
+            };
+            const encoded = btoa(JSON.stringify(data));
+            const url = location.origin + location.pathname + '#' + encoded;
+            document.getElementById('roomLink').textContent = url;
+            roomData = data;
+        }
+
+        function copyLink() {
+            const url = document.getElementById('roomLink').textContent;
+            navigator.clipboard.writeText(url).then(() => {
+                alert('链接已复制！分享给好友一起玩吧～');
+            });
+        }
+
+        function updateGuessDisplay() {
+            const container = document.getElementById('guessWord');
+            container.innerHTML = '';
+            for (let i = 0; i < currentWord.length; i++) {
+                const letter = currentWord[i];
+                if (letter === ' ') {
+                    container.innerHTML += '<span>&nbsp;</span>';
+                } else if (i < revealedLetters) {
+                    container.innerHTML += `<span>${letter}</span>`;
+                } else {
+                    container.innerHTML += '<span>&nbsp;</span>';
+                }
+            }
+        }
+
+        function getHint() {
+            if (revealedLetters < currentWord.length) {
+                revealedLetters++;
+                updateGuessDisplay();
+            }
+        }
+
+        function startGame() {
+            if (currentMode === 'single') {
+                // Pick random topic and word
+                const topics = Object.keys(WORD_BANK);
+                const topic = topics[Math.floor(Math.random() * topics.length)];
+                const words = WORD_BANK[topic];
+                const word = words[Math.floor(Math.random() * words.length)];
+                currentTopic = topic;
+                currentWord = word;
+                revealedLetters = 0;
+                document.getElementById('topic').textContent = `主题：${topic}`;
+                document.getElementById('hint').textContent = `字数：${currentWord.length} | 点击"识别猜词"AI 猜词，答对过关`;
+                updateGuessDisplay();
+            } else {
+                // Multi mode already generated word when creating room
+                if (!roomData) {
+                    generateMultiRoom();
+                }
+            }
+            clearCanvas();
+        }
+
+        function nextLevel() {
+            document.getElementById('gameOver').classList.remove('active');
+            startGame();
+        }
+
+        function guessWord() {
+            if (!apiKey) {
+                // Ask user for API key
+                const key = prompt('请输入 AI API Key (百度智能云/其他兼容 OpenAI API):');
+                if (key) {
+                    apiKey = key;
+                } else {
+                    alert('没有 API Key 无法自动识别，请手动对照词语检查～');
+                    return;
+                }
+            }
+            // Get image as base64
+            canvas.toBlob(async blob => {
+                const reader = new FileReader();
+                reader.onload = async () => {
+                    const base64 = reader.result.split(',')[1];
+                    try {
+                        // Call OpenAI-compatible vision API
+                        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${apiKey}`
+                            },
+                            body: JSON.stringify({
+                                model: 'gpt-4-vision-preview',
+                                messages: [
+                                    {
+                                        role: 'user',
+                                        content: [
+                                            {
+                                                type: 'text',
+                                                text: '图中画的是什么词语？这是你画我猜游戏，请从这个列表猜出最可能的词语：' + getAllWordsList() + '. 只回答词语，不要多余内容。'
+                                            },
+                                            {
+                                                type: 'image_url',
+                                                image_url: {
+                                                    url: `data:image/png;base64,${base64}`
+                                                }
+                                            }
+                                        ]
+                                    }
+                                ]
+                            })
+                        });
+                        const data = await response.json();
+                        showResults(data);
+                    } catch (err) {
+                        alert('识别出错：' + err.message);
+                        console.error(err);
+                    }
+                };
+            };
+            reader.readAsDataURL(blob);
+        }
+
+        function getAllWordsList() {
+            let all = [];
+            for (let t in WORD_BANK) {
+                all = all.concat(WORD_BANK[t]);
+            }
+            return all.join('、');
+        }
+
+        function showResults(data) {
+            const resultArea = document.getElementById('resultArea');
+            if (data.choices && data.choices.length > 0) {
+                const guess = data.choices[0].message.content.trim();
+                resultArea.innerHTML = `<div class="result-item">
+                    <strong>AI 猜测：</strong> ${guess}
+                </div>`;
+                // Check if guess matches
+                if (guess.includes(currentWord) || currentWord.includes(guess)) {
+                    // Correct
+                    setTimeout(() => {
+                        document.getElementById('resultTitle').textContent = '🎉 猜对了！';
+                        document.getElementById('resultMessage').textContent = `AI 识别出词语 "${guess}"，恭喜过关！`;
+                        document.getElementById('gameOver').classList.add('active');
+                    }, 500);
+                }
+            } else {
+                resultArea.innerHTML = '<em>没有获得有效识别结果</em>';
+            }
+        }
+
+        function setMode(mode) {
+            currentMode = mode;
+            document.querySelectorAll('.mode-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.textContent.includes(mode === 'single' ? '单人' : '多人'));
+            });
+            document.getElementById('multiShare').style.display = mode === 'multi' ? 'block' : 'none';
+            clearCanvas();
+            if (mode === 'multi' && !roomData) {
+                generateMultiRoom();
+            }
+        }
+
+        // Check for shared room from URL
+        function checkSharedRoom() {
+            if (location.hash.length > 1) {
+                try {
+                    const data = JSON.parse(atob(location.hash.slice(1)));
+                    if (data.mode === 'multi') {
+                        setMode('multi');
+                        if (data.word) {
+                            currentWord = data.word;
+                            revealedLetters = 0;
+                            currentTopic = '多人对战';
+                            document.getElementById('topic').textContent = `房间：${currentWord.length} 个字母`;
+                            document.getElementById('hint').textContent = '对方画画，你来猜词';
+                            updateGuessDisplay();
+                            if (data.canvas) {
+                                // Load canvas image
+                                const img = new Image();
+                                img.onload = () => {
+                                    ctx.drawImage(img, 0, 0);
+                                };
+                                img.src = data.canvas;
+                                roomData = data;
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.log('Invalid shared room data');
+                }
+            }
+        }
+
+        // Initialize
+        checkSharedRoom();
+        if (!roomData) {
+            startGame();
+        }
+    </script>
+</body>
+</html>

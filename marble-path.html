@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>弹珠入洞 - Marble Path</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #fefcea 0%, #f1daaf 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 10px;
+        }
+        .game-container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+            max-width: 90vw;
+            text-align: center;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 8px;
+            font-size: 28px;
+        }
+        .subtitle {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+        .toolbar {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 15px;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .stat {
+            background: linear-gradient(135deg, #f6d365 0%, #fda085 100%);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .stat span {
+            color: #fff8e1;
+            margin-left: 4px;
+        }
+        .canvas-container {
+            position: relative;
+            margin: 0 auto 15px;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+        }
+        #gameCanvas {
+            display: block;
+            background: #f8f8e8;
+            cursor: crosshair;
+        }
+        #gameCanvas.drawing {
+            cursor: crosshair;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 15px;
+        }
+        .btn {
+            padding: 10px 20px;
+            font-size: 15px;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #f6d365 0%, #fda085 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(246, 211, 101, 0.4);
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(246, 211, 101, 0.6);
+        }
+        .btn-secondary {
+            background: linear-gradient(135dx, #a8edea 0%, #fed6ab 100%);
+            color: #333;
+        }
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .level-selector {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+        .btn-level {
+            padding: 8px 16px;
+            font-size: 13px;
+        }
+        .btn-level.active {
+            background: linear-gradient(135deg, #f6d365 0%, #fda085 100%);
+            color: white;
+        }
+        .instructions {
+            color: #666;
+            font-size: 13px;
+            text-align: left;
+            line-height: 1.5;
+        }
+        .game-over {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0, 0.7);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            border-radius: 12px;
+            z-index: 10;
+        }
+        .game-over.active {
+            display: flex;
+        }
+        .result-modal {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            max-width: 80%;
+        }
+        .result-modal h2 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+        .mode-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-bottom: 10px;
+        }
+        .segment {
+            padding: 6px 12px;
+            border-radius: 15px;
+            border: 2px solid #ddd;
+            background: white;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 13px;
+        }
+        .segment.active {
+            border-color: #fda085;
+            background: #fff8e1;
+            color: #fda085;
+            font-weight: bold;
+        }
+        .particle {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #fda085;
+            pointer-events: none;
+            animation: particle-explode 0.8s ease-out forwards;
+        }
+        @keyframes particle-explode {
+            to {
+                transform: translate(var(--dy), var(--dy)) scale(0);
+                opacity: 0;
+            }
+        }
+        @media (max-width: 600px) {
+            #gameCanvas {
+                width: 100%;
+                height: auto;
+            }
+            h1 {
+                font-size: 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>🔵 弹珠入洞</h1>
+        <p class="subtitle">划线引导弹珠滚动进洞，有限长度考验你的规划！</p>
+
+        <div class="mode-buttons">
+            <button class="segment active" onclick="setMode('play')">关卡模式</button>
+            <button class="segment" onclick="setMode('edit')">编辑器</button>
+        </div>
+
+        <div class="level-selector" id="levelSelector">
+            <!-- Level buttons generated by JS -->
+        </div>
+
+        <div class="toolbar">
+            <div class="stat">剩余长度: <span id="remainingLength">0</span></div>
+            <div class="stat">弹珠数: <span id="marbleCount">0</span>/<span id="totalMarbles">0</span></div>
+        </div>
+
+        <div class="canvas-container">
+            <canvas id="gameCanvas" width="500" height="400"></canvas>
+            <div class="game-over" id="gameOver">
+                <div class="result-modal">
+                    <h2 id="resultTitle">🎉 恭喜过关！</h2>
+                    <p id="resultMessage"></p>
+                    <div class="controls" style="margin-top: 20px;">
+                        <button class="btn btn-primary" onclick="nextLevel">下一关</button>
+                        <button class="btn btn-secondary" onclick="restartLevel">重玩</button>
+</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button class="btn btn-primary" onclick="startSimulation">开始模拟</button>
+            <button class="btn btn-secondary" onclick="undoLast">撤销</button>
+            <button class="btn btn-secondary" onclick="restartLevel">重来</button>
+            <button class="btn btn-secondary" onclick="shareLevel">分享</button>
+        </div>
+
+        <p class="instructions">
+            <strong>玩法：</strong><br>
+            • 点击起点到终点画线，给弹珠画出滚动路径<br>
+            • 画线总长度有限制，需要合理规划<br>
+            • 画线完成后点击"开始模拟"，看弹珠能否滚入洞<br>
+            • 编辑器模式可以创建分享你自己的关卡
+        </p>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const WIDTH = canvas.width;
+        const HEIGHT = canvas.height;
+
+        // Game configuration
+        const GRAVITY = 0.5;
+        const DAMPING = 0.99;
+        const MIN_SEGMENT_LENGTH = 5;
+
+        // Game state
+        let gameMode = 'play';
+        let currentLevel = 0;
+        let path = [];
+        let marbles = [];
+        let goal = null;
+        let obstacles = [];
+        let drawing = false;
+        let simulating = false;
+        let maxPathLength = 0;
+        let remainingLength = 0;
+        let completed = false;
+
+        // Built-in levels
+        const LEVELS = [
+            {
+                name: '入门练习',
+                marbles: [{x: 50, y: 50, radius: 8}],
+                goal: {x: 450, y: 350, radius: 30},
+                obstacles: [],
+                maxLength: 600,
+                description: '简单直线'
+            },
+            {
+                name: '斜坡转弯',
+                marbles: [{x: 50, y: 100, radius: 8}],
+                goal: {x: 400, y: 300, radius: 30},
+                obstacles: [
+                    {x: 200, y: 150, w: 20, h: 150}
+                ],
+                maxLength: 800,
+                description: '绕过障碍'
+            },
+            {
+                name: '双子星',
+                marbles: [
+                    {x: 40, y: 40, radius: 8},
+                    {x: 460, y: 40, radius: 8}
+                ],
+                goal: {x: 250, y: 350, radius: 40},
+                obstacles: [
+                    {x: 200, y: 100, w: 100, h: 20}
+                ],
+                maxLength: 1000,
+                description: '两个弹珠一起进洞'
+            },
+            {
+                name: 'S弯道',
+                marbles: [{x: 50, y: 200, radius: 8}],
+                goal: {x: 450, y: 200, radius: 35},
+                obstacles: [
+                    {x: 150, y: 0, w: 20, h: 150},
+                    {x: 330, y: 250, w: 20, h: 150}
+                ],
+                maxLength: 1200,
+                description: 'S形弯道考验'
+            },
+            {
+                name: '跳跳跳',
+                marbles: [{x: 50, y: 50, radius: 6}],
+                goal: {x: 450, y: 350, radius: 40},
+                obstacles: [
+                    {x: 0, y: 120, w: 200, h: 20},
+                    {x: 150, y: 220, w: 200, h: 20},
+                    {x: 300, y: 320, w: 200, h: 20}
+                ],
+                maxLength: 1500,
+                description: '阶梯式下落'
+            }
+        ];
+
+        // Marble class
+        class Marble {
+            constructor(x, y, radius = 8) {
+                this.x = x;
+                this.y = y;
+                this.vx = 0;
+                this.vy = 0;
+                this.radius = radius;
+                this.inGoal = false;
+            }
+
+            update() {
+                if (this.inGoal) {
+                    this.vx = 0;
+                    this.vy = 0;
+                    return;
+                }
+                // Gravity
+                this.vy += GRAVITY;
+                // Move
+                let newX = this.x + this.vx;
+                let newY = this.y + this.vy;
+                // Check collision with path (line segments)
+                for (let i = 0; i < path.length - 1; i++) {
+                    const p1 = path[i];
+                    const p2 = path[i+1];
+                    const coll = circleLineCollision(this, p1, p2);
+                    if (coll.collision) {
+                        // Project velocity onto line and normal
+                        const dx = p2.x - p1.x;
+                        const dy = p2.y - p1.y;
+                        const len = Math.sqrt(dx*dx + dy*dy);
+                        const nx = -dy / len;
+                        const ny = dx / len;
+                        // Dot product to get normal velocity
+                        const vn = this.vx * nx + this.vy * ny;
+                        // Reflect
+                        this.vx -= 2 * vn * nx;
+                        this.vy -= 2 * vn * ny;
+                        // Damping
+                        this.vx *= DAMPING;
+                        this.vy *= DAMPING;
+                        // Move to outside
+                        newX = coll.pos.x - this.radius * nx * 1.01;
+                        newY = coll.pos.y - this.radius * ny * 1.01;
+                    }
+                }
+                // Check collision with obstacles (rectangles)
+                obstacles.forEach(obs => {
+                    if (circleRectCollision(this, obs)) {
+                        // Find closest point
+                        const closestX = Math.max(obs.x, Math.min(this.x, obs.x + obs.w));
+                        const closestY = Math.max(obs.y, Math.min(this.y, obs.y + obs.h));
+                        const dx = this.x - closestX;
+                        const dy = this.y - closestY;
+                        const dist = Math.sqrt(dx*dx + dy*dy);
+                        if (dist < this.radius) {
+                            // Push out
+                            const factor = this.radius / dist;
+                            newX = closestX + dx * factor;
+                            newY = closestY + dy * factor;
+                            // reflect
+                            this.vx -= 2 * dx * 0.5;
+                            this.vy -= 2 * dy * 0.5;
+                            this.vx *= DAMPING;
+                            this.vy *= DAMPING;
+                        }
+                    }
+                });
+                // Check bounds
+                if (newX - this.radius < 0) {
+                    newX = this.radius;
+                    this.vx *= -0.5;
+                }
+                if (newX + this.radius > WIDTH) {
+                    newX = WIDTH - this.radius;
+                    this.vx *= -0.5;
+                }
+                if (newY + this.radius > HEIGHT) {
+                    newY = HEIGHT - this.radius;
+                    this.vy *= -0.5;
+                }
+                if (newY - this.radius < 0) {
+                    newY = this.radius;
+                    this.vy *= -0.5;
+                }
+                // Check if in goal
+                if (!this.inGoal) {
+                    const dx = newX - goal.x;
+                    const dy = newY - goal.y;
+                    const dist = Math.sqrt(dx*dx + dy*dy);
+                    if (dist + this.radius <= goal.radius) {
+                        this.inGoal = true;
+                        this.vx = 0;
+                        this.vy = 0;
+                    }
+                }
+                this.x = newX;
+                this.y = newY;
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = this.inGoal ? '#4caf50' : '#2196f3';
+                ctx.fill();
+                ctx.strokeStyle = 'white';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+        }
+
+        // Collision detection: circle vs line segment
+        function circleLineCollision(marble, p1, p2) {
+            const x1 = p1.x;
+            const y1 = p1.y;
+            const x2 = p2.x;
+            const y2 = p2.y;
+            const cx = marble.x;
+            const cy = marble.y;
+            const r = marble.radius;
+
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+            const t = Math.max(0, Math.min(1, ((cx - x1)*dx + (cy - y1)*dy) / (dx*dx + dy*dy)));
+            const closestX = x1 + t * dx;
+            const closestY = y1 + t * dy;
+            const distX = cx - closestX;
+            const distY = cy - closestY;
+            const distSq = distX*distX + distY*distY;
+
+            return {
+                collision: distSq <= r*r,
+                pos: {x: closestX, y: closestY}
+            };
+        }
+
+        // Collision detection: circle vs rectangle
+        function circleRectCollision(circle, rect) {
+            const closestX = Math.max(rect.x, Math.min(circle.x, rect.x + rect.w));
+            const closestY = Math.max(rect.y, Math.min(circle.y, rect.y + rect.h));
+            const dx = circle.x - closestX;
+            const dy = circle.y - closestY;
+            return (dx*dx + dy*dy) < (circle.radius * circle.radius);
+        }
+
+        // Get mouse/touch position
+        function getPos(e) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            if (e.type.startsWith('mouse')) {
+                return {
+                    x: (e.clientX - rect.left) * scaleX,
+                    y: (e.clientY - rect.top) * scaleY
+                };
+            } else {
+                const touch = e.touches[0];
+                return {
+                    x: (touch.clientX - rect.left) * scaleX,
+                    y: (touch.clientY - rect.top) * scaleY
+                };
+            }
+        }
+
+        // Mouse/touch events for drawing path
+        canvas.addEventListener('mousedown', startDrawing);
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('mouseup', endDrawing);
+        canvas.addEventListener('touchstart', e => {
+            e.preventDefault();
+            startDrawing(e);
+        });
+        canvas.addEventListener('touchmove', e => {
+            e.preventDefault();
+            draw(e);
+        });
+        canvas.addEventListener('touchend', e => {
+            e.preventDefault();
+            endDrawing(e);
+        });
+
+        function startDrawing(e) {
+            if (simulating || completed) return;
+            drawing = true;
+            const pos = getPos(e);
+            // Check if we have existing path and this is near last point
+            if (path.length > 0) {
+                const last = path[path.length - 1];
+                const dx = pos.x - last.x;
+                const dy = pos.y - last.y;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                if (dist < MIN_SEGMENT_LENGTH) return;
+            }
+            path.push({x: pos.x, y: pos.y});
+            remainingLength = maxPathLength - calculatePathLength();
+            updateStats();
+        }
+
+        function draw(e) {
+            if (!drawing || simulating || completed) return;
+            const pos = getPos(e);
+            const last = path[path.length - 1];
+            const dx = pos.x - last.x;
+            const dy = pos.y - last.y;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            const totalLen = calculatePathLength() + dist;
+            if (totalLen > maxPathLength) {
+                // Truncate
+                const ratio = (maxPathLength - calculatePathLength()) / dist;
+                pos.x = last.x + dx * ratio;
+                pos.y = last.y + dy * ratio;
+                path.push({x: pos.x, y: pos.y});
+                drawing = false;
+                remainingLength = 0;
+            } else if (dist >= MIN_SEGMENT_LENGTH) {
+                path.push({x: pos.x, y: pos.y});
+                remainingLength = maxPathLength - calculatePathLength();
+            }
+            updateStats();
+            render();
+        }
+
+        function endDrawing() {
+            drawing = false;
+        }
+
+        function calculatePathLength() {
+            let len = 0;
+            for (let i = 0; i < path.length - 1; i++) {
+                const p1 = path[i];
+                const p2 = path[i+1];
+                const dx = p2.x - p1.x;
+                const dy = p2.y - p1.y;
+                len += Math.sqrt(dx*dx + dy*dy);
+            }
+            return len;
+        }
+
+        function updateStats() {
+            document.getElementById('remainingLength').textContent = Math.ceil(remainingLength);
+            const inGoal = marbles.filter(m => m.inGoal).length;
+            document.getElementById('marbleCount').textContent = inGoal;
+        }
+
+        function render() {
+            ctx.clearRect(0, 0, WIDTH, HEIGHT);
+
+            // Draw obstacles
+            ctx.fillStyle = '#d0d0d0';
+            obstacles.forEach(obs => {
+                ctx.fillRect(obs.x, obs.y, obs.w, obs.h);
+            });
+
+            // Draw goal
+            ctx.beginPath();
+            ctx.arc(goal.x, goal.y, goal.radius, 0, Math.PI * 2);
+            ctx.fillStyle = '#e8f5e8';
+            ctx.fill();
+            ctx.strokeStyle = '#4caf50';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            ctx.fillStyle = '#2e7d32';
+            ctx.font = '14px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('GOAL', goal.x, goal.y + 5);
+
+            // Draw path
+            if (path.length > 0) {
+                ctx.beginPath();
+                ctx.moveTo(path[0].x, path[0].y);
+                for (let i = 1; i < path.length; i++) {
+                    ctx.lineTo(path[i].x, path[i].y);
+                }
+                ctx.strokeStyle = '#fda085';
+                ctx.lineWidth = 6;
+                ctx.lineCap = 'round';
+                ctx.stroke();
+                // Draw points
+                path.forEach(p => {
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+                    ctx.fillStyle = '#f6d365';
+                    ctx.fill();
+                });
+            }
+
+            // Draw marbles
+            marbles.forEach(m => m.draw());
+        }
+
+        function simulate() {
+            if (!simulating && marbles.length > 0) {
+                simulating = true;
+                simulationLoop();
+            }
+        }
+
+        function simulationLoop() {
+            if (!simulating) return;
+            // Step physics
+            marbles.forEach(m => m.update());
+            // Check completion
+            const allInGoal = marbles.every(m => m.inGoal);
+            const anyMoving = marbles.some(m => Math.abs(m.vx) > 0.1 || Math.abs(m.vy) > 0.1);
+            render();
+            updateStats();
+
+            if (allInGoal) {
+                completeLevel(true);
+                return;
+            }
+
+            if (!anyMoving && !completed) {
+                // All stopped but not all in goal
+                completeLevel(false);
+                return;
+            }
+
+            requestAnimationFrame(simulationLoop);
+        }
+
+        function completeLevel(success) {
+            simulating = false;
+            completed = true;
+            if (success) {
+                document.getElementById('resultTitle').textContent = '🎉 恭喜过关！';
+                document.getElementById('resultMessage').innerHTML =
+                    `所有弹珠都成功滚入洞中！<br>
+                    剩余画线长度: ${Math.ceil(remainingLength)}`;
+            } else {
+                document.getElementById('resultTitle').textContent = '😅 再来一次';
+                document.getElementById('resultMessage').textContent = '还有弹珠没进洞，调整一下线路吧';
+            }
+            document.getElementById('gameOver').classList.add('active');
+        }
+
+        function undoLast() {
+            if (simulating) return;
+            if (path.length <= 1) {
+                restartLevel();
+                return;
+            }
+            path.pop();
+            remainingLength = maxPathLength - calculatePathLength();
+            updateStats();
+            render();
+        }
+
+        function startLevel(levelIndex) {
+            currentLevel = levelIndex;
+            const level = LEVELS[currentLevel];
+            path = [];
+            marbles = [];
+            obstacles = [...level.obstacles];
+            goal = {x: level.goal.x, y: level.goal.y, radius: level.goal.radius};
+            level.marbles.forEach(m => marbles.push(new Marble(m.x, m.y, m.radius)));
+            maxPathLength = level.maxLength;
+            remainingLength = maxPathLength;
+            drawing = false;
+            simulating = false;
+            completed = false;
+            document.getElementById('totalMarbles').textContent = level.marbles.length;
+            document.getElementById('gameOver').classList.remove('active');
+            updateStats();
+            render();
+
+            // Update active level button
+            document.querySelectorAll('.btn-level').forEach((btn, idx) => {
+                btn.classList.toggle('active', idx === levelIndex);
+            });
+        }
+
+        function restartLevel() {
+            startLevel(currentLevel);
+        }
+
+        function nextLevel() {
+            if (currentLevel < LEVELS.length - 1) {
+                startLevel(currentLevel + 1);
+            } else {
+                alert('🎉 恭喜你通关所有关卡！现在可以去编辑器模式创造自己的关卡分享给朋友～');
+                setMode('edit');
+            }
+        }
+
+        function setMode(mode) {
+            gameMode = mode;
+            document.querySelectorAll('.segment').forEach(btn => {
+                btn.classList.toggle('active', btn.textContent.includes(mode === 'play' ? '关卡' : '编辑'));
+            });
+            if (mode === 'play') {
+                startLevel(0);
+            } else {
+                // Create empty level for editing
+                path = [];
+                marbles = [{x: 50, y: 50, radius: 8}];
+                goal = {x: 450, y: 350, radius: 30};
+                obstacles = [];
+                maxPathLength = 2000;
+                remainingLength = maxPathLength;
+                drawing = false;
+                simulating = false;
+                completed = false;
+                document.getElementById('totalMarbles').textContent = marbles.length;
+                updateStats();
+                render();
+            }
+        }
+
+        function shareLevel() {
+            // Encode level to URL hash
+            const data = {
+                m: marbles.map(m => ({x: Math.round(m.x), y: Math.round(m.y), r: m.radius})),
+                g: {x: Math.round(goal.x), y: Math.round(goal.y), r: goal.radius},
+                o: obstacles.map(o => ({x: o.x, y: o.y, w: o.w, h: o.h})),
+                ml: maxPathLength
+            };
+            const encoded = btoa(JSON.stringify(data));
+            const url = location.origin + location.pathname + '#' + encoded;
+            navigator.clipboard.writeText(url).then(() => {
+                alert('关卡链接已复制到剪贴板！');
+            }).catch(() => {
+                prompt('复制链接：', url);
+            });
+        }
+
+        function resetView() {
+            render();
+        }
+
+        // Initialize level selector
+        function initLevelSelector() {
+            const container = document.getElementById('levelSelector');
+            LEVELS.forEach((level, index) => {
+                const btn = document.createElement('button');
+                btn.className = 'btn btn-level' + (index === 0 ? ' active' : '');
+                btn.textContent = level.name;
+                btn.onclick = () => startLevel(index);
+                container.appendChild(btn);
+            });
+        }
+
+        // Check for shared level from URL
+        function checkSharedLevel() {
+            if (location.hash.length > 1) {
+                try {
+                    const data = JSON.parse(atob(location.hash.slice(1)));
+                    setMode('play');
+                    // Clear built-in levels
+                    if (data.m && data.g) {
+                        path = [];
+                        marbles = [];
+                        obstacles = data.o || [];
+                        goal = data.g;
+                        data.m.forEach(m => marbles.push(new Marble(m.x, m.y, m.r || 8)));
+                        maxPathLength = data.ml || 2000;
+                        remainingLength = maxPathLength;
+                        document.getElementById('totalMarbles').textContent = marbles.length;
+                        updateStats();
+                        render();
+                        return;
+                    }
+                } catch(e) {
+                    console.error('Failed to parse shared level', e);
+                }
+            }
+            // Fall through to default
+        }
+
+        // Start game
+        initLevelSelector();
+        checkSharedLevel();
+        if (gameMode === 'play') {
+            startLevel(0);
+        } else {
+            setMode('edit');
+        }
+    </script>
+</body>
+</html>

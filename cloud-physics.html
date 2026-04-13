@@ -1,0 +1,961 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>云朵变变变 - Cloud Physics</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #e0f7fa 0%, #b2ebf2 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 10px;
+        }
+        .game-container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+            max-width: 90vw;
+            text-align: center;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 8px;
+            font-size: 28px;
+        }
+        .subtitle {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+        .toolbar {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 15px;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .stat {
+            background: linear-gradient(135deg, #81d4fa 0%, #0288d1 100%);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .stat span {
+            color: #e1f5fe;
+            margin-left: 4px;
+        }
+        .canvas-container {
+            position: relative;
+            margin: 0 auto 15px;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+        }
+        #gameCanvas {
+            display: block;
+            background: #f0f8ff;
+            cursor: grab;
+        }
+        #gameCanvas:active {
+            cursor: grabbing;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 15px;
+        }
+        .btn {
+            padding: 10px 20px;
+            font-size: 15px;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #81d4fa 0%, #0288d1 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(2, 136, 209, 0.4);
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(2, 136, 209, 0.6);
+        }
+        .btn-secondary {
+            background: linear-gradient(135deg, #c8e6c9 0%, #4caf50 100%);
+            color: white;
+        }
+        .btn-level {
+            padding: 8px 16px;
+            font-size: 13px;
+        }
+        .btn-level.active {
+            background: linear-gradient(135deg, #81d4fa 0%, #0288d1 100%);
+            color: white;
+        }
+        .level-selector {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+        .game-over {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0, 0.7);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            border-radius: 12px;
+            z-index: 10;
+        }
+        .game-over.active {
+            display: flex;
+        }
+        .result-modal {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            max-width: 80%;
+        }
+        .result-modal h2 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+        .stars {
+            font-size: 40px;
+            margin-bottom: 15px;
+        }
+        .star {
+            color: #ddd;
+        }
+        .star.filled {
+            color: #ffd700;
+        }
+        .mode-selector {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-bottom: 10px;
+        }
+        .mode-btn {
+            padding: 8px 16px;
+            border-radius: 20px;
+            border: 2px solid #ddd;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .mode-btn.active {
+            border-color: #0288d1;
+            background: #e1f5fe;
+            color: #0288d1;
+            font-weight: bold;
+        }
+        .instructions {
+            color: #666;
+            font-size: 13px;
+            text-align: left;
+            line-height: 1.5;
+        }
+        .particle {
+            position: absolute;
+            width: 6px;
+            height: 6px;
+            background: #81d4fa;
+            border-radius: 50%;
+            pointer-events: none;
+            animation: particle-fade 1s ease-out forwards;
+        }
+        @keyframes particle-fade {
+            to {
+                transform: translateY(30px) scale(0);
+                opacity: 0;
+            }
+        }
+        .storm-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: rgba(100, 100, 100, 0.3);
+            color: white;
+            padding: 5px;
+            font-size: 12px;
+            text-align: center;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .storm-overlay.active {
+            opacity: 1;
+        }
+        @media (max-width: 600px) {
+            #gameCanvas {
+                width: 100%;
+                height: auto;
+            }
+            h1 {
+                font-size: 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>☁️ 云朵变变变</h1>
+        <p class="subtitle">拖动挤压云朵，合并拼成目标形状，柔体物理模拟解压好玩</p>
+        
+        <div class="mode-selector">
+            <button class="mode-btn active" onclick="setMode('level')">关卡模式</button>
+            <button class="mode-btn" onclick="setMode('creative')">自由创作</button>
+        </div>
+
+        <div class="level-selector" id="levelSelector">
+            <!-- Level buttons generated by JS -->
+        </div>
+
+        <div class="toolbar">
+            <div class="stat">评分: <span id="score">0</span></div>
+            <div class="stat">乌云: <span id="stormCount">0</span></div>
+        </div>
+
+        <div class="canvas-container">
+            <canvas id="gameCanvas" width="500" height="400"></canvas>
+            <div class="storm-overlay" id="stormOverlay">🌪 乌云来袭！</div>
+            <div class="game-over" id="gameOver">
+                <div class="result-modal">
+                    <h2>🎉 关卡完成！</h2>
+                    <div class="stars" id="stars"></div>
+                    <button class="btn btn-primary" onclick="nextLevel">下一关</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button class="btn btn-primary" onclick="restartLevel">重来</button>
+            <button class="btn btn-secondary" onclick="resetView">重置视角</button>
+        </div>
+
+        <p class="instructions">
+            <strong>玩法：</strong><br>
+            • <strong>关卡模式：</strong>拖动质点，挤压云朵拼成目标轮廓，匹配度够高即可通关<br>
+            • <strong>自由创作：</strong>随便拖动挤压，享受柔体物理解压乐趣<br>
+            • <strong>乌云干扰：</strong>乌云会下落撞散云朵，考验你的耐心
+        </p>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const WIDTH = canvas.width;
+        const HEIGHT = canvas.height;
+
+        // Game Configuration
+        const GRAVITY = 0.5;
+        const SPRING_K = 0.3;
+        const DAMPING = 0.9;
+        const REST_LENGTH = 8;
+        let DRAG_RADIUS = 15;
+
+        // Particle class
+        class Particle {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.vx = 0;
+                this.vy = 0;
+                this.fixed = false;
+                this.radius = 5;
+            }
+
+            update() {
+                if (this.fixed) return;
+                this.vy += GRAVITY;
+                this.x += this.vx;
+                this.y += this.vy;
+                this.vx *= DAMPING;
+                this.vy *= DAMPING;
+                
+                // Bounds
+                if (this.x < this.radius) {
+                    this.x = this.radius;
+                    this.vx *= -0.5;
+                }
+                if (this.x > WIDTH - this.radius) {
+                    this.x = WIDTH - this.radius;
+                    this.vx *= -0.5;
+                }
+                if (this.y > HEIGHT - this.radius) {
+                    this.y = HEIGHT - this.radius;
+                    this.vy *= -0.5;
+                }
+                if (this.y < this.radius) {
+                    this.y = this.radius;
+                    this.vy *= -0.5;
+                }
+            }
+
+            draw(color = '#81d4fa') {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = color;
+                ctx.fill();
+            }
+        }
+
+        // Spring between particles
+        class Spring {
+            constructor(p1, p2) {
+                this.p1 = p1;
+                this.p2 = p2;
+                this.restLength = REST_LENGTH;
+            }
+
+            update() {
+                const dx = this.p2.x - this.p1.x;
+                const dy = this.p2.y - this.p1.y;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                if (dist === 0) return;
+                const force = SPRING_K * (dist - this.restLength);
+                const fx = (dx / dist) * force;
+                const fy = (dy / dist) * force;
+                
+                if (!this.p1.fixed) {
+                    this.p1.vx += fx;
+                    this.p1.vy += fy;
+                }
+                if (!this.p2.fixed) {
+                    this.p2.vx -= fx;
+                    this.p2.vy -= fy;
+                }
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.moveTo(this.p1.x, this.p1.y);
+                ctx.lineTo(this.p2.x, this.p2.y);
+                ctx.strokeStyle = 'rgba(129, 212, 250, 0.3)';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+        }
+
+        // Level definitions
+        const LEVELS = [
+            {
+                name: '圆形',
+                target: 'circle',
+                cx: 250, cy: 200, r: 120,
+                storm: false,
+                description: '基础练习'
+            },
+            {
+                name: '方形',
+                target: 'rect',
+                x: 100, y: 100, w: 300, h: 200,
+                storm: false,
+                description: '四四方方'
+            },
+            {
+                name: '爱心',
+                target: 'heart',
+                storm: true,
+                description: '小心乌云'
+            },
+            {
+                name: '星星',
+                target: 'star',
+                storm: true,
+                description: '一闪一闪亮晶晶'
+            },
+            {
+                name: '云朵',
+                target: 'cloud',
+                storm: true,
+                description: '变成一朵云'
+            }
+        ];
+
+        // Game state
+        let particles = [];
+        let springs = [];
+        let draggingParticle = null;
+        let gameMode = 'level';
+        let currentLevel = 0;
+        let score = 0;
+        let stormActive = false;
+        let stormTimer = 0;
+        let stormParticles = [];
+
+        // Initialize level grid
+        function initLevelGrid(width, height, spacing) {
+            particles = [];
+            springs = [];
+            stormParticles = [];
+            
+            const rows = Math.ceil(height / spacing);
+            const cols = Math.ceil(width / spacing);
+            
+            for (let y = 0; y < rows; y++) {
+                for (let x = 0; x < cols; x++) {
+                    const px = x * spacing + spacing/2;
+                    const py = y * spacing + spacing/2;
+                    particles.push(new Particle(px, py));
+                }
+            }
+
+            // Connect neighbors with springs
+            for (let y = 0; y < rows; y++) {
+                for (let x = 0; x < cols; x++) {
+                    const idx = y * cols + x;
+                    if (x < cols - 1) {
+                        const rightIdx = y * cols + (x + 1);
+                        springs.push(new Spring(particles[idx], particles[rightIdx]));
+                    }
+                    if (y < rows - 1) {
+                        const bottomIdx = (y + 1) * cols + x;
+                        springs.push(new Spring(particles[idx], particles[bottomIdx]));
+                    }
+                }
+            }
+
+            // Lock bottom edge
+            for (let x = 0; x < cols; x++) {
+                const idx = (rows - 1) * cols + x;
+                particles[idx].fixed = true;
+            }
+        }
+
+        function createHeart() {
+            // Initialize heart shape grid with some randomness
+            particles = [];
+            springs = [];
+            stormParticles = [];
+            
+            const spacing = 10;
+            for (let y = 0; y < 40; y++) {
+                for (let x = 0; x < 50; x++) {
+                    // Heart equation
+                    const xo = x - 25;
+                    const yo = y - 25;
+                    // (x^2+y^2-a^2)^2 - b^2(a-x)^3 < 0
+                    const eq = Math.pow(xo*xo + yo*yo - 100*100, 2) - 100*100 * Math.pow(100 - xo, 3);
+                    if (eq < 0) {
+                        particles.push(new Particle(x * spacing + 50, y * spacing + 50));
+                    }
+                }
+            }
+
+            // Connect nearby particles with springs
+            for (let i = 0; i < particles.length; i++) {
+                for (let j = i + 1; j < particles.length; j++) {
+                    const p1 = particles[i];
+                    const p2 = particles[j];
+                    const dx = p1.x - p2.x;
+                    const dy = p1.y - p2.y;
+                    const dist = Math.sqrt(dx*dx + dy*dy);
+                    if (dist < REST_LENGTH * 1.5) {
+                        springs.push(new Spring(p1, p2));
+                    }
+                }
+            }
+
+            // Fix bottom
+            particles.forEach(p => {
+                if (p.y > 380) p.fixed = true;
+            });
+        }
+
+        function createStar() {
+            particles = [];
+            springs = [];
+            stormParticles = [];
+            
+            const cx = 250;
+            const cy = 200;
+            const R = 120;
+            const spacing = 10;
+            
+            // Create star shape
+            for (let y = 0; y < HEIGHT; y += spacing) {
+                for (let x = 0; x < WIDTH; x += spacing) {
+                    // 5-pointed star distance check (simplified)
+                    let angle = Math.atan2(y - cy, x - cx);
+                    let dist = Math.sqrt((x - cx)*(x - cx) + (y - cy)*(y - cy));
+                    let r = 100 * Math.abs(Math.cos(5 * angle));
+                    if (dist < r) {
+                        particles.push(new Particle(x, y));
+                    }
+                }
+            }
+
+            // Connect nearby
+            for (let i = 0; i < particles.length; i++) {
+                for (let j = i + 1; j < particles.length; j++) {
+                    const p1 = particles[i];
+                    const p2 = particles[j];
+                    const dx = p1.x - p2.x;
+                    const dy = p1.y - p2.y;
+                    const d = Math.sqrt(dx*dx + dy*dy);
+                    if (d < REST_LENGTH * 1.5) {
+                        springs.push(new Spring(p1, p2));
+                    }
+                }
+            }
+
+            // Fix bottom
+            particles.forEach(p => {
+                if (p.y > 370) p.fixed = true;
+            });
+        }
+
+        function createCloud() {
+            particles = [];
+            springs = [];
+            stormParticles = [];
+            
+            const cx = 250;
+            const cy = 200;
+            const spacing = 10;
+            
+            for (let y = 0; y < HEIGHT; y += spacing) {
+                for (let x = 0; x < WIDTH; x += spacing) {
+                    // Three overlapping circles = cloud
+                    let d1 = Math.sqrt(Math.pow(x - (cx-60), 2) + Math.pow(y - (cy-20), 2));
+                    let d2 = Math.sqrt(Math.pow(x - (cx+30), 2) + Math.pow(y - (cy-40), 2));
+                    let d3 = Math.sqrt(Math.pow(x - (cx+70), 2) + Math.pow(y - (cy), 2));
+                    if (d1 < 80 || d2 < 70 || d3 < 65) {
+                        particles.push(new Particle(x, y));
+                    }
+                }
+            }
+
+            // Connect nearby
+            for (let i = 0; i < particles.length; i++) {
+                for (let j = i + 1; j < particles.length; j++) {
+                    const p1 = particles[i];
+                    const p2 = particles[j];
+                    const dx = p1.x - p2.x;
+                    const dy = p1.y - p2.y;
+                    const d = Math.sqrt(dx*dx + dy*dy);
+                    if (d < REST_LENGTH * 1.5) {
+                        springs.push(new Spring(p1, p2));
+                    }
+                }
+            }
+
+            // Fix bottom
+            particles.forEach(p => {
+                if (p.y > 360) p.fixed = true;
+            });
+        }
+
+        function createRectangle(x, y, w, h) {
+            particles = [];
+            springs = [];
+            stormParticles = [];
+            const spacing = 10;
+            for (let py = y; py < y + h; py += spacing) {
+                for (let px = x; px < x + w; px += spacing) {
+                    particles.push(new Particle(px, py));
+                }
+            }
+            // Connect neighbors
+            for (let i = 0; i < particles.length; i++) {
+                for (let j = i + 1; j < particles.length; j++) {
+                    const p1 = particles[i];
+                    const p2 = particles[j];
+                    const dx = p1.x - p2.x;
+                    const dy = p1.y - p2.y;
+                    const d = Math.sqrt(dx*dx + dy*dy);
+                    if (d <= REST_LENGTH * 1.2) {
+                        springs.push(new Spring(p1, p2));
+                    }
+                }
+            }
+            // Fix bottom
+            particles.forEach(p => {
+                if (p.y >= y + h - spacing) p.fixed = true;
+            });
+        }
+
+        function createCircle(cx, cy, r) {
+            particles = [];
+            springs = [];
+            stormParticles = [];
+            const spacing = 10;
+            for (let y = 0; y < HEIGHT; y += spacing) {
+                for (let x = 0; x < WIDTH; x += spacing) {
+                    const dx = x - cx;
+                    const dy = y - cy;
+                    if (dx*dx + dy*dy <= r*r) {
+                        particles.push(new Particle(x, y));
+                    }
+                }
+            }
+            // Connect
+            for (let i = 0; i < particles.length; i++) {
+                for (let j = i + 1; j < particles.length; j++) {
+                    const p1 = particles[i];
+                    const p2 = particles[j];
+                    const dx = p1.x - p2.x;
+                    const dy = p1.y - p2.y;
+                    const d = Math.sqrt(dx*dx + dy*dy);
+                    if (d < REST_LENGTH * 1.5) {
+                        springs.push(new Spring(p1, p2));
+                    }
+                }
+            }
+            // Fix bottom
+            particles.forEach(p => {
+                if (p.y > cy + r - spacing) p.fixed = true;
+            });
+        }
+
+        // Mouse/touch interaction
+        function getMousePos(e) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            return {
+                x: (e.clientX - rect.left) * scaleX,
+                y: (e.clientY - rect.top) * scaleY
+            };
+        }
+
+        function getTouchPos(e) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            const touch = e.touches[0];
+            return {
+                x: (touch.clientX - rect.left) * scaleX,
+                y: (touch.clientY - rect.top) * scaleY
+            };
+        }
+
+        function findParticle(x, y) {
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                if (p.fixed) continue;
+                const dx = x - p.x;
+                const dy = y - p.y;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                if (dist < DRAG_RADIUS) {
+                    return p;
+                }
+            }
+            return null;
+        }
+
+        canvas.addEventListener('mousedown', (e) => {
+            const pos = getMousePos(e);
+            draggingParticle = findParticle(pos.x, pos.y);
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (!draggingParticle) return;
+            const pos = getMousePos(e);
+            draggingParticle.x = pos.x;
+            draggingParticle.y = pos.y;
+            draggingParticle.vx = 0;
+            draggingParticle.vy = 0;
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            draggingParticle = null;
+        });
+
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            const pos = getTouchPos(e);
+            draggingParticle = findParticle(pos.x, pos.y);
+        });
+
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            if (!draggingParticle) return;
+            const pos = getTouchPos(e);
+            draggingParticle.x = pos.x;
+            draggingParticle.y = pos.y;
+            draggingParticle.vx = 0;
+            draggingParticle.vy = 0;
+        });
+
+        canvas.addEventListener('touchend', () => {
+            draggingParticle = null;
+        });
+
+        // Spawn storm cloud particle
+        function spawnStorm() {
+            const x = Math.random() * WIDTH;
+            stormParticles.push(new Particle(x, -20));
+        }
+
+        // Calculate score based on overlap with target
+        function calculateScore() {
+            if (gameMode === 'creative') return 0;
+
+            const level = LEVELS[currentLevel];
+            let insideCount = 0;
+            let totalCount = particles.length;
+
+            switch (level.target) {
+                case 'circle':
+                    particles.forEach(p => {
+                        const dx = p.x - level.cx;
+                        const dy = p.y - level.cy;
+                        if (dx*dx + dy*dy <= level.r * level.r) insideCount++;
+                    });
+                    break;
+                case 'rect':
+                    particles.forEach(p => {
+                        if (p.x >= level.x && p.x <= level.x + level.w && 
+                            p.y >= level.y && p.y <= level.y + level.h) {
+                            insideCount++;
+                        }
+                    });
+                    break;
+                case 'heart':
+                    const xo = 50;
+                    const yo = 50;
+                    particles.forEach(p => {
+                        const x = p.x - xo;
+                        const y = p.y - yo;
+                        const eq = Math.pow(x*x + y*y - 100*100, 2) - 100*100 * Math.pow(100 - x, 3);
+                        if (eq < 0) insideCount++;
+                    });
+                    break;
+                case 'star':
+                    const cx = 250;
+                    const cy = 200;
+                    particles.forEach(p => {
+                        let angle = Math.atan2(p.y - cy, p.x - cx);
+                        let dist = Math.sqrt((p.x - cx)*(p.x - cx) + (p.y - cy)*(p.y - cy));
+                        let r = 100 * Math.abs(Math.cos(5 * angle));
+                        if (dist < r) insideCount++;
+                    });
+                    break;
+                case 'cloud':
+                    const cx = 250;
+                    const cy = 200;
+                    particles.forEach(p => {
+                        let d1 = Math.sqrt(Math.pow(p.x - (cx-60), 2) + Math.pow(p.y - (cy-20), 2));
+                        let d2 = Math.sqrt(Math.pow(p.x - (cx+30), 2) + Math.pow(p.y - (cy-40), 2));
+                        let d3 = Math.sqrt(Math.pow(p.x - (cx+70), 2) + Math.pow(p.y - cy, 2));
+                        if (d1 < 80 || d2 < 70 || d3 < 65) insideCount++;
+                    });
+                    break;
+            }
+
+            return Math.floor((insideCount / totalCount) * 100);
+        }
+
+        function checkGameComplete() {
+            if (gameMode === 'creative') return false;
+            score = calculateScore();
+            document.getElementById('score').textContent = score;
+            return score >= 70;
+        }
+
+        function showResult() {
+            const stars = document.getElementById('stars');
+            stars.innerHTML = '';
+            let starCount = 1;
+            if (score >= 80) starCount = 2;
+            if (score >= 90) starCount = 3;
+            for (let i = 0; i < 3; i++) {
+                stars.innerHTML += `<span class="star ${i < starCount ? 'filled' : ''}">⭐</span>`;
+            }
+            document.getElementById('gameOver').classList.add('active');
+        }
+
+        function simulate() {
+            // Update springs
+            springs.forEach(s => s.update());
+            // Update particles
+            particles.forEach(p => p.update());
+
+            // Update storm
+            if (gameMode === 'level' && LEVELS[currentLevel].storm) {
+                stormTimer++;
+                if (stormTimer > 100 && Math.random() < 0.1) {
+                    spawnStorm();
+                    stormTimer = 0;
+                }
+                document.getElementById('stormOverlay').classList.toggle('active', stormParticles.length > 0);
+                stormParticles.forEach(s => {
+                    s.update();
+                    // Check collision with cloud particles
+                    particles.forEach(p => {
+                        const dx = p.x - s.x;
+                        const dy = p.y - s.y;
+                        const dist = Math.sqrt(dx*dx + dy*dy);
+                        if (dist < 10 && !p.fixed) {
+                            // Push particle away
+                            p.vx += dx * 0.2;
+                            p.vy += dy * 0.2;
+                        }
+                    });
+                    if (s.y > HEIGHT + 10) {
+                        s.y = -20;
+                    }
+                });
+                document.getElementById('stormCount').textContent = stormParticles.length;
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, WIDTH, HEIGHT);
+
+            // Draw target outline in creative mode or for reference
+            if (gameMode === 'level') {
+                ctx.strokeStyle = 'rgba(200, 200, 200, 0.5)';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([5, 5]);
+                const level = LEVELS[currentLevel];
+                switch (level.target) {
+                    case 'circle':
+                        ctx.beginPath();
+                        ctx.arc(level.cx, level.cy, level.r, 0, Math.PI * 2);
+                        ctx.stroke();
+                        break;
+                    case 'rect':
+                        ctx.strokeRect(level.x, level.y, level.w, level.h);
+                        break;
+                    // For complex shapes we don't draw outline, it's more challenging
+                }
+                ctx.setLineDash([]);
+            }
+
+            // Draw springs
+            springs.forEach(s => s.draw());
+            // Draw particles
+            particles.forEach(p => p.draw());
+            // Draw storm particles
+            stormParticles.forEach(s => s.draw('#616161'));
+        }
+
+        function gameLoop() {
+            // Multiple substeps for stability
+            for (let i = 0; i < 3; i++) {
+                simulate();
+            }
+            draw();
+            // Check completion
+            if (!document.getElementById('gameOver').classList.contains('active')) {
+                requestAnimationFrame(gameLoop);
+            }
+        }
+
+        function startLevel(levelIndex) {
+            currentLevel = levelIndex;
+            score = 0;
+            stormActive = false;
+            stormTimer = 0;
+            stormParticles = [];
+            document.getElementById('gameOver').classList.remove('active');
+            document.getElementById('score').textContent = '0';
+            document.getElementById('stormCount').textContent = '0';
+
+            const level = LEVELS[levelIndex];
+            switch (level.target) {
+                case 'circle':
+                    createCircle(level.cx, level.cy, level.r);
+                    break;
+                case 'rect':
+                    createRectangle(level.x, level.y, level.w, level.h);
+                    break;
+                case 'heart':
+                    createHeart();
+                    break;
+                case 'star':
+                    createStar();
+                    break;
+                case 'cloud':
+                    createCloud();
+                    break;
+            }
+
+            // Update active level button
+            document.querySelectorAll('.btn-level').forEach((btn, idx) => {
+                btn.classList.toggle('active', idx === levelIndex);
+            });
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        function restartLevel() {
+            startLevel(currentLevel);
+        }
+
+        function nextLevel() {
+            if (currentLevel < LEVELS.length - 1) {
+                startLevel(currentLevel + 1);
+            } else {
+                // All levels completed
+                alert('🎉 恭喜！你完成了所有关卡！现在可以去自由模式玩玩～');
+                setMode('creative');
+            }
+        }
+
+        function setMode(mode) {
+            gameMode = mode;
+            document.querySelectorAll('.mode-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.textContent.includes(mode === 'level' ? '关卡' : '自由'));
+            });
+            if (mode === 'creative') {
+                // Freeform creative mode - start with big cloud
+                createCircle(250, 200, 150);
+                requestAnimationFrame(gameLoop);
+            } else {
+                startLevel(0);
+            }
+        }
+
+        function resetView() {
+            // Already updated every frame, just restart
+            restartLevel();
+        }
+
+        // Initialize level selector
+        function initLevelSelector() {
+            const container = document.getElementById('levelSelector');
+            LEVELS.forEach((level, index) => {
+                const btn = document.createElement('button');
+                btn.className = 'btn btn-level' + (index === 0 ? ' active' : '');
+                btn.textContent = level.name;
+                btn.onclick = () => startLevel(index);
+                container.appendChild(btn);
+            });
+        }
+
+        // Start game
+        initLevelSelector();
+        setMode('level');
+    </script>
+</body>
+</html>

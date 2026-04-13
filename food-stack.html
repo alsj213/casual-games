@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>食物叠叠乐 - 休闲小游戏</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #FFE5B4 0%, #F4A460 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 10px;
+        }
+
+        #gameContainer {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            padding: 20px;
+            max-width: 500px;
+            width: 100%;
+        }
+
+        h1 {
+            text-align: center;
+            color: #8B4513;
+            margin-bottom: 10px;
+            font-size: 2rem;
+        }
+
+        .score-panel {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding: 10px 15px;
+            background: #FFF8DC;
+            border-radius: 10px;
+        }
+
+        .score-box {
+            text-align: center;
+        }
+
+        .score-label {
+            font-size: 0.85rem;
+            color: #8B4513;
+            opacity: 0.8;
+        }
+
+        .score-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #D2691E;
+        }
+
+        #canvas {
+            display: block;
+            background: linear-gradient(to bottom, #FFEBCD 0%, #F5DEB3 100%);
+            border-radius: 10px;
+            margin: 0 auto;
+            cursor: pointer;
+            box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .controls {
+            margin-top: 15px;
+            text-align: center;
+        }
+
+        button {
+            background: linear-gradient(135deg, #F4A460 0%, #D2691E 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            font-size: 1rem;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(210, 105, 30, 0.3);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(210, 105, 30, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .instructions {
+            margin-top: 15px;
+            padding: 10px 15px;
+            background: #FAF0E6;
+            border-radius: 10px;
+            font-size: 0.85rem;
+            color: #8B4513;
+            line-height: 1.5;
+        }
+
+        .game-over {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+
+        .game-over.active {
+            display: flex;
+        }
+
+        .game-over-content {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+        }
+
+        .game-over h2 {
+            color: #D2691E;
+            margin-bottom: 20px;
+            font-size: 2rem;
+        }
+
+        .final-score {
+            font-size: 1.5rem;
+            color: #8B4513;
+            margin-bottom: 20px;
+        }
+
+        .high-score-badge {
+            display: inline-block;
+            background: #FFD700;
+            color: #8B4513;
+            padding: 5px 15px;
+            border-radius: 15px;
+            font-size: 1rem;
+            font-weight: bold;
+            margin-bottom: 20px;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        .lives {
+            display: flex;
+            gap: 5px;
+            align-items: center;
+        }
+
+        .life-heart {
+            color: #CD5C5C;
+            font-size: 1.2rem;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <h1>食物叠叠乐 🍔</h1>
+        <div class="score-panel">
+            <div class="score-box">
+                <div class="score-label">分数</div>
+                <div class="score-value" id="score">0</div>
+            </div>
+            <div class="score-box">
+                <div class="score-label">生命</div>
+                <div class="lives" id="lives"></div>
+            </div>
+            <div class="score-box">
+                <div class="score-label">最高分</div>
+                <div class="score-value" id="highScore">0</div>
+            </div>
+        </div>
+        <canvas id="canvas" width="400" height="500"></canvas>
+        <div class="controls">
+            <button id="restartBtn">重新开始</button>
+        </div>
+        <div class="instructions">
+            📖 <strong>玩法说明：</strong>点击屏幕放置食物，叠得越高分数越高！放掉出三个食物游戏结束。每放一个食物都会让整个堆叠摇晃，考验你的放置时机！
+        </div>
+    </div>
+
+    <div class="game-over" id="gameOver">
+        <div class="game-over-content">
+            <h2>游戏结束</h2>
+            <div class="final-score" id="finalScore"></div>
+            <div id="newHighScore"></div>
+            <button onclick="restartGame()">再玩一次</button>
+        </div>
+    </div>
+
+    <script>
+        // 游戏配置
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const WIDTH = canvas.width;
+        const HEIGHT = canvas.height;
+
+        // 食物定义 - 不同形状和颜色
+        const FOODS = [
+            { name: '汉堡', color: '#8B4513', shadow: '#5C3317', emoji: '🍔' },
+            { name: '苹果', color: '#FF0000', shadow: '#CC0000', emoji: '🍎' },
+            { name: '香蕉', color: '#FFD700', shadow: '#FFC125', emoji: '🍌' },
+            { name: '甜甜圈', color: '#D2691E', shadow: '#8B4513', emoji: '🍩' },
+            { name: '奶酪', color: '#FFD700', shadow: '#EE9A49', emoji: '🧀' },
+            { name: '西瓜', color: '#FF6347', shadow: '#FF4500', emoji: '🍉' },
+            { name: '披萨', color: '#FFA500', shadow: '#CD853F', emoji: '🍕' },
+            { name: '草莓', color: '#FF1493', shadow: '#C71585', emoji: '🍓' },
+            { name: '鸡蛋', color: '#F5F5DC', shadow: '#FFFFE0', emoji: '🥚' },
+            { name: '橙子', color: '#FF8C00', shadow: '#EE7600', emoji: '🍊' },
+            { name: '三角蛋糕', color: '#FFB6C1', shadow: '#FFA07A', emoji: '🍰', shape: 'triangle' },
+            { name: '方饼干', color: '#DEB887', shadow: '#CD853F', emoji: '🍪', shape: 'square' },
+        ];
+
+        // 游戏状态
+        let gameState = {
+            score: 0,
+            highScore: parseInt(localStorage.getItem('foodStackHighScore') || '0'),
+            lives: 3,
+            maxLives: 3,
+            foodStack: [],
+            currentFood: null,
+            isPlaying: false,
+            physics: {
+                gravity: 0.5,
+                friction: 0.98
+            },
+            shakeIntensity: 0,
+            totalHeight: 0
+        };
+
+        // 食物类
+        class Food {
+            constructor() {
+                this.x = WIDTH / 2;
+                this.y = 20;
+                this.type = FOODS[Math.floor(Math.random() * FOODS.length)];
+                this.size = 50 + Math.random() * 20; // 随机大小 50-70
+                this.vx = (Math.random() - 0.5) * 4; // 初始水平速度
+                this.vy = 3; // 下落速度
+                this.rotation = 0;
+                this.angularVelocity = (Math.random() - 0.5) * 0.1;
+                this.placed = false;
+                this.shape = this.type.shape || 'circle';
+            }
+
+            update() {
+                if (!this.placed) {
+                    this.x += this.vx;
+                    this.y += this.vy;
+                    this.rotation += this.angularVelocity;
+
+                    // 边界反弹
+                    if (this.x - this.size/2 < 0) {
+                        this.x = this.size/2;
+                        this.vx *= -0.8;
+                    }
+                    if (this.x + this.size/2 > WIDTH) {
+                        this.x = WIDTH - this.size/2;
+                        this.vx *= -0.8;
+                    }
+
+                    // 检查碰撞
+                    if (gameState.foodStack.length > 0) {
+                        const topFood = gameState.foodStack[gameState.foodStack.length - 1];
+                        const bottomY = this.y + this.size/2;
+                        
+                        if (bottomY >= topFood.y - topFood.size/2) {
+                            // 检查水平重叠
+                            const overlap = Math.abs(this.x - topFood.x);
+                            if (overlap < this.size/2 + topFood.size/2 - 10) {
+                                this.place(topFood);
+                            }
+                        }
+                    } else if (this.y + this.size/2 >= HEIGHT - 20) {
+                        // 落地
+                        this.place(null);
+                    }
+                } else {
+                    // 已放置，应用物理
+                    this.x += this.vx;
+                    this.rotation += this.angularVelocity;
+                    this.vx *= gameState.physics.friction;
+                    this.angularVelocity *= gameState.physics.friction;
+                }
+            }
+
+            place(belowFood) {
+                this.placed = true;
+                this.vy = 0;
+                
+                if (belowFood) {
+                    // 计算落点
+                    const targetY = belowFood.y - belowFood.size/2 - this.size/2;
+                    this.y = targetY;
+                    
+                    // 计算偏移量，偏移越大摇晃越厉害
+                    const offset = Math.abs(this.x - belowFood.x);
+                    const maxOffset = (this.size + belowFood.size) / 2;
+                    const shakeAmount = (offset / maxOffset) * 15;
+                    
+                    gameState.shakeIntensity = shakeAmount;
+                    
+                    // 如果偏移太大，掉下去了
+                    if (offset > (this.size/2 + belowFood.size/2)) {
+                        gameState.lives--;
+                        updateLivesDisplay();
+                        
+                        // 如果还有命，继续游戏，当前食物不算分
+                        if (gameState.lives > 0) {
+                            // 这个食物掉出去了，不加入堆叠
+                            spawnNewFood();
+                            return;
+                        } else {
+                            endGame();
+                            return;
+                        }
+                    }
+                    
+                    // 加分，放置越准加分越多
+                    const scoreAdd = Math.max(10, 50 - Math.floor(offset * 2));
+                    gameState.score += scoreAdd;
+                    gameState.totalHeight += this.size;
+                } else {
+                    // 第一个食物落地
+                    this.y = HEIGHT - 20 - this.size/2;
+                    gameState.score += 10;
+                    gameState.totalHeight += this.size;
+                }
+
+                // 加入堆叠
+                gameState.foodStack.push(this);
+                
+                // 更新显示
+                updateScoreDisplay();
+                
+                // 生成下一个食物
+                setTimeout(() => {
+                    if (gameState.isPlaying) {
+                        spawnNewFood();
+                    }
+                }, 300);
+            }
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.rotation);
+                
+                const color = this.type.color;
+                const shadow = this.type.shadow;
+                const r = this.size / 2;
+
+                if (this.shape === 'square') {
+                    // 方形饼干
+                    ctx.fillStyle = color;
+                    ctx.fillRect(-r, -r, this.size, this.size);
+                    ctx.fillStyle = shadow;
+                    ctx.globalAlpha = 0.5;
+                    ctx.fillRect(-r + 5, -r + 5, this.size - 5, this.size - 5);
+                    ctx.globalAlpha = 1;
+                } else if (this.shape === 'triangle') {
+                    // 三角形蛋糕
+                    ctx.beginPath();
+                    ctx.moveTo(0, -r);
+                    ctx.lineTo(r, r);
+                    ctx.lineTo(-r, r);
+                    ctx.closePath();
+                    ctx.fillStyle = color;
+                    ctx.fill();
+                    ctx.beginPath();
+                    ctx.moveTo(0, -r + 8);
+                    ctx.lineTo(r - 8, r);
+                    ctx.lineTo(-r + 8, r);
+                    ctx.closePath();
+                    ctx.fillStyle = shadow;
+                    ctx.globalAlpha = 0.5;
+                    ctx.fill();
+                    ctx.globalAlpha = 1;
+                } else {
+                    // 圆形食物
+                    ctx.beginPath();
+                    ctx.arc(0, 0, r, 0, Math.PI * 2);
+                    ctx.fillStyle = color;
+                    ctx.fill();
+                    
+                    // 高光
+                    ctx.beginPath();
+                    ctx.arc(-r/3, -r/3, r/3, 0, Math.PI * 2);
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+                    ctx.fill();
+                }
+                
+                ctx.restore();
+            }
+        }
+
+        // 更新显示
+        function updateScoreDisplay() {
+            document.getElementById('score').textContent = gameState.score;
+            document.getElementById('highScore').textContent = gameState.highScore;
+        }
+
+        function updateLivesDisplay() {
+            const container = document.getElementById('lives');
+            container.innerHTML = '';
+            for (let i = 0; i < gameState.lives; i++) {
+                const heart = document.createElement('span');
+                heart.className = 'life-heart';
+                heart.textContent = '❤️';
+                container.appendChild(heart);
+            }
+        }
+
+        // 生成新食物
+        function spawnNewFood() {
+            gameState.currentFood = new Food();
+            // 随机左右开始位置
+            if (Math.random() > 0.5) {
+                gameState.currentFood.x = 50 + Math.random() * (WIDTH - 100);
+            }
+        }
+
+        // 画布绘制
+        function draw() {
+            // 清空画布
+            ctx.clearRect(0, 0, WIDTH, HEIGHT);
+            
+            // 绘制地面
+            ctx.fillStyle = '#D2B48C';
+            ctx.fillRect(0, HEIGHT - 20, WIDTH, 20);
+            
+            // 绘制已堆叠的食物
+            gameState.foodStack.forEach(food => {
+                food.draw();
+            });
+            
+            // 绘制当前下落食物
+            if (gameState.currentFood && gameState.isPlaying) {
+                gameState.currentFood.draw();
+            }
+            
+            // 绘制高度提示
+            ctx.fillStyle = 'rgba(139, 69, 19, 0.3)';
+            ctx.font = '14px sans-serif';
+            ctx.fillText(`堆叠高度: ${Math.floor(gameState.totalHeight)}px`, 10, 25);
+        }
+
+        // 游戏循环
+        function gameLoop() {
+            if (!gameState.isPlaying) return;
+            
+            // 更新当前食物
+            if (gameState.currentFood) {
+                gameState.currentFood.update();
+            }
+            
+            // 应用摇晃效果到整个堆叠
+            if (gameState.shakeIntensity > 0.1) {
+                gameState.foodStack.forEach((food, index) => {
+                    const shake = (gameState.shakeIntensity * (index / gameState.foodStack.length)) * Math.sin(Date.now() / 50);
+                    food.x += shake * 0.2;
+                    food.angularVelocity += shake * 0.001;
+                });
+                gameState.shakeIntensity *= 0.95;
+            }
+            
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // 点击放置
+        canvas.addEventListener('click', () => {
+            if (!gameState.isPlaying || !gameState.currentFood || gameState.currentFood.placed) return;
+            
+            // 锁定位置，让它下落到底
+            gameState.currentFood.vx = 0;
+            gameState.currentFood.placed = false; // 继续下落直到碰撞
+        });
+
+        // 触摸支持移动端
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            canvas.click();
+        }, { passive: false });
+
+        // 开始新游戏
+        function startGame() {
+            // 重置游戏状态
+            gameState.score = 0;
+            gameState.lives = gameState.maxLives;
+            gameState.foodStack = [];
+            gameState.isPlaying = true;
+            gameState.shakeIntensity = 0;
+            gameState.totalHeight = 0;
+            
+            updateScoreDisplay();
+            updateLivesDisplay();
+            spawnNewFood();
+            document.getElementById('gameOver').classList.remove('active');
+            gameLoop();
+        }
+
+        // 重新开始
+        function restartGame() {
+            startGame();
+        }
+
+        // 结束游戏
+        function endGame() {
+            gameState.isPlaying = false;
+            document.getElementById('gameOver').classList.add('active');
+            document.getElementById('finalScore').textContent = `最终分数: ${gameState.score}`;
+            
+            // 检查新高分
+            if (gameState.score > gameState.highScore) {
+                gameState.highScore = gameState.score;
+                localStorage.setItem('foodStackHighScore', gameState.score);
+                document.getElementById('newHighScore').innerHTML = '<div class="high-score-badge">🏆 新纪录！</div>';
+            } else {
+                document.getElementById('newHighScore').innerHTML = '';
+            }
+            
+            updateScoreDisplay();
+        }
+
+        // 重启按钮
+        document.getElementById('restartBtn').addEventListener('click', restartGame);
+
+        // 初始化
+        document.getElementById('highScore').textContent = gameState.highScore;
+        startGame();
+    </script>
+</body>
+</html>

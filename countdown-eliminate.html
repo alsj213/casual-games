@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>倒计时消除 - Countdown Eliminate</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 10px;
+        }
+        .game-container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+            max-width: 90vw;
+            text-align: center;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 8px;
+            font-size: 28px;
+        }
+        .subtitle {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+        .toolbar {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 15px;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .stat {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .stat span {
+            color: #f0f0f0;
+            margin-left: 4px;
+            font-weight: bold;
+        }
+        .game-area {
+            position: relative;
+            margin: 0 auto 15px;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+        }
+        #gameCanvas {
+            display: block;
+            background: #f8f8f8;
+            cursor: pointer;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 15px;
+        }
+        .btn {
+            padding: 10px 20px;
+            font-size: 15px;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+        .btn-secondary {
+            background: linear-gradient(135deg, #a8edea 0%, #fed6ab 100%);
+            color: #333;
+        }
+        .mode-selector {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+        .mode-btn {
+            padding: 6px 12px;
+            border-radius: 15px;
+            border: 2px solid #ddd;
+            background: white;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 13px;
+        }
+        .mode-btn.active {
+            border-color: #667eea;
+            background: #f0f4ff;
+            color: #667eea;
+            font-weight: bold;
+        }
+        .game-over {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0, 0.7);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            border-radius: 12px;
+            z-index: 10;
+        }
+        .game-over.active {
+            display: flex;
+        }
+        .result-modal {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            max-width: 80%;
+        }
+        .result-modal h2 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+        .instructions {
+            color: #666;
+            font-size: 13px;
+            text-align: left;
+            line-height: 1.5;
+        }
+        .block {
+            transition: all 0.1s ease-out;
+            cursor: pointer;
+        }
+        .block:hover {
+            transform: scale(1.05);
+        }
+        @media (max-width: 600px) {
+            #gameCanvas {
+                width: 100%;
+                height: auto;
+            }
+            h1 {
+                font-size: 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>⏱️ 倒计时消除</h1>
+        <p class="subtitle">数字归零才能点，考验你反应速度！</p>
+
+        <div class="mode-selector">
+            <button class="mode-btn active" onclick="setMode('level')">关卡模式</button>
+            <button class="mode-btn" onclick="setMode('endless')">无尽挑战</button>
+        </div>
+
+        <div class="toolbar">
+            <div class="stat">分数: <span id="score">0</span></div>
+            <div class="stat">关卡: <span id="level">1</span></div>
+        </div>
+
+        <div class="game-area">
+            <canvas id="gameCanvas" width="480" height="480"></canvas>
+            <div class="game-over" id="gameOver">
+                <div class="result-modal">
+                    <h2 id="resultTitle">游戏结束</h2>
+                    <p id="resultMessage"></p>
+                    <div class="controls" style="margin-top: 20px;">
+                        <button class="btn btn-primary" onclick="restartGame">再来一局</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button class="btn btn-primary" onclick="startGame">开始游戏</button>
+        </div>
+
+        <p class="instructions">
+            <strong>玩法规则：</strong><br>
+            • 每个方块都在倒计时，数字归零必须点击消除<br>
+            • 提前点或者延后点都会失败，反应要快<br>
+            • 关卡模式难度递增，无尽挑战看你能得多少分<br>
+            • 允许 ±0.1 秒误差，不用太精准～
+        </p>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const WIDTH = canvas.width;
+        const HEIGHT = canvas.height;
+
+        // Game state
+        let gameMode = 'level';
+        let blocks = [];
+        let score = 0;
+        let currentLevel = 1;
+        let gameRunning = false;
+        let lastTime = 0;
+        let animationId = null;
+        const TOLERANCE = 0.1; // 允许 0.1 秒误差
+
+        class CountdownBlock {
+            constructor(x, y, size, countdown) {
+                this.x = x;
+                this.y = y;
+                this.size = size;
+                this.countdown = countdown;
+                this.maxCountdown = countdown;
+                this.dead = false;
+            }
+
+            update(dt) {
+                this.countdown -= dt;
+                if (this.countdown <= 0) {
+                    this.dead = true;
+                }
+            }
+
+            draw() {
+                const percent = this.countdown / this.maxCountdown;
+                // Color from green to red based on remaining time
+                const r = Math.floor(255 * (1 - percent));
+                const g = Math.floor(255 * percent);
+                const b = 0;
+                ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+                ctx.beginPath();
+                ctx.roundRect(this.x, this.y, this.size, this.size, 8);
+                ctx.fill();
+                ctx.fillStyle = 'white';
+                ctx.font = `${this.size * 0.5}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(this.countdown.toFixed(1), this.x + this.size/2, this.y + this.size/2);
+            }
+
+            isClicked(x, y) {
+                return x >= this.x && x <= this.x + this.size &&
+                       y >= this.y && y <= this.y + this.size;
+            }
+        }
+
+        function generateLevel(levelNum) {
+            blocks = [];
+            const blocksPerSide = Math.min(3 + Math.floor(levelNum / 2), 8);
+            const spacing = 10;
+            const totalSize = WIDTH - spacing * (blocksPerSide + 1);
+            const blockSize = Math.floor(totalSize / blocksPerSide);
+
+            let counter = 1;
+            for (let y = 0; y < blocksPerSide; y++) {
+                for (let x = 0; x < blocksPerSide; x++) {
+                    // Add random countdown between 1 + (level/5) and 5 + level seconds
+                    const minTime = 1 + Math.floor(levelNum / 5);
+                    const maxTime = 5 + levelNum;
+                    const countdown = minTime + Math.random() * (maxTime - minTime);
+                    const px = spacing + x * (blockSize + spacing);
+                    const py = spacing + y * (blockSize + spacing);
+                    blocks.push(new CountdownBlock(px, py, blockSize, countdown));
+                    counter++;
+                }
+            }
+        }
+
+        function startGame() {
+            score = 0;
+            currentLevel = 1;
+            gameRunning = true;
+            document.getElementById('gameOver').classList.remove('active');
+            generateLevel(currentLevel);
+            updateStats();
+            lastTime = performance.now();
+            gameLoop();
+        }
+
+        function restartGame() {
+            startGame();
+        }
+
+        function setMode(mode) {
+            gameMode = mode;
+            document.querySelectorAll('.mode-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.textContent.includes(mode === 'level' ? '关卡' : '无尽'));
+            });
+            startGame();
+        }
+
+        function gameLoop() {
+            if (!gameRunning) return;
+
+            const currentTime = performance.now();
+            const dt = Math.min((currentTime - lastTime) / 1000, 0.5); // cap dt to avoid huge steps after pause
+            lastTime = currentTime;
+
+            update(dt);
+            render();
+
+            // Check game over
+            let livingBlocks = blocks.filter(b => !b.dead);
+            if (gameMode === 'level' && livingBlocks.length === 0) {
+                // Level complete
+                currentLevel++;
+                generateLevel(currentLevel);
+                score += 100 * currentLevel;
+            }
+
+            if (livingBlocks.length === 0 && gameMode === 'level') {
+                // Next level
+                endGame(true);
+            } else if (blocks.filter(b => b.dead).length > blocks.length * 0.8 && gameMode === 'endless') {
+                // Game over in endless mode
+                endGame(false);
+            } else {
+                animationId = requestAnimationFrame(gameLoop);
+            }
+        }
+
+        function update(dt) {
+            blocks.forEach(block => {
+                if (!block.dead) {
+                    block.update(dt);
+                }
+            });
+        }
+
+        function render() {
+            ctx.clearRect(0, 0, WIDTH, HEIGHT);
+            blocks.forEach(block => {
+                if (!block.dead) {
+                    block.draw();
+                }
+            });
+        }
+
+        function endGame(isLevelComplete) {
+            gameRunning = false;
+            cancelAnimationFrame(animationId);
+            document.getElementById('resultTitle').textContent = isLevelComplete ? '🎉 过关！' : '💀 游戏结束';
+            let msg = `总分: <strong>${score}</strong><br>关卡: <strong>${currentLevel}</strong>`;
+            if (isLevelComplete) {
+                msg += '<br>点击开始下一关卡';
+            }
+            document.getElementById('resultMessage').innerHTML = msg;
+            document.getElementById('gameOver').classList.add('active');
+        }
+
+        function updateStats() {
+            document.getElementById('score').textContent = score;
+            document.getElementById('level').textContent = currentLevel;
+        }
+
+        canvas.addEventListener('click', e => {
+            if (!gameRunning) return;
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            const x = (e.clientX - rect.left) * scaleX;
+            const y = (e.clientY - rect.top) * scaleY;
+
+            // Check clicked blocks from top (most recent first)
+            for (let i = blocks.length - 1; i >= 0; i--) {
+                const block = blocks[i];
+                if (!block.dead && block.isClicked(x, y)) {
+                    // Check if clicked within tolerance
+                    const tolerancePx = TOLERANCE * 50; // scale tolerance to pixels
+                    if (Math.abs(block.countdown) <= TOLERANCE) {
+                        score += Math.floor(100 * (1 + currentLevel));
+                        block.dead = true;
+                        updateStats();
+                    } else if (block.countdown > 0 && block.countdown < TOLERANCE * 3) {
+                        // Almost there, give partial score
+                        score += 20;
+                        block.dead = true;
+                        updateStats();
+                    }
+                    break;
+                }
+            }
+        });
+
+        // Initialize
+        document.getElementById('bestScore').textContent = localStorage.getItem('countdownBest') || '0';
+        startGame();
+    </script>
+</body>
+</html>
