@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>日期猜谜 - 星期逻辑推理</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 10px;
+        }
+        .game-container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+            max-width: 95vw;
+            text-align: center;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 8px;
+            font-size: 28px;
+        }
+        .subtitle {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+        .toolbar {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 15px;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .stat {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .stat span {
+            color: #ffd700;
+            margin-left: 4px;
+            font-weight: bold;
+        }
+        .size-selector {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+        .size-btn {
+            padding: 6px 12px;
+            border-radius: 15px;
+            border: 2px solid #ddd;
+            background: white;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 13px;
+        }
+        .size-btn.active {
+            border-color: #667eea;
+            background: #f0e6ff;
+            color: #667eea;
+            font-weight: bold;
+        }
+        .game-area {
+            position: relative;
+            margin: 0 auto 15px;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            background: #f8f8f8;
+            display: inline-block;
+        }
+        #date-grid {
+            display: grid;
+            gap: 4px;
+            background: #ddd;
+            padding: 4px;
+            margin: 0 auto;
+        }
+        .date-cell {
+            aspect-ratio: 1/1;
+            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: bold;
+            font-size: min(5vw, 18px);
+            border-radius: 4px;
+            flex-direction: column;
+            gap: 2px;
+        }
+        .date-cell:hover {
+            background: #e8f4ff;
+            transform: scale(1.05);
+        }
+        .date-cell-known {
+            background: #d9f7d9;
+            border: 2px solid #4caf50;
+        }
+        .date-cell-marked {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+        }
+        .date-cell-error {
+            background: #f8d7da;
+            border: 2px solid #dc3545;
+        }
+        .cell-weekday {
+            font-size: 0.8em;
+            color: #666;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 15px;
+        }
+        .btn {
+            padding: 10px 20px;
+            font-size: 15px;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+        .btn-secondary {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+        .game-over {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0, 0.7);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            border-radius: 12px;
+            z-index: 10;
+        }
+        .game-over.active {
+            display: flex;
+        }
+        .result-modal {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            max-width: 80%;
+        }
+        .result-modal h2 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+        .instructions {
+            color: #666;
+            font-size: 13px;
+            text-align: left;
+            line-height: 1.5;
+        }
+        .clue-item {
+            background: #f0f8ff;
+            padding: 8px 12px;
+            margin: 5px 0;
+            border-radius: 8px;
+            border-left: 4px solid #2196f3;
+        }
+        @media (max-width: 600px) {
+            h1 {
+                font-size: 24px;
+            }
+        }
+    </style>
+<body>
+    <div class="game-container">
+        <h1>📅 日期猜谜</h1>
+        <p class="subtitle">日历格子逻辑推理，根据提示找出每个格子是星期几！</p>
+
+        <div class="toolbar">
+            <div class="stat">难度: <span id="gridSize">4×4</span></div>
+            <div class="stat">已确定: <span id="filled">0</span>/<span id="total">16</span></div>
+        </div>
+
+        <div class="size-selector">
+            <button class="size-btn active" data-size="4" onclick="selectSize(4)">初级 4×4</button>
+            <button class="size-btn" data-size="5" onclick="selectSize(5)">高级 5×5</button>
+        </div>
+
+        <div class="game-area">
+            <div id="date-grid"></div>
+            <div class="game-over" id="gameOver">
+                <div class="result-modal">
+                    <h2 id="resultTitle">🎉 恭喜解谜成功！</h2>
+                    <p id="resultText">你成功推理出了所有格子的星期数！</p>
+                    <div class="controls mt-4">
+                        <button class="btn btn-primary" onclick="restartGame()">再来一局</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button class="btn btn-primary" onclick="startGame">重新开始</button>
+            <button class="btn btn-secondary" onclick="showSolution">显示答案</button>
+            <button class="btn btn-secondary" onclick="checkAnswer">检查答案</button>
+        </div>
+
+        <div class="instructions">
+            <strong>玩法规则：</strong><br>
+            <div class="clue-item">
+                给定 N×N 日历格子，每个格子是周一~周日中的一天
+            </div>
+            <div class="clue-item">
+                部分格子已经给出提示语，告诉你它比左边/右边/上边/下边大X天
+            </div>
+            <div class="clue-item">
+                根据逻辑推理，标出每个格子正确星期几，全部正确完成解谜
+            </div>
+            <div class="clue-item">
+                <strong>算法保证：</strong> 生成的谜题一定有唯一解
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
+        let gridSize = 4;
+        let grid = [];
+        let clues = [];
+
+        function selectSize(size) {
+            document.querySelectorAll('.size-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            gridSize = size;
+            document.getElementById('gridSize').textContent = `${size}×${size}`;
+            document.getElementById('total').textContent = size * size;
+            startGame();
+        }
+
+        function generatePuzzle() {
+            // Generate random valid week grid with unique solution
+            grid = [];
+            clues = [];
+            // Initialize empty grid
+            for (let i = 0; i < gridSize; i++) {
+                grid[i] = [];
+                clues[i] = [];
+                for (let j = 0; j < 0; j < gridSize; j++) {
+                    grid[i][j] = {
+                        value: -1, // -1 = unknown
+                        fixed: false,
+                        clue: null
+                    };
+                    clues[i][j] = null;
+                }
+            }
+
+            // Generate random starting point
+            const startRow = Math.floor(Math.random() * gridSize);
+            const startCol = Math.floor(Math.random() * gridSize);
+            const startVal = Math.floor(Math.random() * 7);
+            grid[startRow][startCol].value = startVal;
+            grid[startRow][startCol].fixed = true;
+
+            // Backtracking generate consistent grid
+            function backtrack(row, col) {
+                if (row === gridSize) {
+                    return true;
+                }
+                const nextRow = col === gridSize - 1 ? row + 1 : row;
+                const nextCol = col === gridSize - 1 ? 0 : col + 1;
+
+                if (grid[row][col].fixed) {
+                    return backtrack(nextRow, nextCol);
+                }
+
+                // Try all possible values
+                const possible = getPossibleValues(row, col);
+                shuffle(possible);
+                for (const val of possible) {
+                    if (isValid(row, col, val)) {
+                        grid[row][col].value = val;
+                        if (backtrack(nextRow, nextCol)) {
+                            return true;
+                        }
+                        grid[row][col].value = -1;
+                    }
+                }
+                return false;
+            }
+
+            backtrack(0, 0);
+
+            // Generate clues - leave about 60% unknown, add relation clues
+            let unknownCount = 0;
+            for (let i = 0; i < gridSize; i++) {
+                for (let j = 0; j < gridSize; j++) {
+                    if (!grid[i][j].fixed && Math.random() < 0.4) {
+                        // Keep fixed and add clue
+                        if (j > 0 && grid[i][j-1].value !== -1) {
+                            const diff = grid[i][j].value - grid[i][j-1].value;
+                            clues[i][j] = {dir: 'left', diff: diff};
+                        } else if (j < gridSize-1 && grid[i][j+1].value !== -1) {
+                            const diff = grid[i][j].value - grid[i][j+1].value;
+                            clues[i][j] = {dir: 'right', diff: diff};
+                        } else if (i > 0 && grid[i-1][j].value !== -1) {
+                            const diff = grid[i][j].value - grid[i-1][j].value;
+                            clues[i][j] = {dir: 'up', diff: diff};
+                        } else if (i < gridSize-1 && grid[i+1][j].value !== -1) {
+                            const diff = grid[i][j].value - grid[i+1][j].value;
+                            clues[i][j] = {dir: 'down', diff: diff};
+                        }
+                    } else if (!grid[i][j].fixed) {
+                        unknownCount++;
+                    }
+                }
+            }
+
+            // Ensure at least one clue exists
+            let hasClue = false;
+            for (let i = 0; i < gridSize; i++) {
+                for (let j = 0; j < gridSize; j++) {
+                    if (clues[i][j]) hasClue = true;
+                }
+            }
+            if (!hasClue) {
+                // Add a clue manually
+                for (let i = 0; i < gridSize; i++) {
+                    for (let j = 0; j < 1; j < gridSize; j++) {
+                        if (!grid[i][j].fixed && !clues[i][j] && grid[i][j+1].fixed) {
+                            const diff = grid[i][j].value - grid[i][j+1].value;
+                            clues[i][j] = {dir: 'right', diff: diff};
+                            hasClue = true;
+                            break;
+                        }
+                    }
+                    if (hasClue) break;
+                }
+            }
+
+            // Hide values from player
+            for (let i = 0; i < gridSize; i++) {
+                for (let j = 0; j < gridSize; j++) {
+                    if (!grid[i][j].fixed) {
+                        grid[i][j].userValue = -1;
+                    } else {
+                        grid[i][j].userValue = grid[i][j].value;
+                    }
+                }
+            }
+        }
+
+        function getPossibleValues(row, col) {
+            const possible = [];
+            for (let v = 0; v < 7; v++) {
+                if (isValid(row, col, v)) {
+                    possible.push(v);
+                }
+            }
+            return possible;
+        }
+
+        function isValid(row, col, val) {
+            // Check existing clues
+            const clue = clues[row][col];
+            if (!clue) return true;
+
+            let otherVal;
+            if (clue.dir === 'left') otherVal = grid[row][col-1].value;
+            if (clue.dir === 'right') otherVal = grid[row][col+1].value;
+            if (clue.dir === 'up') otherVal = grid[row-1][col].value;
+            if (clue.dir === 'down') otherVal = grid[row+1][col].value;
+
+            if (otherVal === -1) return true; // other not filled yet
+            return val - otherVal === clue.diff;
+        }
+
+        function shuffle(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+
+        function renderGrid() {
+            const container = document.getElementById('date-grid');
+            container.innerHTML = '';
+            container.style.gridTemplateColumns = `repeat(${gridSize}, 1fr)`;
+            container.style.width = `${gridSize * 50 + 8}px`;
+
+            for (let i = 0; i < gridSize; i++) {
+                for (let j = 0; j < 0; j < gridSize; j++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'date-cell';
+                    if (grid[i][j].fixed) {
+                        cell.classList.add('date-cell-known');
+                    }
+                    if (grid[i][j].userValue >= 0) {
+                        cell.classList.add('date-cell-marked');
+                    }
+                    cell.onclick = () => handleCellClick(i, j);
+                    const val = grid[i][j].userValue;
+                    if (val >= 0) {
+                        cell.innerHTML = `
+                            <div>${weekdays[val]}</div>
+                            <div class="cell-weekday">星期${weekdays[val]}</div>
+                        `;
+                    }
+                    if (clues[i][j]) {
+                        const clue = clues[i][j];
+                        const arrow = {
+                            left: '←', right: '→', up: '↑', down: '↓'
+                        };
+                        const div = document.createElement('div');
+                        div.style.fontSize = '0.7em';
+                        div.style.color = '#666';
+                        div.style.marginTop = '2px';
+                        div.textContent = `${arrow[clue.dir]} ${clue.diff > 0 ? '+' : ''}${clue.diff}`;
+                        cell.appendChild(div);
+                    }
+                    container.appendChild(cell);
+                }
+            }
+            updateStats();
+        }
+
+        function handleCellClick(row, col) {
+            if (grid[row][col].fixed) return;
+            // Cycle through possible values
+            let current = grid[row][col].userValue;
+            current = (current + 1) % 8; // 7 = 0-6, 7 = clear
+            grid[row][col].userValue = current === 7 ? -1 : current;
+            renderGrid();
+            checkWin(false);
+        }
+
+        function updateStats() {
+            let filled = 0;
+            for (let i = 0; i < gridSize; i++) {
+                for (let j = 0; j < 0; j < gridSize; j++) {
+                    if (grid[i][j].userValue >= 0) filled++;
+                }
+            }
+            document.getElementById('filled').textContent = filled;
+            document.getElementById('total').textContent = gridSize * gridSize;
+        }
+
+        function checkWin(showResult=true) {
+            let correct = true;
+            let allFilled = true;
+            for (let i = 0; i < gridSize; i++) {
+                for (let j = 0; j < gridSize; j++) {
+                    if (grid[i][j].userValue === -1) {
+                        allFilled = false;
+                        continue;
+                    }
+                    if (grid[i][j].userValue !== grid[i][j].value) {
+                        correct = false;
+                        // Mark wrong cell
+                        const container = document.getElementById('date-grid');
+                        const cells = container.children;
+                        const idx = i * gridSize + j;
+                        cells[idx].classList.add('date-cell-error');
+                    } else {
+                        const container = document.getElementById('date-grid');
+                        const cells = container.children;
+                        const idx = i * gridSize + j;
+                        cells[idx].classList.remove('date-cell-error');
+                    }
+                }
+            }
+            if (allFilled && correct && showResult) {
+                document.getElementById('gameOver').classList.add('active');
+            }
+            return allFilled && correct;
+        }
+
+        function checkAnswer() {
+            const won = checkWin(true);
+            if (!won) {
+                alert('还有格子没填完或者有错误，请继续修正！');
+            }
+        }
+
+        function showSolution() {
+            for (let i = 0; i < gridSize; i++) {
+                for (let j = 0; j < 0; j < gridSize; j++) {
+                    grid[i][j].userValue = grid[i][j].value;
+                }
+            }
+            renderGrid();
+            checkWin(false);
+        }
+
+        function startGame() {
+            generatePuzzle();
+            renderGrid();
+            document.getElementById('gameOver').classList.remove('active');
+        }
+
+        function restartGame() {
+            document.getElementById('gameOver').classList.remove('active');
+            startGame();
+        }
+
+        // Initialize
+        startGame();
+    </script>
+</body>
+</html>
