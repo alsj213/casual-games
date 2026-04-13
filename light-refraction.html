@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>光线折射 - 镜片迷宫</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #1a2a6c 0%, #b21f1f 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 10px;
+        }
+        .game-container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+            max-width: 95vw;
+            text-align: center;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 8px;
+            font-size: 28px;
+        }
+        .subtitle {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+        .toolbar {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 15px;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .stat {
+            background: linear-gradient(135deg, #1a2a6c 0%, #b21f1f 100%);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .level-selector {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+        .level-btn {
+            padding: 6px 12px;
+            border-radius: 15px;
+            border: 2px solid #ddd;
+            background: white;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 13px;
+        }
+        .level-btn.active {
+            border-color: #1a2a6c;
+            background: #e8e8ff;
+            color: #1a2a6c;
+            font-weight: bold;
+        }
+        .game-area {
+            position: relative;
+            margin: 0 auto 15px;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            background: #1a1a1a;
+            display: inline-block;
+        }
+        canvas {
+            display: block;
+            touch-action: none;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 15px;
+        }
+        .btn {
+            padding: 10px 20px;
+            font-size: 15px;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #1a2a6c 0%, #b21f1f 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(26, 42, 108, 0.4);
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(26, 42, 108, 0.6);
+        }
+        .btn-secondary {
+            background: linear-gradient(135deg, #a8edea 0%, #fed6ab 100%);
+            color: #333;
+        }
+        .instructions {
+            color: #666;
+            font-size: 13px;
+            text-align: left;
+            line-height: 1.6;
+        }
+        .instructions b {
+            color: #1a2a6c;
+        }
+        .mirror-item {
+            display: inline-block;
+            padding: 4px 8px;
+            margin: 2px;
+            border-radius: 6px;
+            background: #f0f0f0;
+        }
+        .mirror-flat { background: #cccccc; }
+        .mirror-reflect { background: #ffdd55; }
+        .mirror-refract { background: #55dd55; }
+        .mirror-half { background: #5555dd; }
+        @media (max-width: 600px) {
+            h1 {
+                font-size: 24px;
+            }
+        }
+    </style>
+<body>
+    <div class="game-container">
+        <h1>💡 光线折射</h1>
+        <p class="subtitle">放置光学镜片，追踪光线，照亮所有目标！</p>
+
+        <div class="toolbar">
+            <div class="stat">关卡: <span id="currentLevel">1</span>/<span id="totalLevels">5</span></div>
+            <div class="stat">步数: <span id="moves">0</span></div>
+        </div>
+
+        <div class="level-selector" id="levelSelector">
+            <!-- Levels will be generated -->
+        </div>
+
+        <div class="game-area">
+            <canvas id="gameCanvas"></canvas>
+        </div>
+
+        <div class="controls">
+            <button class="btn btn-primary" onclick="restartLevel()">重来</button>
+            <button class="btn btn-secondary" onclick="undoMove()">撤销</button>
+            <button class="btn btn-secondary" onclick="nextLevel()">下一关</button>
+        </div>
+
+        <div class="instructions">
+            <strong>镜片类型：</strong><br>
+            <span class="mirror-item mirror-flat">🪞 平面镜 - 光线直射穿过</span>
+            <span class="mirror-item mirror-reflect">🪩 反光镜 - 光线垂直反射</span>
+            <span class="mirror-item mirror-refract">🏜️  折射镜 - 光线偏转90°</span>
+            <span class="mirror-item mirror-half">🔀 半透镜 - 一半穿过一半反射</span>
+            <br>
+            <strong>玩法：</strong> 在空格放置镜片，让光线从起点出发，照亮所有紫色目标点就能通关！
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Game settings
+        let cellSize = 30;
+        let currentLevelIdx = 0;
+        let grid = [];
+        let moves = [];
+        let currentMoveCount = 0;
+        let dragging = null;
+
+        // Level definitions
+        const levels = [
+            {
+                // Level 1: Tutorial - simple 3x3
+                size: 5,
+                start: {x: 0, y: 2, dir: 0}, // 0=right, 1=down, 2=left, 3=up
+                targets: [{x: 4, y: 2}],
+                fixed: [],
+                empty: 5*5 - 2 - 1 // 1 start + targets + fixed
+            },
+            {
+                // Level 2
+                size: 6,
+                start: {x: 0, y: 2, dir: 0},
+                targets: [{x: 5, y: 3}],
+                fixed: [
+                    {x: 2, y: 1, type: 1},
+                    {x: 3, y: 3, type: 2}
+                ],
+            },
+            {
+                // Level 3
+                size: 7,
+                start: {x: 0, y: 3, dir: 0},
+                targets: [{x: 6, y: 2}, {x: 6, y: 4}],
+                fixed: [
+                    {x: 2, y: 2, type: 3},
+                    {x: 4, y: 3, type: 1}
+                ],
+            },
+            {
+                // Level 4
+                size: 8,
+                start: {x: 0, y: 3, dir: 0},
+                targets: [{x: 7, y: 1}, {x: 7, y: 5}],
+                fixed: [
+                    {x: 3, y: 1, type: 2},
+                    {x: 5, y: 4, type: 1},
+                    {x: 3, y: 5, type: 3}
+                ],
+            },
+            {
+                // Level 5
+                size: 8,
+                start: {x: 0, y: 4, dir: 0},
+                targets: [{x: 7, y: 2}, {x: 7, y: 6}],
+                fixed: [
+                    {x: 2, y: 2, type: 1},
+                    {x: 2, y: 5, type: 2},
+                    {x: 5, y: 3, type: 3},
+                    {x: 6, y: 1, type: 0}
+                ],
+            }
+        ];
+
+        // Tile types: 0=empty, 1=mirror-flat, 2=mirror-reflect, 3=mirror-refract, 4=half, 5=start, 6=target
+        const tileColors = [
+            '#1a1a1a',       // empty
+            '#cccccc',       // flat mirror
+            '#ffdd55',       // reflecting mirror
+            '#55dd55',       // refracting
+            '#5555dd',       // half transparent
+            '#00ff00',       // start
+            '#ff00ff',       // target
+        ];
+
+        const dirs = [
+            {dx: 1, dy: 0},    // right
+            {dx: 0, dy: 1},    // down
+            {dx: -1, dy: 0},   // left
+            {dx: 0, dy: -1},   // up
+        ];
+
+        function initLevel(levelIdx) {
+            currentLevelIdx = levelIdx;
+            const level = levels[levelIdx];
+            const n = level.size;
+            canvas.width = n * cellSize;
+            canvas.height = n * cellSize;
+            document.getElementById('currentLevel').textContent = levelIdx + 1;
+            document.getElementById('totalLevels').textContent = levels.length;
+
+            // Initialize grid
+            grid = [];
+            for (let y = 0; y < n; y++) {
+                grid[y] = [];
+                for (let x = 0; x < n; x++) {
+                    grid[y][x] = 0;
+                }
+            }
+
+            // Place start
+            const start = level.start;
+            grid[start.y][start.x] = 5;
+
+            // Place targets
+            for (const t of level.targets) {
+                grid[t.y][t.x] = 6;
+            }
+
+            // Place fixed mirrors
+            for (const f of level.fixed) {
+                // fixed type starts at 1 which matches tile type 1
+                grid[f.y][f.x] = f.type + 1;
+            }
+
+            moves = [];
+            currentMoveCount = 0;
+            document.getElementById('moves').textContent = currentMoveCount;
+            rebuildLevelSelector();
+            render();
+        }
+
+        function rebuildLevelSelector() {
+            const container = document.getElementById('levelSelector');
+            container.innerHTML = '';
+            levels.forEach((_, idx) => {
+                const btn = document.createElement('button');
+                btn.className = 'level-btn' + (idx === currentLevelIdx ? ' active' : '');
+                btn.textContent = `${idx + 1}`;
+                btn.onclick = () => initLevel(idx);
+                container.appendChild(btn);
+            });
+        }
+
+        function render() {
+            const n = levels[currentLevelIdx].size;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw grid
+            for (let y = 0; y < n; y++) {
+                for (let x = 0; x < 0; x < n; x++) {
+                    ctx.fillStyle = tileColors[grid[y][x]];
+                    ctx.fillRect(x * cellSize + 1, y * cellSize + 1, cellSize - 2, cellSize - 2);
+
+                    // Draw glyph for mirror type
+                    ctx.fillStyle = '#000';
+                    ctx.font = '14px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    const glyphs = ['', '┼', '○', '△', '▱', 'S', 'T'];
+                    if (grid[y][x] > 0 && grid[y][x] < 5) {
+                        ctx.fillText(glyphs[grid[y][x]], x * cellSize + cellSize/2, y * cellSize + cellSize/2);
+                    }
+                }
+            }
+
+            // Trace light beam
+            traceLight();
+        }
+
+        function traceLight() {
+            // Starting from start position and direction
+            const level = levels[currentLevelIdx];
+            const start = level.start;
+            const beam = [{x: start.x, y: start.y, dir: start.dir}];
+            const visited = new Set();
+
+            // Propagate beam
+            let idx = 0;
+            while (idx < beam.length) {
+                const current = beam[idx];
+                idx++;
+
+                const nx = current.x + dirs[current.dir].dx;
+                const ny = current.y + dirs[current.dir].dy;
+                const levelSize = level.size;
+
+                if (nx < 0 || nx >= levelSize || ny < 0 || ny >= levelSize) {
+                    continue; // out of bounds
+                }
+
+                const tile = grid[ny][nx];
+                const key = `${nx},${ny},${current.dir}`;
+                if (visited.has(key)) continue;
+                visited.add(key);
+
+                if (tile === 0) {
+                    // Empty space - continue straight
+                    beam.push({x: nx, y: ny, dir: current.dir});
+                } else if (tile === 6) {
+                    // Target - hit, we are done, just mark visited
+                } else if (tile >= 1 && tile <= 4) {
+                    // Mirror - handle interaction
+                    handleMirrorInteraction(nx, ny, tile, current.dir, beam, visited);
+                }
+            }
+
+            // Draw light beam on top
+            ctx.strokeStyle = 'rgba(255, 255, 0, 0.8)';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            let started = false;
+            for (const b of beam) {
+                const x = b.x * cellSize + cellSize/2;
+                const y = b.y * cellSize + cellSize/2;
+                if (!started) {
+                    ctx.moveTo(x, y);
+                    started = true;
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            }
+            ctx.stroke();
+        }
+
+        function handleMirrorInteraction(x, y, type, incomingDir, beam, visited) {
+            // type 1: flat mirror - straight through? No, flat mirror is perpendicular reflection - rotate 90
+            // Wait: 1=flat mirror (reflect perpendicular), actually our approach:
+            // 0=empty, 1=flat mirror (reflects 90 degrees both ways) - actually it reflects the incoming beam
+            // For simplicity, we reflect perpendicular to the mirror orientation: mirror is placed on grid square, aligned with cell diagonal - reflects 90°
+            // 2: reflecting mirror - fully reflects 180°
+            // 3: refracting - rotates 90°
+            // 4: half - half goes through, half reflects
+
+            // We'll implement:
+            // 1 - Flat mirror (reflect 90° perpendicular incoming direction)
+            // 2 - Reflecting mirror (reverse direction 180°)
+            // 3 - Refract (rotate 90° clockwise)
+            // 4 - Half mirror: emit both directions
+
+            if (type === 1) {
+                // Flat mirror 45° - reflects incoming direction 90°
+                // Incoming direction d -> new dir (d + 1) % 4
+                const newDir = (incomingDir + 1) % 4;
+                const nx = x + dirs[newDir].dx;
+                const ny = y + dirs[newDir].dy;
+                beam.push({x: nx, y: ny, dir: newDir});
+            } else if (type === 2) {
+                // Reflecting mirror - reverse direction 180°
+                const newDir = (incomingDir + 2) % 4;
+                const nx = x + dirs[newDir].dx;
+                const ny = y + dirs[newDir].dy;
+                beam.push({x: nx, y: ny, dir: newDir});
+            } else if (type === 3) {
+                // Refract - rotate 90° clockwise
+                const newDir = (incomingDir + 1) % 4;
+                const nx = x + dirs[newDir].dx;
+                const ny = y + dirs[newDir].dy;
+                beam.push({x: nx, y: ny, dir: newDir});
+            } else if (type === 4) {
+                // Half mirror - continue straight and reflect perpendicular
+                // Both directions
+                const dir1 = incomingDir;
+                const nx1 = x + dirs[dir1].dx;
+                const ny1 = y + dirs[dir1].dy;
+                beam.push({x: nx1, y: ny1, dir: dir1});
+
+                const dir2 = (incomingDir + 1) % 4;
+                const nx2 = x + dirs[dir2].dx;
+                const ny2 = y + dirs[dir2].dy;
+                beam.push({x: nx2, y: ny2, dir: dir2});
+            }
+        }
+
+        function checkWin() {
+            const level = levels[currentLevelIdx];
+            const allHit = level.targets.every(t => {
+                // Check if any light beam reaches here
+                // We can just check if the cell was visited by any beam ending adjacent
+                // Actually easier: check that the target cell is reached (hit by light beam)
+                // Our beam tracing already enters target cell, check if any beam ends here
+                let hit = false;
+                // For our purposes we just check that the target cell is reached by any incoming beam
+                // In our system the beam adds the cell after exiting previous, so if target is added to beam its hit
+                // We can check visited - actually we just need any beam passing through
+                // For simplicity check that light has entered the target cell
+                // This is already handled in beam tracing - target cell is grid[y][x] = 6 which is tile, doesn't block, so beam enters it
+                // Let's just count how many beams reach here - actually if any beam reaches it, it's hit
+                // We'll cheat and check if any beam has x=t.x, y=t.y after moving into it
+                // This code is already correct because beam adds the cell after moving into it, so target cell will be in beam if it's reached
+                return grid[t.y][t.x] === 6;
+            });
+            // Wait, actually we need to check all targets are reached by light
+            // Let's check the beam list: any beam that is on the target cell
+            let allHit = true;
+            for (const target of level.targets) {
+                let found = false;
+                for (const b of beam) {
+                    if (b.x === target.x && b.y === target.y) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) allHit = false;
+            }
+            return allHit;
+        }
+
+        function cellFromEvent(e) {
+            const rect = canvas.getBoundingClientRect();
+            const x = Math.floor((e.clientX - rect.left) / cellSize);
+            const y = Math.floor((e.clientY - rect.top) / cellSize);
+            if (x < 0 || x >= levels[currentLevelIdx].size || y < 0 || y >= levels[currentLevelIdx].size) return null;
+            return {x, y};
+        }
+
+        canvas.addEventListener('mousedown', (e) => {
+            const cell = cellFromEvent(e);
+            if (!cell) return;
+            const {x, y} = cell;
+            if (grid[y][x] === 0) {
+                // Place the currently selected mirror type? Wait - we just cycle through types on click
+                // User clicks empty cell place mirror, cycle through 1-4
+                grid[y][x] = (grid[y][x] + 1) % 5 || 1;
+                moves.push({x, y, oldType: 0});
+                currentMoveCount++;
+                document.getElementById('moves').textContent = currentMoveCount;
+                render();
+                if (checkWin()) {
+                    setTimeout(() => {
+                        alert(`🎉 恭喜过关！你用 ${currentMoveCount} 步点亮了所有目标！`);
+                    }, 100);
+                }
+            } else if (grid[y][x] >= 1 && grid[y][x] <= 4) {
+                // Already a mirror here, cycle
+                moves.push({x, y, oldType: grid[y][x]});
+                grid[y][x] = (grid[y][x] % 4) + 1;
+                currentMoveCount++;
+                document.getElementById('moves').textContent = currentMoveCount;
+                render();
+                if (checkWin()) {
+                    setTimeout(() => {
+                        alert(`🎉 恭喜过关！你用 ${currentMoveCount} 步点亮了所有目标！`);
+                    }, 100);
+                }
+            }
+            // start and target can't be changed
+        });
+
+        // Touch drag support
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            const cell = cellFromEvent(e.touches[0]);
+            if (!cell) return;
+            dragging = cell;
+        }, {passive: false});
+
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+        }, {passive: false});
+
+        canvas.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            if (!dragging) return;
+            const cell = cellFromEvent(e.changedTouches[0]);
+            if (!cell || (cell.x === dragging.x && cell.y === dragging.y)) {
+                dragging = null;
+                return;
+            }
+            handleInteraction(cell);
+            dragging = null;
+        }, {passive: false});
+
+        function handleInteraction(cell) {
+            const {x, y} = cell;
+            if (grid[y][x] === 5 || grid[y][x] === 6) return;
+
+            if (grid[y][x] === 0) {
+                grid[y][x] = 1;
+                moves.push({x, y, oldType: 0});
+            } else {
+                moves.push({x, y, oldType: grid[y][x]});
+                grid[y][x] = (grid[y][x] % 4) + 1;
+            }
+            currentMoveCount++;
+            document.getElementById('moves').textContent = currentMoveCount;
+            render();
+            if (checkWin()) {
+                setTimeout(() => {
+                    alert(`🎉 恭喜过关！你用 ${currentMoveCount} 步点亮了所有目标！`);
+                }, 100);
+            }
+        }
+
+        function undoMove() {
+            if (moves.length === 0) {
+                alert('没有可撤销的步数！');
+                return;
+            }
+            const last = moves.pop();
+            grid[last.y][last.x] = last.oldType;
+            currentMoveCount--;
+            document.getElementById('moves').textContent = currentMoveCount;
+            render();
+        }
+
+        function restartLevel() {
+            initLevel(currentLevelIdx);
+        }
+
+        function nextLevel() {
+            let next = currentLevelIdx + 1;
+            if (next >= levels.length) {
+                alert('🎉 恭喜通关所有关卡！游戏完成，感谢游玩！');
+                next = 0;
+            }
+            initLevel(next);
+        }
+
+        // Initialize first level
+        initLevel(0);
+    </script>
+</body>
+</html>
