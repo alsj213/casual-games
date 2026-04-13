@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>涂鸦躲避 - Paint Escape</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #a8edea 0%, #fed6ab 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 10px;
+        }
+        .game-container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+            max-width: 90vw;
+            text-align: center;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 8px;
+            font-size: 28px;
+        }
+        .subtitle {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+        .toolbar {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 15px;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .stat {
+            background: linear-gradient(135deg, #a8edea 0%, #fed6ab 100%);
+            color: #333;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .stat span {
+            color: #e67e22;
+            margin-left: 4px;
+            font-weight: bold;
+        }
+        .canvas-container {
+            position: relative;
+            margin: 0 auto 15px;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+        }
+        #gameCanvas {
+            display: block;
+            background: #f8f8f8;
+            cursor: none;
+        }
+        #gameCanvas.playing {
+            cursor: crosshair;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 15px;
+        }
+        .btn {
+            padding: 10px 20px;
+            font-size: 15px;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #a8edea 0%, #fed6ab 100%);
+            color: #333;
+            box-shadow: 0 4px 15px rgba(168, 237, 234, 0.4);
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(168, 237, 234, 0.6);
+        }
+        .game-over {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0, 0.7);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            border-radius: 12px;
+            z-index: 10;
+        }
+        .game-over.active {
+            display: flex;
+        }
+        .result-modal {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+        }
+        .result-modal h2 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+        .instructions {
+            color: #666;
+            font-size: 13px;
+            text-align: left;
+            line-height: 1.5;
+        }
+        .particle {
+            position: absolute;
+            width: 6px;
+            height: 6px;
+            background: currentColor;
+            border-radius: 50%;
+            pointer-events: none;
+            animation: particle-fade 1s ease-out forwards;
+        }
+        @keyframes particle-fade {
+            to {
+                transform: translate(var(--dx), var(--dy)) scale(0);
+                opacity: 0;
+            }
+        }
+        .difficulty {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            margin-bottom: 10px;
+        }
+        .diff-btn {
+            padding: 6px 12px;
+            border-radius: 15px;
+            border: 2px solid #ddd;
+            background: white;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 13px;
+        }
+        .diff-btn.active {
+            border-color: #fed6ab;
+            background: #fff8e1;
+            color: #e67e22;
+            font-weight: bold;
+        }
+        @media (max-width: 600px) {
+            #gameCanvas {
+                width: 100%;
+                height: auto;
+            }
+            h1 {
+                font-size: 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>🎨 涂鸦躲避</h1>
+        <p class="subtitle">控制小点躲避蔓延的颜料，洪水填充存活越久分数越高！</p>
+
+        <div class="difficulty" id="difficultySelector">
+            <button class="diff-btn active" data-speed="1">慢速</button>
+            <button class="diff-btn" data-speed="2">中速</button>
+            <button class="diff-btn" data-speed="3">快速</button>
+        </div>
+
+        <div class="toolbar">
+            <div class="stat">时间: <span id="time">0</span>s</div>
+            <div class="stat">分数: <span id="score">0</span></div>
+            <div class="stat">最高: <span id="best">0</span></div>
+        </div>
+
+        <div class="canvas-container">
+            <canvas id="gameCanvas" width="480" height="400"></canvas>
+            <div class="game-over" id="gameOver">
+                <div class="result-modal">
+                    <h2 id="resultTitle">游戏结束</h2>
+                    <p id="resultMessage"></p>
+                    <div class="controls" style="margin-top: 20px;">
+                        <button class="btn btn-primary" onclick="startGame">新游戏</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button class="btn btn-primary" onclick="startGame">开始游戏</button>
+        </div>
+
+        <p class="instructions">
+            <strong>玩法：</strong><br>
+            • 鼠标/触摸移动你的小点<br>
+            • 颜料从边缘开始洪水填充慢慢蔓延<br>
+            • 没被颜料淹没就能一直得分<br>
+            • 难度越高扩散越快，看你能活多久！
+        </p>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const WIDTH = canvas.width;
+        const HEIGHT = canvas.height;
+        const CELL_SIZE = 8;
+        const COLS = Math.floor(WIDTH / CELL_SIZE);
+        const ROWS = Math.floor(HEIGHT / CELL_SIZE);
+
+        // Game state
+        let grid = []; // 0=empty, 1=painted
+        let player = {x: 0, y: 0};
+        let gameRunning = false;
+        let gameOver = false;
+        let startTime = 0;
+        let currentTime = 0;
+        let score = 0;
+        let bestScore = parseInt(localStorage.getItem('paintEscapeBest') || '0');
+        let diffusionQueue = [];
+        let diffusionSpeed = 1; // steps per frame
+        let randomColor = null;
+        let backgroundColor = null;
+
+        // Directions for flood fill
+        const DIRS = [[-1,0], [1,0], [0,-1], [0,1]];
+
+        function getRandomColor() {
+            // Random pleasant color
+            const hue = Math.floor(Math.random() * 360);
+            return {
+                fill: `hsl(${hue}, 70%, 60%)`,
+                bg: `hsl(${hue}, 30%, 95%)`
+            };
+        }
+
+        function initGrid() {
+            grid = Array(COLS).fill().map(() => Array(ROWS).fill(0));
+            diffusionQueue = [];
+            // Paint borders to start flooding from
+            for (let x = 0; x < COLS; x++) {
+                if (!paintCell(x, 0)) diffusionQueue.push({x, y: 0});
+                if (!paintCell(x, ROWS - 1)) diffusionQueue.push({x, y: ROWS - 1});
+            }
+            for (let y = 0; y < ROWS; y++) {
+                if (!paintCell(0, y)) diffusionQueue.push({x: 0, y});
+                if (!paintCell(COLS - 1, y)) diffusionQueue.push({x: COLS - 1, y});
+            }
+        }
+
+        function paintCell(x, y) {
+            // Returns true if player is hit
+            if (x < 0 || x >= COLS || y < 0 || y >= ROWS) return false;
+            if (grid[x][y] === 1) return false;
+            grid[x][y] = 1;
+            // Check if player is here
+            if (Math.floor(player.x / CELL_SIZE) === x && Math.floor(player.y / CELL_SIZE) === y) {
+                return true; // hit player
+            }
+            return false;
+        }
+
+        function diffuse() {
+            // Process N steps from queue
+            let steps = 0;
+            let playerHit = false;
+            while (steps < diffusionSpeed && diffusionQueue.length > 0) {
+                const {x, y} = diffusionQueue.shift();
+                for (const [dx, dy] of DIRS) {
+                    const nx = x + dx;
+                    const ny = y + dy;
+                    if (nx < 0 || nx >= COLS || ny < 0 || ny >= ROWS) continue;
+                    if (grid[nx][ny] === 0) {
+                        if (paintCell(nx, ny)) {
+                            playerHit = true;
+                        }
+                        diffusionQueue.push({x: nx, y: ny});
+                    }
+                }
+                steps++;
+            }
+            return playerHit;
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, WIDTH, HEIGHT);
+            ctx.fillStyle = backgroundColor;
+            ctx.fillRect(0, 0, WIDTH, HEIGHT);
+
+            // Draw painted cells
+            ctx.fillStyle = randomColor.fill;
+            for (let x = 0; x < COLS; x++) {
+                for (let y = 0; y < ROWS; y++) {
+                    if (grid[x][y] === 1) {
+                        ctx.fillRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE - 1, CELL_SIZE - 1);
+                    }
+                }
+            }
+
+            // Draw player
+            ctx.beginPath();
+            ctx.arc(player.x, player.y, CELL_SIZE - 2, 0, Math.PI * 2);
+            ctx.fillStyle = '#ffffff';
+            ctx.fill();
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+
+        function getMousePos(e) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            return {
+                x: (e.clientX - rect.left) * scaleX,
+                y: (e.clientY - rect.top) * scaleY
+            };
+        }
+
+        function getTouchPos(e) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            const touch = e.touches[0];
+            return {
+                x: (touch.clientX - rect.left) * scaleX,
+                y: (touch.clientY - rect.top) * scaleY
+            };
+        }
+
+        // Player movement follows mouse/touch
+        canvas.addEventListener('mousemove', e => {
+            if (!gameRunning) return;
+            const pos = getMousePos(e);
+            // Check if moving into painted cell
+            const cx = Math.floor(pos.x / CELL_SIZE);
+            const cy = Math.floor(pos.y / CELL_SIZE);
+            if (cx >= 0 && cx < COLS && cy >= 0 && cy < ROWS) {
+                if (grid[cx][cy] === 1) {
+                    endGame();
+                    return;
+                }
+            }
+            player.x = pos.x;
+            player.y = pos.y;
+            draw();
+        });
+
+        canvas.addEventListener('touchmove', e => {
+            e.preventDefault();
+            if (!gameRunning) return;
+            const pos = getTouchPos(e);
+            const cx = Math.floor(pos.x / CELL_SIZE);
+            const cy = Math.floor(pos.y / CELL_SIZE);
+            if (cx >= 0 && cx < COLS && cy >= 0 && cy < ROWS) {
+                if (grid[cx][cy] === 1) {
+                    endGame();
+                    return;
+                }
+            }
+            player.x = pos.x;
+            player.y = pos.y;
+            draw();
+        });
+
+        canvas.addEventListener('click', e => {
+            if (!gameRunning && !gameOver) {
+                startGame();
+            }
+        });
+
+        function endGame() {
+            gameRunning = false;
+            gameOver = true;
+            score = Math.floor(currentTime * 10 + diffusionQueue.length);
+            if (score > bestScore) {
+                bestScore = score;
+                localStorage.setItem('paintEscapeBest', bestScore);
+            }
+            document.getElementById('resultTitle').textContent = '😈 被颜料淹没了！';
+            document.getElementById('resultMessage').innerHTML =
+                `存活时间: <strong>${currentTime.toFixed(1)}s</strong><br>
+                最终分数: <strong>${score}</strong><br>
+                最高分: <strong>${bestScore}</strong>`;
+            document.getElementById('gameOver').classList.add('active');
+        }
+
+        function gameLoop() {
+            if (!gameRunning) return;
+
+            currentTime = ((Date.now() - startTime) / 1000);
+            const hit = diffuse();
+            if (hit) {
+                endGame();
+                return;
+            }
+
+            // Calculate score = time filled + remaining empty cells
+            let empty = 0;
+            for (let x = 0; x < COLS; x++) {
+                for (let y = 0; y < ROWS; y++) {
+                    if (grid[x][y] === 0) empty++;
+                }
+            }
+            score = Math.floor(currentTime * 10 + empty);
+            updateStats();
+            draw();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        function updateStats() {
+            document.getElementById('time').textContent = currentTime.toFixed(1);
+            document.getElementById('score').textContent = score;
+            document.getElementById('best').textContent = bestScore;
+        }
+
+        function startGame() {
+            // Pick random color
+            const colors = getRandomColor();
+            randomColor = colors;
+            backgroundColor = colors.bg;
+            // Start player in center
+            player = {x: WIDTH/2, y: HEIGHT/2};
+            initGrid();
+            // Check if starting position already painted (shouldn't happen)
+            const cx = Math.floor(player.x / CELL_SIZE);
+            const cy = Math.floor(player.y / CELL_SIZE);
+            if (grid[cx][cy] === 1) {
+                // Try again, regenerate
+                initGrid();
+            }
+            gameRunning = true;
+            gameOver = false;
+            startTime = Date.now();
+            currentTime = 0;
+            document.getElementById('gameOver').classList.remove('active');
+            document.getElementById('best').textContent = bestScore;
+            canvas.classList.add('playing');
+            gameLoop();
+        }
+
+        // Difficulty selector
+        document.querySelectorAll('.diff-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                diffusionSpeed = parseInt(btn.dataset.speed) * 2;
+            });
+        });
+
+        // Initialize
+        document.getElementById('best').textContent = bestScore;
+        diffusionSpeed = 2;
+        initGrid();
+        draw();
+    </script>
+</body>
+</html>

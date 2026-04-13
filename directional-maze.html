@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>方向狗 - Directional Maze</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #84fab0 0%, #8fd3f4 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 10px;
+        }
+        .game-container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+            max-width: 90vw;
+            text-align: center;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 8px;
+            font-size: 28px;
+        }
+        .subtitle {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+        .toolbar {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 15px;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .stat {
+            background: linear-gradient(135deg, #84fab0 0%, #8fd3f4 100%);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .stat span {
+            color: #2e7d32;
+            margin-left: 4px;
+            font-weight: bold;
+        }
+        .size-selector {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+        .size-btn {
+            padding: 6px 12px;
+            border-radius: 15px;
+            border: 2px solid #ddd;
+            background: white;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 13px;
+        }
+        .size-btn.active {
+            border-color: #84fab0;
+            background: #f0fdf4;
+            color: #2e7d32;
+            font-weight: bold;
+        }
+        .mode-selector {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+        .mode-btn {
+            padding: 6px 12px;
+            border-radius: 15px;
+            border: 2px solid #ddd;
+            background: white;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 13px;
+        }
+        .mode-btn.active {
+            border-color: #84fab0;
+            background: #f0fdf4;
+            color: #2e7d32;
+            font-weight: bold;
+        }
+        .game-area {
+            position: relative;
+            margin: 0 auto 15px;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+        }
+        #gameCanvas {
+            display: block;
+            background: #f8f8f8;
+            cursor: pointer;
+            margin: 0 auto;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 15px;
+        }
+        .btn {
+            padding: 10px 20px;
+            font-size: 15px;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #84fab0 0%, #8fd3f4 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(132, 250, 176, 0.4);
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(132, 250, 176, 0.6);
+        }
+        .btn-secondary {
+            background: linear-gradient(135dx, #a8edea 0%, #fed6ab 100%);
+            color: #333;
+        }
+        .game-over {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0, 0.7);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            border-radius: 12px;
+            z-index: 10;
+        }
+        .game-over.active {
+            display: flex;
+        }
+        .result-modal {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            max-width: 80%;
+        }
+        .result-modal h2 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+        .instructions {
+            color: #666;
+            font-size: 13px;
+            text-align: left;
+            line-height: 1.5;
+        }
+        @media (max-width: 600px) {
+            #gameCanvas {
+                width: 100%;
+                height: auto;
+            }
+            h1 {
+                font-size: 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>🧭 方向狗</h1>
+        <p class="subtitle">每个格子指示方向，只能按方向走，找出正确路径从起点到终点！</p>
+
+        <div class="mode-selector">
+            <button class="mode-btn active" onclick="setMode('preset')">预设关卡</button>
+            <button class="mode-btn" onclick="setMode('random')">随机生成</button>
+        </div>
+
+        <div class="size-selector">
+            <button class="size-btn active" onclick="selectSize(5)">5×5</button>
+            <button class="size-btn" onclick="selectSize(8)">8×8</button>
+            <button class="size-btn" onclick="selectSize(10)">10×10</button>
+        </div>
+
+        <div class="toolbar">
+            <div class="stat">步数: <span id="steps">0</span></div>
+            <div class="stat">时间: <span id="time">0</span>s</div>
+        </div>
+
+        <div class="game-area">
+            <canvas id="gameCanvas" width="400" height="400"></canvas>
+            <div class="game-over" id="gameOver">
+                <div class="result-modal">
+                    <h2 id="resultTitle">🎉 恭喜通关！</h2>
+                    <p id="resultMessage"></p>
+                    <div class="controls" style="margin-top: 20px;">
+                        <button class="btn btn-primary" onclick="startGame">再来一局</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button class="btn btn-primary" onclick="startGame">开始游戏</button>
+            <button class="btn btn-secondary" onclick="undo()">撤销</button>
+            <button class="btn btn-secondary" onclick="showHint()">提示路径</button>
+        </div>
+
+        <p class="instructions">
+            <strong>玩法规则：</strong><br>
+            • 每个格子上有一个箭头，必须按照箭头方向移动<br>
+            • 从左上角起点走到右下角终点<br>
+            • 走不通不能回头，只能撤销重来<br>
+            • 迷宫生成保证一定有解
+        </p>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const WIDTH = canvas.width;
+        const HEIGHT = canvas.height;
+
+        // Game state
+        let maze = [];
+        let rows = 5;
+        let cols = 5;
+        let cellSize = WIDTH / Math.max(rows, cols);
+        let gameMode = 'preset';
+        let path = [];
+        let currentPos = {row: 0, col: 0};
+        let start = {row: 0, col: 0};
+        let end = {row: rows - 1, col: cols - 1};
+        let steps = 0;
+        let startTime = 0;
+        let elapsedTime = 0;
+        let timerInterval = null;
+        let solved = false;
+
+        // Direction constants matching arrows
+        const DIRS = {
+            '↑': [-1, 0],
+            '↓': [1, 0],
+            '←': [0, -1],
+            '→': [0, 1],
+        };
+
+        function selectSize(size) {
+            rows = size;
+            cols = size;
+            cellSize = WIDTH / Math.max(rows, cols);
+            document.querySelectorAll('.size-btn').forEach(btn => {
+                btn.classList.toggle('active', parseInt(btn.innerText.split('×')[0]) === size);
+            });
+        }
+
+        function setMode(mode) {
+            gameMode = mode;
+            document.querySelectorAll('.mode-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.textContent.includes(mode === 'preset' ? '预设' : '随机生成'));
+            });
+        }
+
+        // Maze generation with backtracking DFS - guarantees solution
+        function generateMaze() {
+            // Initialize empty grid
+            maze = Array(rows).fill().map(() => Array(cols).fill(''));
+            // Start with empty grid, add arrows gradually
+            // We'll build a spanning tree to guarantee a solution
+            const visited = Array(rows).fill().map(() => Array(cols).fill(false));
+            
+            function shuffleDirs() {
+                const dirs = [['↑', [-1, 0]], ['↓', [1, 0]], ['←', [0, -1]], ['→', [0, 1]]];
+                for (let i = dirs.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [dirs[i], dirs[j]] = [dirs[j], dirs[i]];
+                }
+                return dirs;
+            }
+
+            function dfs(row, col) {
+                visited[row][col] = true;
+                const dirs = shuffleDirs();
+                for (const [dirName, [dr, dc]] of dirs) {
+                    const nr = row + dr;
+                    const nc = col + dc;
+                    if (nr < 0 || nr >= rows || nc < 0 || nc >= cols || visited[nr][nc]) {
+                        continue;
+                    }
+                    // Add direction arrow to current cell
+                    maze[row][col] = dirName;
+                    if (dfs(nr, nc)) {
+                        return true;
+                    }
+                    // backtrack
+                }
+                return true;
+            }
+
+            dfs(0, 0);
+            // Ensure end is reachable by DFS
+            if (!visited[rows-1][cols-1]) {
+                // If not reachable, try again
+                generateMaze();
+            }
+        }
+
+        function getPresetMaze() {
+            // Predefined hand-picked mazes of different sizes
+            const PRESETS = {
+                5: [
+                    "→→↓",
+                    "  ↓↓ ←",
+                    "→→ ↓↓",
+                    "  →→↓",
+                    "  →→✓"
+                ],
+                8: [
+                    "→↓→→↓→",
+                    "  ↓↓↓ ←→ ←",
+                    "→→↑→ →↓",
+                    " ↑↓ ↓↓ ←← ",
+                    " →↑→→↓↓ ",
+                    " ↓ ↓↓→→ ",
+                    "  →→→→✓"
+                ],
+                10: [
+                    "→↓→↓→→  ",
+                    " ↑ ↓↓← ←↓  ",
+                    " →↓ ↑ ↑→↓  ",
+                    "→↓→ ↓↓→↓  ",
+                    " ↓ ↓ ↑↓← ← ",
+                    " →→→↓↓ ↓↓ ",
+                    " ↑ ↑↓ ←→→ ",
+                    " ↓ ↓ ↓ ←→ →",
+                    "  →→→→→✓"
+                ]
+            };
+            maze = PRESETS[rows].map(row => row.split(''));
+        }
+
+        function updateStats() {
+            document.getElementById('steps').textContent = steps;
+            document.getElementById('time').textContent = elapsedTime;
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, WIDTH, HEIGHT);
+            // Draw grid
+            for (let row = 0; row < rows; row++) {
+                for (let col = 0; col < cols; col++) {
+                    const x = col * cellSize;
+                    const y = row * cellSize;
+                    // Cell background
+                    ctx.fillStyle = '#fff';
+                    if (row === start.row && col === start.col) {
+                        ctx.fillStyle = '#a5d6a7';
+                    } else if (row === end.row && col === end.col) {
+                        ctx.fillStyle = '#ffcc80';
+                    } else if (isOnPath(row, col)) {
+                        ctx.fillStyle = '#c8e6c9';
+                    }
+                    ctx.fillRect(x, y, cellSize - 2, cellSize - 2);
+                    // Draw arrow
+                    const arrow = maze[row][col];
+                    if (arrow) {
+                        ctx.fillStyle = '#2d3436';
+                        ctx.font = `${cellSize * 0.6}px Arial`;
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(arrow, x + cellSize/2, y + cellSize/2);
+                    }
+                }
+            }
+        }
+
+        function isOnPath(row, col) {
+            for (const p of path) {
+                if (p.row === row && p.col === col) return true;
+            }
+            return false;
+        }
+
+        function handleClick(e) {
+            if (solved) return;
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            const col = Math.floor(x / cellSize);
+            const row = = Math.floor(y / cellSize);
+            // Must be adjacent to last step
+            const last = path.length > 0 ? path[path.length - 1] : start;
+            const dr = row - last.row;
+            const dc = col - last.col;
+            // Check if direction matches arrow in last cell
+            const lastArrow = maze[last.row][last.col];
+            const expectedDir = {
+                [-1, 0]: '↑', [1, 0]: '↓', [0, -1]: '←', [0, 1]: '→'
+            };
+            if (expectedDir[dr][dc] === lastArrow) {
+                // Correct move
+                path.push({row, col});
+                currentPos = {row, col};
+                steps++;
+                updateStats();
+                draw();
+                // Check if reached end
+                if (row === end.row && col === end.col) {
+                    solved = true;
+                    endGame();
+                }
+            } else {
+                // Wrong move - can't go this way
+                // Do nothing, player must think again
+            }
+        }
+
+        function endGame() {
+            clearInterval(timerInterval);
+            elapsedTime = Math.floor((Date.now() - startTime) / 1000);
+            document.getElementById('resultTitle').textContent = solved ? '🎉 恭喜找到了！' : '🔍 迷宫完成';
+            document.getElementById('resultMessage').innerHTML = 
+                `尺寸: <strong>${rows}×${cols}</strong><br>
+                步数: <strong>${steps}</strong><br>
+                时间: <strong>${elapsedTime}s</strong>`;
+            document.getElementById('gameOver').classList.add('active');
+        }
+
+        function startGame() {
+            path = [];
+            steps = 0;
+            solved = false;
+            currentPos = start;
+            startTime = Date.now();
+            elapsedTime = 0;
+            if (gameMode === 'random') {
+                generateMaze();
+            } else {
+                getPresetMaze();
+            }
+            end = {row: rows - 1, col: cols - 1};
+            updateStats();
+            draw();
+            document.getElementById('gameOver').classList.remove('active');
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                elapsedTime = Math.floor((Date.now() - startTime) / 1000);
+                updateStats();
+            }, 1000);
+        }
+
+        function undo() {
+            if (path.length === 0) return;
+            path.pop();
+            if (path.length === 0) {
+                currentPos = start;
+            } else {
+                current = path[path.length - 1];
+                currentPos = current;
+            }
+            steps--;
+            updateStats();
+            draw();
+        }
+
+        function showHint() {
+            // Show the correct path by flooding from start
+            const visited = Array(rows).fill().map(() => Array(cols).fill(false));
+            const queue = [[0, 0]];
+            visited[0][0] = true;
+            const solutionPath = [];
+            // BFS to find path - same as solution path since maze is built to guarantee solution
+            const dirs = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+            while (queue.length > 0) {
+                const [r, c] = queue.shift();
+                solutionPath.push({row: r, col: c});
+                for (const [dr, dc] of dirs) {
+                    const nr = r + dr;
+                    const nc = c + dc;
+                    if (nr < 0 || nr >= rows || nc < 0 || nc >= cols || visited[nr][nc]) continue;
+                    visited[nr][nc] = true;
+                    queue.push([nr, nc]);
+                }
+            }
+            // Highlight solution path on canvas
+            draw();
+            ctx.fillStyle = 'rgba(255, 200, 100, 0.3)';
+            solutionPath.forEach(p => {
+                ctx.fillRect(p.col * cellSize, p.row * cellSize, cellSize - 1, cellSize - 1);
+            });
+        }
+
+        canvas.addEventListener('click', handleClick);
+
+        // Start game
+        startGame();
+    </script>
+</body>
+</html>

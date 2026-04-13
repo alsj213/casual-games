@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>烟花绽放 - Firework Blast</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #0f0c29 0%, #302b61 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 10px;
+        }
+        .game-container {
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+            max-width: 90vw;
+            text-align: center;
+        }
+        h1 {
+            color: #fff;
+            margin-bottom: 8px;
+            font-size: 28px;
+        }
+        .subtitle {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+        .toolbar {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 15px;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .stat {
+            background: rgba(255, 255, 255, 0.2);
+            color: #fff;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .stat span {
+            color: #ffd700;
+            margin-left: 4px;
+            font-weight: bold;
+        }
+        .canvas-container {
+            position: relative;
+            margin: 0 auto 15px;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+        }
+        #gameCanvas {
+            display: block;
+            background: #0f0c29;
+            cursor: crosshair;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 15px;
+        }
+        .btn {
+            padding: 10px 20px;
+            font-size: 15px;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(245, 87, 108, 0.4);
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(245, 87, 108, 0.6);
+        }
+        .btn-secondary {
+            background: linear-gradient(135deg, #a8edea 0%, #fed6ab 100%);
+            color: #333;
+        }
+        .mode-selector {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+        .mode-btn {
+            padding: 6px 12px;
+            border-radius: 15px;
+            border: 2px solid #ddd;
+            background: rgba(255, 255, 255, 0.8);
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 13px;
+        }
+        .mode-btn.active {
+            border-color: #f5576c;
+            background: rgba(245, 87, 108, 0.1);
+            color: #f5576c;
+            font-weight: bold;
+        }
+        .instructions {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 13px;
+            text-align: left;
+            line-height: 1.5;
+        }
+        @media (max-width: 600px) {
+            #gameCanvas {
+                width: 100%;
+                height: auto;
+            }
+            h1 {
+                font-size: 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>🎆 烟花绽放</h1>
+        <p class="subtitle">点击发射烟花，连锁爆炸超解压！</p>
+
+        <div class="mode-selector">
+            <button class="mode-btn active" onclick="setMode('free')">自由燃放</button>
+            <button class="mode-btn" onclick="setMode('challenge')">挑战模式</button>
+        </div>
+
+        <div class="toolbar">
+            <div class="stat">烟花数: <span id="fireworksCount">0</span>/<span id="maxCount">30</span></div>
+            <div class="stat">得分: <span id="score">0</span></div>
+        </div>
+
+        <div class="canvas-container">
+            <canvas id="gameCanvas" width="500" height="400"></canvas>
+        </div>
+
+        <div class="controls">
+            <button class="btn btn-primary" onclick="startGame">开始游戏</button>
+            <button class="btn btn-secondary" onclick="clearFireworks">清空画布</button>
+        </div>
+
+        <p class="instructions">
+            <strong>玩法：</strong><br>
+            • <strong>自由模式：</strong> 尽情点击放烟花，享受解压<br>
+            • <strong>挑战模式：</strong> 有限数量烟花，每次爆炸引燃周围得高分<br>
+            • 支持多点触控，小伙伴一起放更欢乐～
+        </p>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const WIDTH = canvas.width;
+        const HEIGHT = canvas.height;
+
+        // Game state
+        let gameMode = 'free';
+        let particles = [];
+        let maxFireworks = 30;
+        let fireworksLaunched = 0;
+        let score = 0;
+        let animationId = null;
+        let gravity = 0.2;
+        let maxParticles = 500; // Performance cap
+
+        class Particle {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.exploded = false;
+                this.particles = [];
+                this.hue = Math.random() * 360;
+                this.explosionRadius = 80 + Math.random() * 40;
+                // Create explosion particles
+                const count = Math.floor(30 + Math.random() * 100);
+                for (let i = 0; i < count; i++) {
+                    const angle = (Math.PI * 2 * i) / count;
+                    const speed = 2 + Math.random() * this.explosionRadius / 5;
+                    const vx = Math.cos(angle) * speed;
+                    const vy = Math.sin(angle) * speed;
+                    this.particles.push(new Spark(x, y, vx, vy, this.hue));
+                }
+            }
+
+            update() {
+                let allDone = true;
+                this.particles.forEach(p => {
+                    p.update();
+                    if (!p.dead) allDone = false;
+                });
+                this.particles = this.particles.filter(p => !p.dead);
+                if (this.particles.length === 0 && this.exploded) {
+                    // Check chain reaction
+                    // Each particle already adds their own explosion when they hit bottom
+                    return;
+                }
+            }
+
+            draw(ctx) {
+                this.particles.forEach(p => p.draw(ctx));
+                // Draw origin point before explosion
+                if (!this.exploded) {
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, 5, 0, Math.PI * 2);
+                    ctx.fillStyle = `hsl(${this.hue}, 100%, 50%)`;
+                    ctx.fill();
+                }
+                this.exploded = true;
+            }
+        }
+
+        class Spark {
+            constructor(x, y, vx, vy, hue) {
+                this.x = x;
+                this.y = y;
+                this.vx = vx;
+                this.vy = vy;
+                this.hue = hue;
+                this.alpha = 1;
+                this.dead = false;
+            }
+
+            update() {
+                this.vy += gravity;
+                this.x += this.vx;
+                this.y += this.vy;
+                // Fade out as it falls
+                this.alpha -= 0.01;
+                if (this.alpha <= 0 || this.y > HEIGHT) {
+                    this.dead = true;
+                    // When spark dies on bottom, it can trigger a new explosion here
+                    if (gameMode === 'challenge' && fireworksLaunched < maxFireworks) {
+                        // Chance to trigger new firework
+                        particles.push(new Particle(this.x, Math.floor(this.y)));
+                        score += 10;
+                        updateStats();
+                    }
+                }
+            }
+
+            draw(ctx) {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, 2, 0, Math.PI * 2);
+                ctx.fillStyle = `hsla(${this.hue}, 100%, 50%, ${this.alpha})`;
+                ctx.fill();
+            }
+        }
+
+        function update() {
+            // Update all particles
+            particles.forEach(p => p.update());
+            // Filter out dead particles
+            particles = particles.filter(p => {
+                return p.particles.length > 0 || !p.exploded;
+            });
+            // Limit total particles for performance
+            if (particles.length > maxParticles) {
+                particles = particles.slice(-maxParticles);
+            }
+        }
+
+        function draw() {
+            // Dark background with trail fading
+            ctx.fillStyle = 'rgba(15, 12, 41, 0.1)';
+            ctx.fillRect(0, 0, WIDTH, HEIGHT);
+
+            // Draw all particles
+            particles.forEach(p => {
+                p.draw(ctx);
+                if (p.particles) {
+                    p.draw(ctx);
+                }
+            });
+        }
+
+        function gameLoop() {
+            update();
+            draw();
+            animationId = requestAnimationFrame(gameLoop);
+        }
+
+        function startGame() {
+            particles = [];
+            fireworksLaunched = 0;
+            score = 0;
+            updateStats();
+            if (gameMode === 'challenge') {
+                maxFireworks = 30;
+            } else {
+                maxFireworks = 9999;
+            }
+            ctx.clearRect(0, 0, WIDTH, HEIGHT);
+            gameLoop();
+        }
+
+        function clearFireworks() {
+            particles = [];
+            fireworksLaunched = 0;
+            score = 0;
+            updateStats();
+            ctx.clearRect(0, 0, WIDTH, HEIGHT);
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+            }
+        }
+
+        function setMode(mode) {
+            gameMode = mode;
+            document.querySelectorAll('.mode-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.textContent.includes(mode === 'free' ? '自由' : '挑战'));
+            });
+            startGame();
+        }
+
+        canvas.addEventListener('click', e => {
+            if (gameMode === 'challenge' && fireworksLaunched >= maxFireworks) {
+                // Game over
+                return;
+            }
+            const rect = canvas.getBoundingClientRect();
+            const x = (e.clientX - rect.left) * (WIDTH / rect.width);
+            const y = (e.clientY - rect.top) * (HEIGHT / rect.height);
+            particles.push(new Particle(x, y));
+            fireworksLaunched++;
+            updateStats();
+            if (!animationId) {
+                gameLoop();
+            }
+        });
+
+        canvas.addEventListener('touchstart', e => {
+            e.preventDefault();
+            if (gameMode === 'challenge' && fireworksLaunched >= maxFireworks) {
+                return;
+            }
+            const rect = canvas.getBoundingClientRect();
+            for (let i = 0; i < e.touches.length; i++) {
+                const touch = e.touches[i];
+                const x = (touch.clientX - rect.left) * (WIDTH / rect.width);
+                const y = (touch.clientY - rect.top) * (HEIGHT / rect.height);
+                particles.push(new Particle(x, y));
+                fireworksLaunched++;
+            }
+            updateStats();
+            if (!animationId) {
+                gameLoop();
+            }
+        });
+
+        function updateStats() {
+            document.getElementById('fireworksCount').textContent = fireworksLaunched;
+            document.getElementById('score').textContent = score;
+            document.getElementById('maxCount').textContent = maxFireworks;
+        }
+
+        // Start game
+        startGame();
+    </script>
+</body>
+</html>
