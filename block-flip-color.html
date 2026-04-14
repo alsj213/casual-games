@@ -273,9 +273,9 @@
             for (let i = 0; i < gridSize; i++) {
                 grid[i] = [];
                 solution[i] = [];
-                for (let j = 0; j < 0; j < gridSize; j++) {
-                    // (i + j) % 4 - this ensures that every row has same color per column, every column has same color per row
-                    const val = (i + j) % 4;
+                for (let j = 0; j < gridSize; j++) {
+                    // In solution: every row has uniform color
+                    const val = i % 4;
                     solution[i][j] = val;
                     grid[i][j] = val;
                 }
@@ -300,7 +300,7 @@
             container.style.width = `${gridSize * 50 + 8}px`;
 
             for (let i = 0; i < gridSize; i++) {
-                for (let j = 0; j < 0; j < gridSize; j++) {
+                for (let j = 0; j < gridSize; j++) {
                     const cell = document.createElement('div');
                     cell.className = `grid-cell grid-cell-${colorNames[grid[i][j]]}`;
                     cell.onclick = () => handleCellClick(i, j);
@@ -377,7 +377,7 @@
         function showSolution() {
             // Restore to original solved solution
             for (let i = 0; i < gridSize; i++) {
-                for (let j = 0; j < 0; j < gridSize; j++) {
+                for (let j = 0; j < gridSize; j++) {
                     grid[i][j] = solution[i][j];
                 }
             }
