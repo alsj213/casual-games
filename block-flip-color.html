@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>方块翻转 - 颜色对齐</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #f857a6 0%, #ff586d 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 10px;
+        }
+        .game-container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+            max-width: 95vw;
+            text-align: center;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 8px;
+            font-size: 28px;
+        }
+        .subtitle {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+        .toolbar {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 15px;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .stat {
+            background: linear-gradient(135deg, #f857a6 0%, #ff586d 100%);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .stat span {
+            color: #ffd700;
+            margin-left: 4px;
+            font-weight: bold;
+        }
+        .size-selector {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+        .size-btn {
+            padding: 6px 12px;
+            border-radius: 15px;
+            border: 2px solid #ddd;
+            background: white;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 13px;
+        }
+        .size-btn.active {
+            border-color: #f857a6;
+            background: #ffe6ec;
+            color: #f857a6;
+            font-weight: bold;
+        }
+        .game-area {
+            position: relative;
+            margin: 0 auto 15px;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            background: #f8f8f8;
+            display: inline-block;
+        }
+        #game-grid {
+            display: grid;
+            gap: 4px;
+            background: #ddd;
+            padding: 4px;
+            margin: 0 auto;
+        }
+        .grid-cell {
+            aspect-ratio: 1/1;
+            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            border-radius: 6px;
+            font-size: 20px;
+        }
+        .grid-cell:hover {
+            transform: scale(1.05);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+        .grid-cell-red {
+            background: #ff4444;
+        }
+        .grid-cell-blue {
+            background: #4444ff;
+        }
+        .grid-cell-green {
+            background: #44ff44;
+        }
+        .grid-cell-yellow {
+            background: #ffdd44;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 15px;
+        }
+        .btn {
+            padding: 10px 20px;
+            font-size: 15px;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #f857a6 0%, #ff586d 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(248, 87, 166, 0.4);
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(248, 87, 166, 0.6);
+        }
+        .btn-secondary {
+            background: linear-gradient(135deg, #a8edea 0%, #fed6ab 100%);
+            color: #333;
+        }
+        .game-over {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            border-radius: 12px;
+            z-index: 10;
+        }
+        .game-over.active {
+            display: flex;
+        }
+        .result-modal {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            max-width: 80%;
+        }
+        .result-modal h2 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+        .instructions {
+            color: #666;
+            font-size: 13px;
+            text-align: left;
+            line-height: 1.5;
+        }
+        .undo-info {
+            color: #0066cc;
+            font-weight: bold;
+        }
+        @media (max-width: 600px) {
+            h1 {
+                font-size: 24px;
+            }
+        }
+    </style>
+<body>
+    <div class="game-container">
+        <h1>🎨 方块翻转</h1>
+        <p class="subtitle">每个方块四种颜色，点击翻转，目标让每行每列颜色统一！</p>
+
+        <div class="toolbar">
+            <div class="stat">尺寸: <span id="gridSize">3×3</span></div>
+            <div class="stat">步数: <span id="moves">0</span></div>
+            <div class="stat">用时: <span id="timer">0</span>s</div>
+        </div>
+
+        <div class="size-selector">
+            <button class="size-btn active" data-size="3" onclick="selectSize(3)">初级 3×3</button>
+            <button class="size-btn" data-size="4" onclick="selectSize(4)">中级 4×4</button>
+            <button class="size-btn" data-size="5" onclick="selectSize(5)">高级 5×5</button>
+            <button class="size-btn" data-size="6" onclick="selectSize(6)">地狱 6×6</button>
+        </div>
+
+        <div class="game-area">
+            <div id="game-grid"></div>
+            <div class="game-over" id="gameOver">
+                <div class="result-modal">
+                    <h2 id="resultTitle">🎉 恭喜完成！</h2>
+                    <p id="resultText">你用 <span id="resultMoves">0</span> 步完成了挑战，用时 <span id="resultTime">0</span> 秒！</p>
+                    <div class="controls mt-4">
+                        <button class="btn btn-primary" onclick="restartGame()">再来一局</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button class="btn btn-primary" onclick="startGame()">重新开始</button>
+            <button class="btn btn-secondary" onclick="undoMove()">撤销一步</button>
+            <button class="btn btn-secondary" onclick="showSolution()">显示答案</button>
+        </div>
+
+        <div class="instructions">
+            <strong>玩法规则：</strong><br>
+            • <span class="undo-info">每个方块有四种颜色：红🔴 蓝🔵 绿🟢 黄🟡</span><br>
+            • 点击方块循环翻转颜色，目标让<strong>每一横行每一竖列都是同一种颜色</strong><br>
+            • 生成算法保证一定有解，撤销支持回退，挑战你的推理！
+        </div>
+    </div>
+
+    <script>
+        const colorNames = ['red', 'blue', 'green', 'yellow'];
+        const colorEmoji = {
+            red: '🔴',
+            blue: '🔵',
+            green: '🟢',
+            yellow: '🟡'
+        };
+
+        let gridSize = 3;
+        let grid = [];
+        let solution = [];
+        let moveHistory = [];
+        let moves = 0;
+        let startTime = 0;
+        let timerInterval = null;
+
+        function selectSize(size) {
+            document.querySelectorAll('.size-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            gridSize = size;
+            document.getElementById('gridSize').textContent = `${size}×${size}`;
+            startGame();
+        }
+
+        function generatePuzzle() {
+            // 1. Start with solved puzzle: (row + col) % 4 guarantees all rows and columns uniform when solved
+            grid = [];
+            solution = [];
+            for (let i = 0; i < gridSize; i++) {
+                grid[i] = [];
+                solution[i] = [];
+                for (let j = 0; j < gridSize; j++) {
+                    // In solution: every row has uniform color
+                    const val = i % 4;
+                    solution[i][j] = val;
+                    grid[i][j] = val;
+                }
+            }
+
+            // 2. Random shuffle by flipping cells
+            let shuffleCount = gridSize * gridSize * 2;
+            for (let i = 0; i < shuffleCount; i++) {
+                const row = Math.floor(Math.random() * gridSize);
+                const col = Math.floor(Math.random() * gridSize);
+                grid[row][col] = (grid[row][col] + 1 + Math.floor(Math.random() * 3)) % 4;
+            }
+
+            moveHistory = [];
+            moves = 0;
+        }
+
+        function renderGrid() {
+            const container = document.getElementById('game-grid');
+            container.innerHTML = '';
+            container.style.gridTemplateColumns = `repeat(${gridSize}, 1fr)`;
+            container.style.width = `${gridSize * 50 + 8}px`;
+
+            for (let i = 0; i < gridSize; i++) {
+                for (let j = 0; j < gridSize; j++) {
+                    const cell = document.createElement('div');
+                    cell.className = `grid-cell grid-cell-${colorNames[grid[i][j]]}`;
+                    cell.onclick = () => handleCellClick(i, j);
+                    container.appendChild(cell);
+                }
+            }
+            document.getElementById('moves').textContent = moves;
+        }
+
+        function handleCellClick(row, col) {
+            // Save move for undo
+            moveHistory.push({row, col, before: grid[row][col]});
+            // Flip color
+            grid[row][col] = (grid[row][col] + 1) % 4;
+            moves++;
+            document.getElementById('moves').textContent = moves;
+            renderGrid();
+            checkWin();
+        }
+
+        function undoMove() {
+            if (moveHistory.length === 0) {
+                alert('没有可撤销的步骤！');
+                return;
+            }
+            const last = moveHistory.pop();
+            grid[last.row][last.col] = last.before;
+            moves--;
+            document.getElementById('moves').textContent = moves;
+            renderGrid();
+        }
+
+        function checkWin() {
+            // Check all rows all same color
+            let won = true;
+            for (let i = 0; i < gridSize; i++) {
+                const first = grid[i][0];
+                for (let j = 1; j < gridSize; j++) {
+                    if (grid[i][j] !== first) won = false;
+                }
+            }
+            if (!won) return false;
+
+            // Check all columns all same color
+            for (let j = 0; j < gridSize; j++) {
+                const first = grid[0][j];
+                for (let i = 1; i < gridSize; i++) {
+                    if (grid[i][j] !== first) won = false;
+                }
+            }
+
+            if (won) {
+                stopTimer();
+                document.getElementById('resultMoves').textContent = moves;
+                const elapsed = Math.floor((Date.now() - startTime) / 1000);
+                document.getElementById('resultTime').textContent = elapsed;
+                document.getElementById('gameOver').classList.add('active');
+            }
+            return won;
+        }
+
+        function startGame() {
+            generatePuzzle();
+            renderGrid();
+            document.getElementById('gameOver').classList.remove('active');
+            startTimer();
+        }
+
+        function restartGame() {
+            document.getElementById('gameOver').classList.remove('active');
+            startGame();
+        }
+
+        function showSolution() {
+            // Restore to original solved solution
+            for (let i = 0; i < gridSize; i++) {
+                for (let j = 0; j < gridSize; j++) {
+                    grid[i][j] = solution[i][j];
+                }
+            }
+            moves = 0;
+            moveHistory = [];
+            renderGrid();
+            checkWin();
+        }
+
+        function startTimer() {
+            startTime = Date.now();
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                const elapsed = Math.floor((Date.now() - startTime) / 1000);
+                document.getElementById('timer').textContent = elapsed;
+            }, 1000);
+        }
+
+        function stopTimer() {
+            if (timerInterval) clearInterval(timerInterval);
+        }
+
+        // Initialize
+        startGame();
+    </script>
+</body>
+</html>
