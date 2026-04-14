@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>色块归位 - Color Sort</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Segoe UI', sans-serif;
+            padding: 10px;
+        }
+        .game-container {
+            text-align: center;
+            max-width: 90vw;
+        }
+        h1 {
+            color: #ffffff;
+            margin-bottom: 8px;
+            font-size: 28px;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        .subtitle {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+        .game-area {
+            background: rgba(255, 255, 255, 0.1);
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+        }
+        #gameCanvas {
+            background: #2d2d44;
+            border-radius: 8px;
+            display: block;
+            margin: 0 auto;
+        }
+        .info-board {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 15px;
+            gap: 15px;
+        }
+        .info-item {
+            background: rgba(255, 255, 255, 0.15);
+            color: white;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-size: 14px;
+            backdrop-filter: blur(10px);
+        }
+        .info-item span {
+            font-weight: bold;
+            margin-left: 4px;
+            color: #f9e79f;
+        }
+        .controls {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 15px;
+        }
+        .btn {
+            padding: 12px 28px;
+            font-size: 16px;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: bold;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(245, 87, 108, 0.4);
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(245, 87, 108, 0.6);
+        }
+        .btn-secondary {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(79, 172, 254, 0.4);
+        }
+        .btn-secondary:hover {
+            transform: translateY(-2px);
+        }
+        .instructions {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 12px;
+            margin-top: 10px;
+            line-height: 1.5;
+            max-width: 480px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .win-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0, 0.7);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+        .win-modal.active {
+            display: flex;
+        }
+        .win-content {
+            background: rgba(102, 126, 234, 0.95);
+            padding: 30px;
+            border-radius: 15px;
+            border: 3px solid white;
+            text-align: center;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+        }
+        .win-content h2 {
+            color: white;
+            margin-bottom: 15px;
+        }
+        .win-content p {
+            color: rgba(255, 255, 255, 0.9);
+            margin-bottom: 20px;
+        }
+        @media (max-width: 600px) {
+            #gameCanvas {
+                width: 100%;
+                height: auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>🎨 色块归位</h1>
+        <p class="subtitle">滑动整行整列移动色块，让同色色块归位到对应区域，烧脑益智解谜！</p>
+        
+        <div class="game-area">
+            <div class="info-board">
+                <div class="info-item">
+                    步数: <span id="moves">0</span>
+                </div>
+                <div class="info-item">
+                    关卡: <span id="level">1</span>
+                </div>
+            </div>
+
+            <canvas id="gameCanvas" width="450" height="450"></canvas>
+
+            <div class="controls">
+                <button class="btn btn-primary" onclick="startNewGame()">新游戏</button>
+                <button class="btn btn-secondary" onclick="undoMove()">撤销</button>
+            </div>
+
+            <p class="instructions">
+                <strong>玩法:</strong> 点击行或列，向空白方向滑动整行/整列，所有同色色块归位到同一个 4x4 区域就算过关。支持撤消，多关卡从简单到困难挑战！
+            </p>
+        </div>
+    </div>
+
+    <div class="win-modal" id="winModal">
+        <div class="win-content">
+            <h2>🎉 恭喜过关！</h2>
+            <p>所有色块已经归位到位，可以进入下一关挑战！</p>
+            <div class="controls">
+                <button class="btn btn-primary" onclick="nextLevel(); closeModal();">下一关</button>
+                <button class="btn btn-secondary" onclick="closeModal()">继续欣赏</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 游戏配置
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const WIDTH = canvas.width;
+        const HEIGHT = canvas.height;
+        const GRID_SIZE = 6;
+        const CELL_SIZE = WIDTH / GRID_SIZE;
+        const PADDING = 2;
+
+        // 颜色列表
+        const COLORS = [
+            '#e74c3c', '#3498db', '#2ecc71', '#f1c40f', 
+            '#9b59b6', '#e67e22', '#1abc9c', '#34495e',
+            '#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4'
+        ];
+
+        // 关卡定义 - 每个关卡是 GRID_SIZE x GRID_SIZE 网格，每个格子是颜色索引 null=空白
+        const LEVELS = [
+            // 关卡 1 - 简单入门 4x4 区域
+            generateLevel(6, 2),
+            // 关卡 2
+            generateLevel(6, 3),
+            // 关卡 3
+            generateLevel(6, 4),
+            // 关卡 4
+            generateLevel(6, 4),
+            // 关卡 5
+            generateLevel(6, 5),
+            // 关卡 6
+            generateLevel(6, 6),
+        ];
+
+        // 游戏状态
+        let grid = [];
+        let currentLevel = 0;
+        let moves = 0;
+        let selected = null; // {type: 'row'|'col', index: number}
+        let history = [];
+        let gameWin = false;
+
+        // 生成随机关卡
+        function generateLevel(size, numColors) {
+            const level = Array(size).fill().map(() => Array(size).fill(null));
+            // 随机分散放置颜色
+            const cellsPerColor = 4;
+            let placed = 0;
+            for (let c = 0; c < numColors && placed < size * size; c++) {
+                for (let i = 0; i < 4 && placed < size * size; i++) {
+                    let r = Math.floor(Math.random() * size);
+                    let col = Math.floor(Math.random() * size);
+                    if (level[r][col] === null) {
+                        level[r][col] = c;
+                        placed++;
+                    }
+                }
+            }
+            // 保证至少有一个空白格子
+            let hasBlank = false;
+            for (let r = 0; r < size; r++) {
+                for (let c = 0; c < size; c++) {
+                    if (level[r][c] === null) hasBlank = true;
+                }
+            }
+            if (!hasBlank) {
+                level[Math.floor(Math.random() * size)][Math.floor(Math.random() * size)] = null;
+            }
+            return level;
+        }
+
+        // 初始化
+        function initLevel() {
+            grid = JSON.parse(JSON.stringify(LEVELS[currentLevel]));
+            moves = 0;
+            selected = null;
+            gameWin = false;
+            updateDisplay();
+            draw();
+        }
+
+        // 开始新游戏
+        function startNewGame() {
+            currentLevel = 0;
+            initLevel();
+        }
+
+        // 下一关
+        function nextLevel() {
+            if (currentLevel < LEVELS.length - 1) {
+                currentLevel++;
+                initLevel();
+            } else {
+                // 重复最后一关
+                initLevel();
+            }
+            closeModal();
+        }
+
+        // 关闭胜利弹窗
+        function closeModal() {
+            document.getElementById('winModal').classList.remove('active');
+        }
+
+        // 保存当前状态
+        function saveState() {
+            history.push({
+                grid: JSON.parse(JSON.stringify(grid)),
+                moves: moves,
+                level: currentLevel
+            });
+            if (history.length > 20) {
+                history.shift();
+            }
+        }
+
+        // 撤销一步
+        function undoMove() {
+            if (history.length === 0) {
+                alert('没有可以撤销的步数');
+                return;
+            }
+            const prevState = history.pop();
+            grid = JSON.parse(JSON.stringify(prevState.grid));
+            moves = prevState.moves;
+            currentLevel = prevState.level;
+            selected = null;
+            gameWin = false;
+            updateDisplay();
+            draw();
+        }
+
+        // 点击格子
+        canvas.addEventListener('click', (e) => {
+            if (gameWin) return;
+
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            const scaleX = WIDTH / rect.width;
+            const scaleY = HEIGHT / rect.height;
+            const canvasX = x * scaleX;
+            const canvasY = y * scaleY;
+            
+            const col = Math.floor(canvasX / CELL_SIZE);
+            const row = Math.floor(canvasY / CELL_SIZE);
+
+            if (selected === null) {
+                // 看看点击的行或列有没有颜色，选中它
+                let rowHasColors = false;
+                for (let c = 0; c < GRID_SIZE; c++) {
+                    if (grid[row][c] !== null) rowHasColors = true;
+                }
+                let colHasColors = false;
+                for (let r = 0; r < GRID_SIZE; r++) {
+                    if (grid[r][col] !== null) colHasColors = true;
+                }
+
+                if (rowHasColors || colHasColors) {
+                    // 优先选空白多的
+                    const rowBlanks = countBlanksInRow(row);
+                    const colBlanks = countBlanksInCol(col);
+                    if (rowBlanks >= colBlanks && rowHasColors) {
+                        selected = {type: 'row', index: row};
+                    } else if (colHasColors) {
+                        selected = {type: 'col', index: col};
+                    }
+                    draw();
+                }
+            } else {
+                // 已经选中，现在移动
+                if (selected.type === 'row') {
+                    // 如果点击同一行取消选择
+                    if (selected.index === row) {
+                        selected = null;
+                        draw();
+                        return;
+                    }
+                } else {
+                    if (selected.index === col) {
+                        selected = null;
+                        draw();
+                        return;
+                    }
+                }
+
+                // 执行移动
+                saveState();
+                if (selected.type === 'row') {
+                    // 移动选中行到目标行的列位置 - 根据点击确定方向
+                    const targetCol = col;
+                    slideRow(selected.index, targetCol);
+                } else {
+                    // 移动选中列到目标行的位置
+                    const targetRow = row;
+                    slideCol(selected.index, targetRow);
+                }
+
+                moves++;
+                selected = null;
+                updateDisplay();
+                draw();
+
+                // 检查是否获胜
+                if (checkWin()) {
+                    gameWin = true;
+                    setTimeout(() => {
+                        document.getElementById('winModal').classList.add('active');
+                    }, 500);
+                }
+            }
+        });
+
+        // 统计行空白
+        function countBlanksInRow(row) {
+            let count = 0;
+            for (let c = 0; c < GRID_SIZE; c++) {
+                if (grid[row][c] === null) count++;
+            }
+            return count;
+        }
+
+        // 统计列空白
+        function countBlanksInCol(col) {
+            let count = 0;
+            for (let r = 0; r < GRID_SIZE; r++) {
+                if (grid[r][col] === null) count++;
+            }
+            return count;
+        }
+
+        // 滑动整行
+        function slideRow(row, targetCol) {
+            const direction = targetCol > selected.index ? 1 : -1;
+            const newRow = Array(GRID_SIZE).fill(null);
+            // 收集非空颜色
+            const colors = [];
+            for (let c = 0; c < GRID_SIZE; c++) {
+                if (grid[row][c] !== null) {
+                    colors.push(grid[row][c]);
+                }
+            }
+            // 计算新位置 - 整体向目标方向移动，让空白在点击方向
+            const numColors = colors.length;
+            const startPos = direction > 0 ? (targetCol - numColors + 1) : targetCol;
+            for (let i = 0; i < numColors; i++) {
+                newRow[startPos + i] = colors[i];
+            }
+            grid[row] = newRow;
+        }
+
+        // 滑动整列
+        function slideCol(col, targetRow) {
+            const direction = targetRow > selected.index ? 1 : -1;
+            const newCol = Array(GRID_SIZE).fill(null);
+            // 收集非空颜色
+            const colors = [];
+            for (let r = 0; r < GRID_SIZE; r++) {
+                if (grid[r][col] !== null) {
+                    colors.push(grid[r][col]);
+                }
+            }
+            // 计算新位置
+            const numColors = colors.length;
+            const startPos = direction > 0 ? (targetRow - numColors + 1) : targetRow;
+            for (let i = 0; i < numColors; i++) {
+                newCol[startPos + i] = colors[i];
+            }
+            for (let r = 0; r < GRID_SIZE; r++) {
+                grid[r][col] = newCol[r];
+            }
+        }
+
+        // 检查获胜 - 每个颜色都在同一个连续区域没有间隔
+        function checkWin() {
+            for (let color = 0; color < COLORS.length; color++) {
+                let positions = [];
+                for (let r = 0; r < GRID_SIZE; r++) {
+                    for (let c = 0; c < GRID_SIZE; c++) {
+                        if (grid[r][c] === color) {
+                            positions.push({r, c});
+                        }
+                    }
+                }
+                if (positions.length === 0) continue;
+                if (positions.length < 4) continue; // 不够四个不算
+                // 检查是否都在同一个 4x4 区域
+                const minR = Math.min(...positions.map(p => p.r));
+                const maxR = Math.max(...positions.map(p => p.r));
+                const minC = Math.min(...positions.map(p => p.c));
+                const maxC = Math.max(...positions.map(p => p.c));
+                if (maxR - minR >= 4 || maxC - minC >= 4) {
+                    return false; // 超过 4 格不赢
+                }
+                // 检查每个颜色格子数量正好 4
+                let count = 0;
+                for (let r = minR; r <= minR + 3; r++) {
+                    for (let c = minC; c <= minC + 3; c++) {
+                        if (grid[r][c] === color) count++;
+                    }
+                }
+                if (count !== 4) return false;
+            }
+            // 检查所有颜色都满足
+            return true;
+        }
+
+        // 更新显示
+        function updateDisplay() {
+            document.getElementById('moves').textContent = moves;
+            document.getElementById('level').textContent = currentLevel + 1;
+        }
+
+        // 绘制
+        function draw() {
+            ctx.clearRect(0, 0, WIDTH, HEIGHT);
+
+            // 绘制网格
+            for (let r = 0; r < GRID_SIZE; r++) {
+                for (let c = 0; c < GRID_SIZE; c++) {
+                    const x = c * CELL_SIZE + PADDING;
+                    const y = r * CELL_SIZE + PADDING;
+                    const size = CELL_SIZE - PADDING * 2;
+                    
+                    if (grid[r][c] === null) {
+                        ctx.fillStyle = '#3d3d5c';
+                        ctx.fillRect(x, y, size, size);
+                    } else {
+                        ctx.fillStyle = COLORS[grid[r][c]];
+                        ctx.fillRect(x, y, size, size);
+                    }
+
+                    // 选中高亮
+                    if (selected !== null && 
+                        ((selected.type === 'row' && selected.index === r) ||
+                         (selected.type === 'col' && selected.index === c))) {
+                        ctx.strokeStyle = '#ffffff';
+                        ctx.lineWidth = 3;
+                        ctx.strokeRect(x - 1, y - 1, size + 2, size + 2);
+                    }
+                }
+            }
+        }
+
+        // 开始游戏
+        initLevel();
+    </script>
+</body>
+</html>
