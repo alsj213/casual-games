@@ -330,12 +330,12 @@
             if (dir > 0) {
                 // Shift down: pop last, unshift
                 for (let y = gridSize - 1; y >= 0; y--) {
-                    grid[y][col] = oldCol[y - 1 < 0 ? oldCol[gridSize - 1] : oldCol[y - 1];
+                    grid[y][col] = (y - 1) < 0 ? oldCol[gridSize - 1] : oldCol[y - 1];
                 }
             } else {
                 // Shift up: shift top out, push to end
                 for (let y = 0; y < gridSize; y++) {
-                    grid[y][col] = oldCol[y + 1 >= gridSize ? oldCol[0] : oldCol[y + 1];
+                    grid[y][col] = (y + 1) >= gridSize ? oldCol[0] : oldCol[y + 1];
                 }
             }
 
