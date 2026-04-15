@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>日期猜谜 - 星期推理</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 10px;
+        }
+        
+        .container {
+            background: rgba(15, 23, 42, 0.95);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.0.5);
+            max-width: 95vw;
+            width: 100%;
+            max-width: 500px;
+        }
+        
+        h1 {
+            color: #f1f5f9;
+            text-align: center;
+            margin-bottom: 8px;
+            font-size: 26px;
+        }
+        
+        .subtitle {
+            color: #94a3b8;
+            text-align: center;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+        
+        .screen {
+            display: none;
+        }
+        
+        .screen.active {
+            display: block;
+        }
+        
+        /* 难度选择 */
+        .difficulty-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        
+        .diff-item {
+            background: rgba(30, 41, 59, 0.8);
+            border: 2px solid #475569;
+            border-radius: 12px;
+            padding: 20px 16px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .diff-item:hover {
+            border-color: #3b82f6;
+            transform: translateY(-2px);
+        }
+        
+        .diff-item.selected {
+            border-color: #10b981;
+            background: rgba(16, 185, 129, 0.2);
+        }
+        
+        .diff-size {
+            color: #f1f5f9;
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        
+        .diff-name {
+            color: #94a3b8;
+            font-size: 12px;
+        }
+        
+        .tutorial-card {
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid #3b82f6;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 20px;
+        }
+        
+        .tutorial-title {
+            color: #3b82f6;
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        
+        .tutorial-text {
+            color: #94a3b8;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+        
+        .btn-start {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .btn-start:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(16, 185, 129, 0.4);
+        }
+        
+        .btn-start:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        /* 游戏界面 */
+        .game-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        
+        .btn-back {
+            background: #475569;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        
+        .btn-back:hover {
+            background: #64748b;
+        }
+        
+        .puzzle-info {
+            background: rgba(30, 41, 59, 0.8);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+        
+        .month-year {
+            color: #f1f5f9;
+            font-size: 20px;
+            font-weight: 600;
+            text-align: center;
+            margin-bottom: 8px;
+        }
+        
+        .question {
+            color: #cbd5e1;
+            font-size: 14px;
+            text-align: center;
+            line-height: 1.5;
+        }
+        
+        /* 日历表格 */
+        .calendar-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 16px;
+            background: rgba(30, 41, 59, 0.8);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        
+        .calendar-table th {
+            background: rgba(15, 23, 42, 0.9);
+            color: #94a3b8;
+            padding: 10px;
+            text-align: center;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        
+        .calendar-cell {
+            border: 2px solid #0f172a;
+            text-align: center;
+            vertical-align: middle;
+            padding: 0;
+        }
+        
+        .date-cell {
+            width: calc(100% / 7);
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: #334155;
+            color: #f1f5f9;
+        }
+        
+        .date-cell.weekend {
+            background: rgba(239, 68, 68, 0.2);
+            color: #fca5a5;
+        }
+        
+        .date-cell.hidden {
+            background: #0f172a;
+            color: #0f172a;
+            cursor: default;
+        }
+        
+        .date-cell.marked {
+            background: rgba(245, 158, 11, 0.3);
+            border-color: #f59e0b;
+        }
+        
+        .date-cell.target {
+            background: rgba(59, 130, 246, 0.3);
+            border: 3px solid #3b82f6;
+            font-weight: 700;
+        }
+        
+        .date-cell:hover:not(.hidden):not(.target) {
+            background: #475569;
+        }
+        
+        /* 选项 */
+        .options-container {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+        
+        .option-item {
+            background: #334155;
+            border: 2px solid #475569;
+            border-radius: 8px;
+            padding: 12px 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: #cbd5e1;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .option-item:hover {
+            background: #475569;
+            border-color: #64748b;
+        }
+        
+        .option-item.selected {
+            background: rgba(59, 130, 246, 0.3);
+            border-color: #3b82f6;
+            color: #bfdbfe;
+        }
+        
+        .option-item.correct {
+            background: rgba(16, 185, 129, 0.4);
+            border-color: #10b981;
+            color: #bbf7d0;
+        }
+        
+        .option-item.wrong {
+            background: rgba(239, 68, 68, 0.4);
+            border-color: #ef4444;
+            color: #fecaca;
+        }
+        
+        /* 控制按钮 */
+        .controls {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .btn {
+            flex: 1;
+            padding: 12px 16px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+        
+        .btn-secondary {
+            background: linear-gradient(135deg, #475569 0%, #334155 100%);
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(71, 85, 105, 0.4);
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(59, 130, 246, 0.4);
+        }
+        
+        /* 提示 */
+        .hint-box {
+            background: rgba(245, 158, 11, 0.1);
+            border: 1px solid #f59e0b;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 16px;
+            display: none;
+        }
+        
+        .hint-box.show {
+            display: block;
+        }
+        
+        .hint-title {
+            color: #f59e0b;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+        
+        .hint-text {
+            color: #fdba74;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+        
+        /* 结果弹窗 */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+        
+        .modal.active {
+            display: flex;
+        }
+        
+        .modal-content {
+            background: #1e293b;
+            border-radius: 20px;
+            padding: 30px;
+            text-align: center;
+            max-width: 90vw;
+            width: 400px;
+        }
+        
+        .modal-title {
+            color: #f1f5f9;
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+        
+        .modal-message {
+            color: #94a3b8;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+        
+        @media (max-width: 500px) {
+            .container {
+                padding: 16px;
+            }
+            .date-cell {
+                font-size: 14px;
+            }
+            .difficulty-grid {
+                grid-template-columns: 1fr;
+            }
+            .options-container {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 首页/难度选择 -->
+        <div id="start-screen" class="screen active">
+            <h1>📅 日期猜谜</h1>
+            <p class="subtitle">根据部分隐藏的日历，推理指定日期是星期几</p>
+            
+            <div class="tutorial-card">
+                <div class="tutorial-title">📖 游戏规则</div>
+                <div class="tutorial-text">
+                    给出一个月日历表，一些日期被标记为休息日❌<br>
+                    根据这些标记推理出指定日期是星期几<br>
+                    锻炼逻辑推理能力，烧脑益智谜题
+                </div>
+            </div>
+            
+            <div class="difficulty-grid">
+                <div class="diff-item" data-diff="easy">
+                    <div class="diff-size">4×4</div>
+                    <div class="diff-name">简单</div>
+                </div>
+                <div class="diff-item" data-diff="hard">
+                    <div class="diff-size">5×5</div>
+                    <div class="diff-name">困难</div>
+                </div>
+            </div>
+            
+            <button class="btn-start" id="btn-start-game" disabled>开始游戏</button>
+        </div>
+
+        <!-- 游戏界面 -->
+        <div id="game-screen" class="screen">
+            <div class="game-header">
+                <button class="btn-back" id="btn-back-menu">← 返回</button>
+                <div></div>
+            </div>
+            
+            <div class="puzzle-info">
+                <div class="month-year" id="month-year-display"></div>
+                <div class="question" id="question-text"></div>
+            </div>
+            
+            <table class="calendar-table" id="calendar-table">
+                <thead>
+                    <tr>
+                        <th>日</th>
+                        <th>一</th>
+                        <th>二</th>
+                        <th>三</th>
+                        <th>四</th>
+                        <th>五</th>
+                        <th>六</th>
+                    </tr>
+                </thead>
+                <tbody id="calendar-body">
+                    <!-- 动态生成 -->
+                </tbody>
+            </table>
+            
+            <div class="hint-box" id="hint-box">
+                <div class="hint-title">💡 推理提示</div>
+                <div class="hint-text" id="hint-text"></div>
+            </div>
+            
+            <div class="options-container" id="options-container">
+                <!-- 动态生成 -->
+            </div>
+            
+            <div class="controls">
+                <button class="btn btn-secondary" id="btn-hint">显示提示</button>
+                <button class="btn btn-primary" id="btn-verify">验证答案</button>
+            </div>
+        </div>
+
+        <!-- 结果弹窗 -->
+        <div id="result-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-title" id="result-title">🎉 恭喜猜对了！</div>
+                <div class="modal-message" id="result-message"></div>
+                <div class="controls">
+                    <button class="btn btn-primary" id="btn-next-puzzle">下一题</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 星期名称
+        const WEEKDAYS = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
+        const MONTHS = [
+            '一月', '二月', '三月', '四月', '五月', '六月',
+            '七月', '八月', '九月', '十月', '十一月', '十二月'
+        ];
+        
+        // 每个月天数（不考虑闰年二月）
+        const MONTH_DAYS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+        
+        // 难度配置
+        const DIFFICULTY = {
+            easy: {
+                rows: 4,
+                hiddenPercent: 0.3
+            },
+            hard: {
+                rows: 5,
+                hiddenPercent: 0.5
+            }
+        };
+        
+        // 游戏状态
+        let currentDiff = null;
+        let currentYear = null;
+        let currentMonth = null;
+        let targetDate = null;
+        let correctAnswer = null;
+        let selectedAnswer = null;
+        let puzzle = null;
+        
+        // 生成一道新谜题
+        function generatePuzzle(diffKey) {
+            const config = DIFFICULTY[diffKey];
+            
+            // 随机年份月份
+            const year = 2020 + Math.floor(Math.random() * 10);
+            const month = Math.floor(Math.random() * 12);
+            let days = MONTH_DAYS[month];
+            
+            // 闰年调整二月
+            if (month === 1 && isLeapYear(year)) {
+                days = 29;
+            }
+            
+            // 随机第一天星期几 (0-6)
+            const firstDay = Math.floor(Math.random() * 7);
+            
+            // 计算需要隐藏多少格
+            const totalCells = config.rows * 7;
+            const hiddenCount = Math.floor(totalCells * config.hiddenPercent);
+            
+            // 生成网格
+            const grid = [];
+            let dayCounter = 1;
+            let targetCol = null;
+            let targetRow = null;
+            
+            // 填充网格
+            for (let r = 0; r < config.rows; r++) {
+                grid[r] = [];
+                for (let c = 0; c < 7; c++) {
+                    if (r === 0 && c < firstDay) {
+                        grid[r][c] = { date: null, hidden: false };
+                    } else if (dayCounter <= days) {
+                        // 是否隐藏这个格子
+                        // 不隐藏目标日期
+                        const isTarget = dayCounter === days; // 最后一天总是目标
+                        if (isTarget) {
+                            grid[r][c] = { 
+                                date: dayCounter, 
+                                hidden: false, 
+                                isTarget: true 
+                            };
+                            targetDate = dayCounter;
+                            targetRow = r;
+                            targetCol = c;
+                        } else {
+                            grid[r][c] = { 
+                                date: dayCounter, 
+                                hidden: false, 
+                                isTarget: false 
+                            };
+                        }
+                        dayCounter++;
+                    } else {
+                        grid[r][c] = { date: null, hidden: false };
+                    }
+                }
+            }
+            
+            // 随机隐藏一些格子，保证目标不隐藏，并且至少一个周末标记保留
+            const availableToHide = [];
+            for (let r = 0; r < config.rows; r++) {
+                for (let c = 0; c < 7; c++) {
+                    const cell = grid[r][c];
+                    if (cell.date !== null && !cell.isTarget && !cell.hidden) {
+                        availableToHide.push({r, c});
+                    }
+                }
+            }
+            
+            // Fisher-Yates 洗牌
+            for (let i = availableToHide.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [availableToHide[i], availableToHide[j]] = [availableToHide[j], availableToHide[i]];
+            }
+            
+            // 隐藏选中的格子
+            const needHide = Math.min(hiddenCount, availableToHide.length);
+            for (let i = 0; i < needHide; i++) {
+                const {r, c} = availableToHide[i];
+                grid[r][c].hidden = true;
+            }
+            
+            // 计算目标星期几
+            const targetWeekday = (firstDay + targetRow * 7 + targetCol - firstDay) % 7;
+            
+            return {
+                year,
+                month,
+                days,
+                firstDay,
+                targetDate,
+                targetWeekday,
+                targetRow,
+                targetCol,
+                grid,
+                diff: diffKey
+            };
+        }
+        
+        // 判断闰年
+        function isLeapYear(year) {
+            return (year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0);
+        }
+        
+        // 开始新游戏
+        function startNewGame(diffKey) {
+            currentDiff = diffKey;
+            puzzle = generatePuzzle(diffKey);
+            correctAnswer = puzzle.targetWeekday;
+            selectedAnswer = null;
+            
+            renderCalendar();
+            renderOptions();
+            updateQuestion();
+            document.getElementById('hint-box').classList.remove('show');
+            
+            document.getElementById('start-screen').classList.remove('active');
+            document.getElementById('game-screen').classList.add('active');
+        }
+        
+        // 渲染日历
+        function renderCalendar() {
+            const tbody = document.getElementById('calendar-body');
+            tbody.innerHTML = '';
+            
+            const config = DIFFICULTY[currentDiff];
+            document.getElementById('month-year-display').textContent = `${puzzle.year}年 ${MONTHS[puzzle.month]}`;
+            
+            for (let r = 0; r < config.rows; r++) {
+                const tr = document.createElement('tr');
+                for (let c = 0; c < 7; c++) {
+                    const td = document.createElement('td');
+                    td.className = 'calendar-cell';
+                    const cell = puzzle.grid[r][c];
+                    
+                    if (cell.date === null || cell.hidden) {
+                        td.innerHTML = '<div class="date-cell hidden">✕</div>';
+                    } else {
+                        const div = document.createElement('div');
+                        div.className = 'date-cell';
+                        
+                        if (cell.isTarget) {
+                            div.classList.add('target');
+                        } else if (c === 0 || c === 6) {
+                            div.classList.add('weekend');
+                        }
+                        
+                        div.textContent = cell.date;
+                        td.appendChild(div);
+                    }
+                    
+                    tr.appendChild(td);
+                }
+                tbody.appendChild(tr);
+            }
+        }
+        
+        // 渲染选项
+        function renderOptions() {
+            const container = document.getElementById('options-container');
+            container.innerHTML = '';
+            
+            WEEKDAYS.forEach((name, index) => {
+                const div = document.createElement('div');
+                div.className = 'option-item';
+                div.textContent = name;
+                div.dataset.index = index;
+                
+                if (selectedAnswer === index) {
+                    div.classList.add('selected');
+                }
+                
+                div.addEventListener('click', () => {
+                    // 清除之前选择
+                    document.querySelectorAll('.option-item').forEach(item => {
+                        item.classList.remove('selected', 'correct', 'wrong');
+                    });
+                    div.classList.add('selected');
+                    selectedAnswer = index;
+                });
+                
+                container.appendChild(div);
+            });
+        }
+        
+        // 更新问题描述
+        function updateQuestion() {
+            const text = document.getElementById('question-text');
+            text.textContent =`请推理：${puzzle.year}年 ${MONTHS[puzzle.month]} ${puzzle.targetDate}日 是星期几？`;
+        }
+        
+        // 验证答案
+        function verifyAnswer() {
+            if (selectedAnswer === null) {
+                alert('请先选择一个答案！');
+                return;
+            }
+            
+            const modal = document.getElementById('result-modal');
+            const title = document.getElementById('result-title');
+            const message = document.getElementById('result-message');
+            
+            if (selectedAnswer === correctAnswer) {
+                title.textContent = '🎉 恭喜猜对了！';
+                title.style.color = '#10b981';
+                message.textContent = `你的推理完全正确，${puzzle.targetDate}日确实是 ${WEEKDAYS[correctAnswer]}。太棒了！`;
+            } else {
+                title.textContent = '❌ 答案不对';
+                title.style.color = '#ef4444';
+                message.textContent = `正确答案是：${puzzle.targetDate}日是 ${WEEKDAYS[correctAnswer]}，再推理一下试试！`;
+            }
+            
+            // 标记选项
+            document.querySelectorAll('.option-item').forEach(item => {
+                const idx = parseInt(item.dataset.index);
+                if (idx === correctAnswer) {
+                    item.classList.add('correct');
+                } else if (idx === selectedAnswer && selectedAnswer !== correctAnswer) {
+                    item.classList.add('wrong');
+                }
+            });
+            
+            modal.classList.add('active');
+        }
+        
+        // 显示提示
+        function showHint() {
+            const hintBox = document.getElementById('hint-box');
+            const hintText = document.getElementById('hint-text');
+            
+            // 计算推理提示
+            const firstDay = puzzle.firstDay;
+            const targetDate = puzzle.targetDate;
+            const firstDayName = WEEKDAYS[firstDay];
+            
+            let hint = `这个月 1 日是 ${firstDayName}。从 1 日到 ${targetDate} 日一共相差 ${targetDate - 1} 天，${targetDate - 1} ÷ 7 = 余数 ${(targetDate - 1) % 7}，所以星期 = (${firstDay} + ${targetDate - 1}) % 7 = ${correctAnswer} = ${WEEKDAYS[correctAnswer]}`;
+            
+            hintText.textContent = hint;
+            hintBox.classList.add('show');
+        }
+        
+        // 绑定事件
+        document.querySelectorAll('.diff-item').forEach(item => {
+            item.addEventListener('click', () => {
+                document.querySelectorAll('.diff-item').forEach(i => i.classList.remove('selected'));
+                item.classList.add('selected');
+                document.getElementById('btn-start-game').disabled = false;
+            });
+        });
+        
+        document.getElementById('btn-start-game').addEventListener('click', () => {
+            const selected = document.querySelector('.diff-item.selected');
+            if (selected) {
+                startNewGame(selected.dataset.diff);
+            }
+        });
+        
+        document.getElementById('btn-back-menu').addEventListener('click', () => {
+            document.getElementById('game-screen').classList.remove('active');
+            document.getElementById('start-screen').classList.add('active');
+        });
+        
+        document.getElementById('btn-hint').addEventListener('click', showHint);
+        document.getElementById('btn-verify').addEventListener('click', verifyAnswer);
+        
+        document.getElementById('btn-next-puzzle').addEventListener('click', () => {
+            document.getElementById('result-modal').classList.remove('active');
+            startNewGame(currentDiff);
+        });
+    </script>
+</body>
+</html>
