@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>成语填字 - 十字解谜</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 10px;
+        }
+        
+        .container {
+            background: rgba(15, 23, 42, 0.95);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            max-width: 95vw;
+            width: 100%;
+            max-width: 600px;
+        }
+        
+        h1 {
+            color: #f1f5f9;
+            text-align: center;
+            margin-bottom: 8px;
+            font-size: 28px;
+        }
+        
+        .subtitle {
+            color: #94a3b8;
+            text-align: center;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+        
+        .screen {
+            display: none;
+        }
+        
+        .screen.active {
+            display: block;
+        }
+        
+        /* 关卡选择 */
+        .level-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        
+        .level-item {
+            background: rgba(30, 41, 59, 0.8);
+            border: 2px solid #475569;
+            border-radius: 12px;
+            padding: 16px 12px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .level-item:hover {
+            border-color: #3b82f6;
+            transform: translateY(-2px);
+        }
+        
+        .level-item.completed {
+            background: rgba(34, 197, 94, 0.2);
+            border-color: #22c55e;
+        }
+        
+        .level-item.locked {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .level-number {
+            color: #f1f5f9;
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        
+        .level-difficulty {
+            color: #94a3b8;
+            font-size: 12px;
+        }
+        
+        .checkmark {
+            color: #22c55e;
+            font-size: 16px;
+            margin-top: 4px;
+        }
+        
+        .daily-challenge {
+            background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+            border-radius: 12px;
+            padding: 16px;
+            text-align: center;
+            margin-bottom: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .daily-challenge:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(139, 92, 246, 0.4);
+        }
+        
+        .daily-title {
+            color: white;
+            font-size: 16px;
+            font-weight: 600;
+        }
+        
+        .daily-date {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 12px;
+            margin-top: 4px;
+        }
+        
+        /* 游戏区域 */
+        .game-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        
+        .btn-back {
+            background: #475569;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        
+        .btn-back:hover {
+            background: #64748b;
+        }
+        
+        .level-title {
+            color: #f1f5f9;
+            font-size: 16px;
+            font-weight: 600;
+        }
+        
+        .grid-container {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 16px;
+        }
+        
+        .crossword-grid {
+            border-collapse: collapse;
+            border-spacing: 0;
+        }
+        
+        .grid-cell {
+            width: 40px;
+            height: 40px;
+            border: 2px solid #475569;
+            background: rgba(30, 41, 59, 0.8);
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .grid-cell.empty {
+            background: transparent;
+            border: none;
+            cursor: default;
+        }
+        
+        .grid-cell.selected {
+            background: rgba(59, 130, 246, 0.5);
+            border-color: #3b82f6;
+        }
+        
+        .grid-cell.filled {
+            background: rgba(16, 185, 129, 0.3);
+            border-color: #10b981;
+        }
+        
+        .grid-cell.pre-filled {
+            background: rgba(148, 163, 184, 0.3);
+            border-color: #94a3b8;
+        }
+        
+        .grid-cell.correct {
+            background: rgba(34, 197, 94, 0.4);
+            border-color: #22c55e;
+        }
+        
+        .cell-char {
+            font-size: 20px;
+            font-weight: 600;
+            color: #f1f5f9;
+            line-height: 36px;
+        }
+        
+        .grid-cell.pre-filled .cell-char {
+            color: #e2e8f0;
+        }
+        
+        /* 键盘 */
+        .keyboard {
+            display: grid;
+            grid-template-columns: repeat(10, 1fr);
+            gap: 6px;
+            margin-bottom: 16px;
+        }
+        
+        .keyboard-key {
+            aspect-ratio: 1;
+            background: #475569;
+            border: none;
+            border-radius: 6px;
+            color: white;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .keyboard-key:hover {
+            background: #64748b;
+        }
+        
+        .keyboard-key:active {
+            background: #3b82f6;
+            transform: scale(0.95);
+        }
+        
+        .keyboard-key.wide {
+            grid-column: span 2;
+            aspect-ratio: auto;
+        }
+        
+        /* 控制按钮 */
+        .controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            padding: 10px 16px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(59, 130, 246, 0.4);
+        }
+        
+        .btn-secondary {
+            background: linear-gradient(135deg, #475569 0%, #334155 100%);
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(71, 85, 105, 0.4);
+        }
+        
+        .btn-success {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+        }
+        
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(16, 185, 129, 0.4);
+        }
+        
+        /* 胜利弹窗 */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+        
+        .modal.active {
+            display: flex;
+        }
+        
+        .modal-content {
+            background: #1e293b;
+            border-radius: 20px;
+            padding: 30px;
+            text-align: center;
+            max-width: 90vw;
+            width: 400px;
+        }
+        
+        .modal-title {
+            color: #f1f5f9;
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+        
+        .modal-message {
+            color: #94a3b8;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+        
+        @media (max-width: 600px) {
+            .grid-cell {
+                width: 36px;
+                height: 36px;
+            }
+            .cell-char {
+                font-size: 18px;
+                line-height: 32px;
+            }
+            .keyboard {
+                gap: 4px;
+            }
+            .keyboard-key {
+                font-size: 14px;
+            }
+            .container {
+                padding: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 首页/关卡选择 -->
+        <div id="level-select-screen" class="screen active">
+            <h1>📝 成语填字</h1>
+            <p class="subtitle">横竖连成成语，益智解谜，寓教于乐</p>
+            
+            <div id="daily-challenge" class="daily-challenge">
+                <div class="daily-title">📅 每日挑战</div>
+                <div class="daily-date" id="daily-date"></div>
+            </div>
+            
+            <div class="level-grid" id="level-grid">
+                <!-- 动态生成 -->
+            </div>
+        </div>
+
+        <!-- 游戏界面 -->
+        <div id="game-screen" class="screen">
+            <div class="game-header">
+                <button class="btn-back" id="btn-back">← 返回</button>
+                <div class="level-title" id="current-level-title"></div>
+                <div></div>
+            </div>
+            
+            <div class="grid-container">
+                <table class="crossword-grid" id="crossword-grid"></table>
+            </div>
+            
+            <div class="keyboard" id="virtual-keyboard">
+                <!-- 动态生成 -->
+            </div>
+            
+            <div class="controls">
+                <button class="btn btn-secondary" id="btn-hint">💡 提示</button>
+                <button class="btn btn-secondary" id="btn-clear">🗑️ 清空</button>
+                <button class="btn btn-success" id="btn-verify">✅ 验证</button>
+            </div>
+        </div>
+
+        <!-- 胜利弹窗 -->
+        <div id="victory-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-title">🎉 恭喜过关！</div>
+                <div class="modal-message" id="victory-message"></div>
+                <div class="controls">
+                    <button class="btn btn-primary" id="btn-close-victory">继续</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 成语数据库 - 常用四字成语
+        const IDIOM_LIST = [
+            "一举两得", "一分为二", "三言两语", "四面八方", "五光十色", "六神无主", "七上八下", "八面玲珑",
+            "九牛一毛", "十全十美", "百发百中", "千方百计", "千山万水", "天长地久", "日新月异", "山高水长",
+            "风花雪月", "春夏秋冬", "金木水火", "喜怒哀乐", "东南西北", "梅兰竹菊", "琴棋书画", "柴米油盐",
+            "一心一意", "三三两两", "浩浩荡荡", "郁郁葱葱", "干干净净", "整整齐齐", "明明白白", "清清楚楚",
+            "安居乐业", "津津有味", "迫不及待", "不由自主", "情不自禁", "再接再厉", "马到成功", "一帆风顺",
+            "万事如意", "恭喜发财", "财源滚滚", "恭喜发财", "五福临门", "六六大顺", "七星高照", "八方来财",
+            "九九归一", "十全十美", "春暖花开", "夏日炎炎", "秋高气爽", "冬雪皑皑", "鸟语花香", "山清水秀",
+            "蓝天白云", "青山绿水", "风和日丽", "云淡风轻", "花好月圆", "天高地厚", "海阔天空", "电闪雷鸣"
+        ];
+
+        // 常用汉字列表用于键盘
+        const COMMON_CHARS = [
+            '一','二','三','四','五','六','七','八','九','十',
+            '百','千','万','亿','天','地','人','生','日','月',
+            '山','水','风','云','雨','雪','花','草','木','林',
+            '春','夏','秋','冬','东','南','西','北','金','木',
+            '水','火','土','红','绿','黄','蓝','白','黑','大',
+            '小','高','低','长','短','远','近','快','慢','上',
+            '下','左','右','前','后','中','心','手','足','口',
+            '耳','目','头','身','心','手','足','面','背','心'
+        ];
+
+        // 关卡定义
+        const LEVELS = [
+            {
+                id: 1,
+                name: "入门九宫格",
+                difficulty: "简单",
+                grid: [
+                    [null, null, null],
+                    [null, "一", null],
+                    [null, null, null]
+                ],
+                solution: [
+                    ["举", "一", "举"],
+                    ["两", "一", "两"],
+                    ["得", "得", "得"]
+                ],
+                preFilled: [
+                    [false, true, false],
+                    [false, true, false],
+                    [false, true, false]
+                ]
+            },
+            {
+                id: 2,
+                name: "四通八达",
+                difficulty: "简单",
+                grid: [
+                    [null, null, null, null],
+                    [null, "四", "八", null],
+                    [null, null, null, null]
+                ],
+                solution: [
+                    ["四", "通", "八", "达"],
+                    ["四", "四", "八", "八"],
+                    ["达", "通", "达", "达"]
+                ],
+                preFilled: [
+                    [false, true, true, false],
+                    [false, true, true, false],
+                    [false, false, false, false]
+                ]
+            },
+            {
+                id: 3,
+                name: "七上八下",
+                difficulty: "简单",
+                grid: [
+                    [null, "七", null],
+                    [null, " ", null],
+                    [null, "八", null]
+                ],
+                solution: [
+                    ["三", "七", "六"],
+                    ["上", " ", "下"],
+                    "五", "八", "六"
+                ],
+                preFilled: [
+                    [false, true, false],
+                    [false, false, false],
+                    [false, true, false]
+                ]
+            },
+            {
+                id: 4,
+                name: "五颜六色",
+                difficulty: "中等",
+                grid: [
+                    [null, null, null, null, null],
+                    [null, null, null, null, null],
+                    [null, "五", "颜", "六", null],
+                    [null, null, null, null, null],
+                    [null, null, null, null, null]
+                ],
+                solution: null, // 会动态生成
+                preFilled: null
+            }
+        ];
+
+        // 游戏状态
+        let currentLevel = null;
+        let selectedCell = null;
+        let gameGrid = [];
+        let completedLevels = JSON.parse(localStorage.getItem('idiom-crossword-completed') || '[]');
+        
+        // 获取今天日期字符串
+        function getTodayString() {
+            const today = new Date();
+            return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+        }
+
+        // 检查关卡是否完成
+        function isLevelCompleted(levelId) {
+            return completedLevels.includes(levelId);
+        }
+
+        // 标记关卡完成
+        function markLevelCompleted(levelId) {
+            if (!completedLevels.includes(levelId)) {
+                completedLevels.push(levelId);
+                localStorage.setItem('idiom-crossword-completed', JSON.stringify(completedLevels));
+            }
+        }
+
+        // 初始化关卡选择界面
+        function initLevelSelect() {
+            const levelGrid = document.getElementById('level-grid');
+            levelGrid.innerHTML = '';
+            
+            LEVELS.forEach(level => {
+                const completed = isLevelCompleted(level.id);
+                const locked = level.id > 1 && !isLevelCompleted(level.id - 1);
+                
+                const div = document.createElement('div');
+                div.className = `level-item ${completed ? 'completed' : ''} ${locked ? 'locked' : ''}`;
+                div.innerHTML = `
+                    <div class="level-number">${level.id}</div>
+                    <div class="level-difficulty">${level.name}</div>
+                    ${completed ? '<div class="checkmark">✓</div>' : ''}
+                `;
+                
+                if (!locked) {
+                    div.addEventListener('click', () => startLevel(level));
+                }
+                
+                levelGrid.appendChild(div);
+            });
+            
+            // 每日挑战
+            const todayStr = getTodayString();
+            document.getElementById('daily-date').textContent = todayStr;
+            document.getElementById('daily-challenge').addEventListener('click', startDailyChallenge);
+        }
+
+        // 生成每日挑战
+        function startDailyChallenge() {
+            // 基于日期生成随机关卡
+            const today = new Date();
+            const seed = today.getFullYear() * 10000 + (today.getMonth() + 1) * 100 + today.getDate();
+            const random = seededRandom(seed);
+            
+            // 创建 4x4 随机关卡
+            const grid = Array(4).fill(null).map(() => Array(4).fill(null));
+            const solution = Array(4).fill(null).map(() => Array(4).fill(null));
+            const preFilled = Array(4).fill(null).map(() => Array(4).fill(false));
+            
+            // 随机选两个交叉成语
+            const idx1 = Math.floor(random() * IDIOM_LIST.length);
+            const idx2 = Math.floor(random() * IDIOM_LIST.length);
+            const idiom1 = IDIOM_LIST[idx1];
+            const idiom2 = IDIOM_LIST[idx2];
+            
+            const crossPos = Math.floor(random() * 4);
+            const crossRow = Math.floor(random() * 4);
+            
+            // 横向成语
+            for (let i = 0; i < 4; i++) {
+                solution[crossRow][i] = idiom1[i];
+                grid[crossRow][i] = '';
+            }
+            
+            // 纵向成语
+            for (let i = 0; i < 4; i++) {
+                solution[i][crossPos] = idiom2[i];
+                grid[i][crossPos] = '';
+            }
+            
+            // 预设几个字
+            preFilled[crossRow][0] = true;
+            grid[crossRow][0] = idiom1[0];
+            preFilled[0][crossPos] = true;
+            grid[0][crossPos] = idiom2[0];
+            
+            const level = {
+                id: 'daily',
+                name: '每日挑战 ' + getTodayString(),
+                difficulty: '随机',
+                grid: grid,
+                solution: solution,
+                preFilled: preFilled
+            };
+            
+            startLevel(level);
+        }
+
+        //  seeded random
+        function seededRandom(seed) {
+            let current = seed;
+            return function() {
+                current = (current * 16807) % 2147483647;
+                return (current - 1) / 2147483646;
+            };
+        }
+
+        // 开始关卡
+        function startLevel(level) {
+            currentLevel = level;
+            selectedCell = null;
+            
+            // 初始化游戏网格
+            const size = level.grid.length;
+            gameGrid = JSON.parse(JSON.stringify(level.grid));
+            
+            // 填充预设文字
+            for (let row = 0; row < size; row++) {
+                for (let col = 0; col < size; col++) {
+                    if (level.preFilled[row][col]) {
+                        gameGrid[row][col] = level.solution[row][col];
+                    } else if (gameGrid[row][col] === null) {
+                        gameGrid[row][col] = null;
+                    } else {
+                        gameGrid[row][col] = '';
+                    }
+                }
+            }
+            
+            document.getElementById('current-level-title').textContent = level.name;
+            renderGrid();
+            renderKeyboard();
+            
+            document.getElementById('level-select-screen').classList.remove('active');
+            document.getElementById('game-screen').classList.add('active');
+        }
+
+        // 渲染网格
+        function renderGrid() {
+            const table = document.getElementById('crossword-grid');
+            table.innerHTML = '';
+            
+            const size = gameGrid.length;
+            
+            for (let row = 0; row < size; row++) {
+                const tr = document.createElement('tr');
+                for (let col = 0; col < size; col++) {
+                    const td = document.createElement('td');
+                    td.className = 'grid-cell';
+                    
+                    if (gameGrid[row][col] === null) {
+                        td.classList.add('empty');
+                    } else {
+                        const isPreFilled = currentLevel.preFilled && currentLevel.preFilled[row][col];
+                        const isFilled = gameGrid[row][col] && gameGrid[row][col].length > 0;
+                        const isSelected = selectedCell && selectedCell.row === row && selectedCell.col === col;
+                        
+                        if (isPreFilled) {
+                            td.classList.add('pre-filled');
+                        } else if (isFilled) {
+                            td.classList.add('filled');
+                        }
+                        if (isSelected) {
+                            td.classList.add('selected');
+                        }
+                        
+                        td.innerHTML = `<div class="cell-char">${gameGrid[row][col] || ''}</div>`;
+                        
+                        if (!isPreFilled && gameGrid[row][col] !== null) {
+                            td.addEventListener('click', () => {
+                                selectedCell = {row, col};
+                                renderGrid();
+                            });
+                        }
+                    }
+                    
+                    tr.appendChild(td);
+                }
+                table.appendChild(tr);
+            }
+        }
+
+        // 渲染虚拟键盘
+        function renderKeyboard() {
+            const keyboard = document.getElementById('virtual-keyboard');
+            keyboard.innerHTML = '';
+            
+            COMMON_CHARS.forEach(char => {
+                const button = document.createElement('button');
+                button.className = 'keyboard-key';
+                button.textContent = char;
+                button.addEventListener('click', () => {
+                    inputChar(char);
+                });
+                keyboard.appendChild(button);
+            });
+            
+            // 退格键
+            const backspace = document.createElement('button');
+            backspace.className = 'keyboard-key wide';
+            backspace.textContent = '←';
+            backspace.addEventListener('click', deleteChar);
+            keyboard.appendChild(backspace);
+        }
+
+        // 输入字符
+        function inputChar(char) {
+            if (!selectedCell) return;
+            
+            const {row, col} = selectedCell;
+            if (currentLevel.preFilled && currentLevel.preFilled[row][col]) return;
+            if (gameGrid[row][col] === null) return;
+            
+            gameGrid[row][col] = char;
+            renderGrid();
+        }
+
+        // 删除字符
+        function deleteChar() {
+            if (!selectedCell) return;
+            
+            const {row, col} = selectedCell;
+            if (currentLevel.preFilled && currentLevel.preFilled[row][col]) return;
+            if (gameGrid[row][col] === null) return;
+            
+            gameGrid[row][col] = '';
+            renderGrid();
+        }
+
+        // 验证答案
+        function verifyAnswer() {
+            const size = gameGrid.length;
+            let allCorrect = true;
+            let errorCount = 0;
+            
+            // 检查每个填写的格子
+            for (let row = 0; row < size; row++) {
+                for (let col = 0; col < size; col++) {
+                    if (gameGrid[row][col] === null) continue;
+                    if (currentLevel.preFilled && currentLevel.preFilled[row][col]) continue;
+                    
+                    const correctChar = currentLevel.solution[row][col];
+                    const userChar = gameGrid[row][col];
+                    
+                    if (!userChar || userChar !== correctChar) {
+                        allCorrect = false;
+                        errorCount++;
+                    }
+                }
+            }
+            
+            if (allCorrect) {
+                // 胜利
+                if (typeof currentLevel.id === 'number') {
+                    markLevelCompleted(currentLevel.id);
+                }
+                showVictory();
+            } else {
+                alert(`还有 ${errorCount} 处不正确，请再检查一下！`);
+            }
+        }
+
+        // 显示胜利弹窗
+        function showVictory() {
+            const modal = document.getElementById('victory-modal');
+            const message = document.getElementById('victory-message');
+            
+            if (currentLevel.id === 'daily') {
+                message.textContent = '你完成了今日挑战！太棒了！';
+            } else {
+                message.textContent = `恭喜你完成「${currentLevel.name}」，继续挑战下一关吧！`;
+            }
+            
+            modal.classList.add('active');
+        }
+
+        // 使用提示
+        function useHint() {
+            // 找第一个空的不对的格子填上正确答案
+            const size = gameGrid.length;
+            for (let row = 0; row < size; row++) {
+                for (let col = 0; col < size; col++) {
+                    if (gameGrid[row][col] === null) continue;
+                    if (currentLevel.preFilled && currentLevel.preFilled[row][col]) continue;
+                    
+                    const correct = currentLevel.solution[row][col];
+                    const current = gameGrid[row][col];
+                    
+                    if (!current || current !== correct) {
+                        gameGrid[row][col] = correct;
+                        selectedCell = {row, col};
+                        renderGrid();
+                        return;
+                    }
+                }
+            }
+            
+            alert('已经全部正确了哦！点击验证过关吧！');
+        }
+
+        // 清空当前填写
+        function clearAll() {
+            const size = gameGrid.length;
+            for (let row = 0; row < size; row++) {
+                for (let col = 0; col < size; col++) {
+                    if (gameGrid[row][col] === null) continue;
+                    if (currentLevel.preFilled && currentLevel.preFilled[row][col]) continue;
+                    
+                    gameGrid[row][col] = '';
+                }
+            }
+            renderGrid();
+        }
+
+        // 绑定事件
+        document.getElementById('btn-back').addEventListener('click', () => {
+            document.getElementById('game-screen').classList.remove('active');
+            document.getElementById('level-select-screen').classList.add('active');
+            initLevelSelect();
+        });
+        
+        document.getElementById('btn-verify').addEventListener('click', verifyAnswer);
+        document.getElementById('btn-hint').addEventListener('click', useHint);
+        document.getElementById('btn-clear').addEventListener('click', clearAll);
+        document.getElementById('btn-close-victory').addEventListener('click', () => {
+            document.getElementById('victory-modal').classList.remove('active');
+            if (currentLevel.id !== 'daily' && currentLevel.id < LEVELS.length && !isLevelCompleted(currentLevel.id + 1)) {
+                document.getElementById('btn-back').click();
+            }
+        });
+
+        // 物理键盘支持
+        document.addEventListener('keydown', (e) => {
+            if (!selectedCell) return;
+            
+            const key = e.key;
+            if (key.length === 1 && /[\u4e00-\u9fa5]/.test(key)) {
+                // 中文字符
+                inputChar(key);
+            } else if (key === 'Backspace') {
+                deleteChar();
+            } else if (key === 'Enter') {
+                verifyAnswer();
+            }
+        });
+
+        // 初始化
+        initLevelSelect();
+    </script>
+</body>
+</html>
