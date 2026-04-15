@@ -1,0 +1,1006 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>迷宫寻宝 - 炸弹扫雷</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 10px;
+        }
+        
+        .container {
+            background: rgba(15, 23, 42, 0.95);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            max-width: 95vw;
+            width: 100%;
+            max-width: 650px;
+        }
+        
+        h1 {
+            color: #f1f5f9;
+            text-align: center;
+            margin-bottom: 8px;
+            font-size: 28px;
+        }
+        
+        .subtitle {
+            color: #94a3b8;
+            text-align: center;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+        
+        .screen {
+            display: none;
+        }
+        
+        .screen.active {
+            display: block;
+        }
+        
+        /* 难度选择 */
+        .difficulty-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        
+        .diff-item {
+            background: rgba(30, 41, 59, 0.8);
+            border: 2px solid #475569;
+            border-radius: 12px;
+            padding: 20px 16px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .diff-item:hover {
+            border-color: #3b82f6;
+            transform: translateY(-2px);
+        }
+        
+        .diff-item.selected {
+            border-color: #10b981;
+            background: rgba(16, 185, 129, 0.2);
+        }
+        
+        .diff-size {
+            color: #f1f5f9;
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        
+        .diff-name {
+            color: #94a3b8;
+            font-size: 12px;
+        }
+        
+        .diff-info {
+            color: #64748b;
+            font-size: 11px;
+            margin-top: 4px;
+        }
+        
+        .tutorial-card {
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid #3b82f6;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 20px;
+        }
+        
+        .tutorial-title {
+            color: #3b82f6;
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        
+        .tutorial-text {
+            color: #94a3b8;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+        
+        .btn-start {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .btn-start:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(16, 185, 129, 0.4);
+        }
+        
+        .btn-start:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        /* 游戏界面 */
+        .game-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        
+        .btn-back {
+            background: #475569;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        
+        .btn-back:hover {
+            background: #64748b;
+        }
+        
+        .stats {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+        
+        .stat-item {
+            flex: 1;
+            background: rgba(30, 41, 59, 0.8);
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .stat-label {
+            color: #94a3b8;
+            font-size: 12px;
+            margin-bottom: 4px;
+        }
+        
+        .stat-value {
+            color: #f1f5f9;
+            font-size: 20px;
+            font-weight: 600;
+        }
+        
+        /* Canvas */
+        .canvas-container {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 16px;
+        }
+        
+        #game-canvas {
+            border-radius: 8px;
+            background: #020617;
+            display: block;
+        }
+        
+        /* 提示 */
+        .hint-box {
+            background: rgba(30, 41, 59, 0.8);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 16px;
+            text-align: center;
+            color: #94a3b8;
+            font-size: 13px;
+        }
+        
+        /* 控制按钮 */
+        .controls {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .btn {
+            flex: 1;
+            padding: 12px 16px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+        
+        .btn-secondary {
+            background: linear-gradient(135deg, #475569 0%, #334155 100%);
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(71, 85, 105, 0.4);
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(59, 130, 246, 0.4);
+        }
+        
+        /* 胜利/失败弹窗 */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+        
+        .modal.active {
+            display: flex;
+        }
+        
+        .modal-content {
+            background: #1e293b;
+            border-radius: 20px;
+            padding: 30px;
+            text-align: center;
+            max-width: 90vw;
+            width: 400px;
+        }
+        
+        .modal-title {
+            color: #f1f5f9;
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+        
+        .modal-message {
+            color: #94a3b8;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+        
+        .best-record {
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid #10b981;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 20px;
+            color: #10b981;
+            font-size: 14px;
+        }
+        
+        .cell-num-1 { color: #3b82f6; }
+        .cell-num-2 { color: #10b981; }
+        .cell-num-3 { color: #ef4444; }
+        .cell-num-4 { color: #1e40af; }
+        .cell-num-5 { color: #7c2d12; }
+        .cell-num-6 { color: #0d9488; }
+        .cell-num-7 { color: #0f172a; }
+        .cell-num-8 { color: #64748b; }
+        
+        @media (max-width: 600px) {
+            .difficulty-grid {
+                grid-template-columns: 1fr;
+            }
+            .container {
+                padding: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 首页/难度选择 -->
+        <div id="start-screen" class="screen active">
+            <h1>🗺️ 迷宫寻宝</h1>
+            <p class="subtitle">结合迷宫探索和扫雷推理，找到宝藏避开炸弹</p>
+            
+            <div class="tutorial-card">
+                <div class="tutorial-title">📖 游戏规则</div>
+                <div class="tutorial-text">
+                    在迷宫中探索寻找宝箱，部分格子隐藏着炸弹💣<br>
+                    每个打开的格子会显示周围有几颗炸弹，根据数字推理<br>
+                    <strong>左键/点击</strong> 打开格子，<strong>右键/长按</strong> 标记炸弹<br>
+                    找到宝箱就算胜利，踩到炸弹游戏结束！
+                </div>
+            </div>
+            
+            <div class="difficulty-grid">
+                <div class="diff-item" data-diff="easy">
+                    <div class="diff-size">9 × 9</div>
+                    <div class="diff-name">简单</div>
+                    <div class="diff-info">10 颗炸弹</div>
+                </div>
+                <div class="diff-item" data-diff="medium">
+                    <div class="diff-size">15 × 15</div>
+                    <div class="diff-name">中等</div>
+                    <div class="diff-info">40 颗炸弹</div>
+                </div>
+                <div class="diff-item" data-diff="hard">
+                    <div class="diff-size">21 × 21</div>
+                    <div class="diff-name">困难</div>
+                    <div class="diff-info">80 颗炸弹</div>
+                </div>
+            </div>
+            
+            <button class="btn-start" id="btn-start-game" disabled>开始游戏</button>
+        </div>
+
+        <!-- 游戏界面 -->
+        <div id="game-screen" class="screen">
+            <div class="game-header">
+                <button class="btn-back" id="btn-back-menu">← 返回</button>
+                <div></div>
+            </div>
+            
+            <div class="stats">
+                <div class="stat-item">
+                    <div class="stat-label">剩余炸弹</div>
+                    <div class="stat-value" id="mines-left">0</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">用时</div>
+                    <div class="stat-value" id="time-elapsed">0s</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">最佳</div>
+                    <div class="stat-value" id="best-time">--</div>
+                </div>
+            </div>
+            
+            <div class="canvas-container">
+                <canvas id="game-canvas"></canvas>
+            </div>
+            
+            <div class="hint-box">
+                💡 提示：点击打开格子，长按（右键）标记炸弹
+            </div>
+            
+            <div class="controls">
+                <button class="btn btn-secondary" id="btn-restart">重新开始</button>
+                <button class="btn btn-primary" id="btn-check">检查完成</button>
+            </div>
+        </div>
+
+        <!-- 结果弹窗 -->
+        <div id="result-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-title" id="result-title">🎉 恭喜找到了宝藏！</div>
+                <div class="modal-message" id="result-message"></div>
+                <div class="best-record" id="best-record" style="display: none;"></div>
+                <div class="controls">
+                    <button class="btn btn-primary" id="btn-new-game">新游戏</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 游戏配置
+        const DIFFICULTY = {
+            easy: { width: 9, height: 9, mines: 10 },
+            medium: { width: 15, height: 15, mines: 40 },
+            hard: { width: 21, height: 21, mines: 80 }
+        };
+        
+        // 单元格类型
+        const CELL = {
+            EMPTY: 0,      // 空地（可通行）
+            WALL: 1,        // 墙
+            MINE: 2,        // 炸弹
+            TREASURE: 3     // 宝藏
+        };
+        
+        // 单元格状态
+        const STATE = {
+            CLOSED: 0,      // 未打开
+            OPEN: 1,        // 已打开
+            FLAGGED: 2      // 标记炸弹
+        };
+        
+        // 颜色定义
+        const COLORS = {
+            wall: '#1e293b',
+            closed: '#334155',
+            open: '#64748b',
+            flagged: '#f59e0b',
+            mine: '#ef4444',
+            treasure: '#10b981',
+            line: '#0f172a'
+        };
+        
+        // 游戏状态
+        let currentDiff = null;
+        let grid = [];
+        let state = [];
+        let mineCount = 0;
+        let flaggedCount = 0;
+        let openedCount = 0;
+        let startTime = null;
+        let timerInterval = null;
+        let elapsedTime = 0;
+        let gameOver = false;
+        let gameWon = false;
+        let bestTimes = JSON.parse(localStorage.getItem('maze-treasure-best-times') || '{}');
+        let longPressTimer = null;
+        
+        // Canvas
+        const canvas = document.getElementById('game-canvas');
+        const ctx = canvas.getContext('2d');
+        let cellSize = 25;
+        
+        // 深度优先搜索生成迷宫
+        function generateMaze(width, height) {
+            // 保证宽高都是奇数
+            width = width % 2 === 0 ? width - 1 : width;
+            height = height % 2 === 0 ? height - 1 : height;
+            
+            // 初始化网格：奇数格是墙，偶数格是待打通的通道
+            const grid = Array(height).fill(null).map(() => Array(width).fill(CELL.WALL));
+            
+            // 深度优先搜索生成迷宫
+            function carve(x, y, visited) {
+                visited[y * width + x] = true;
+                grid[y][x] = CELL.EMPTY;
+                
+                // 随机方向
+                const directions = [[0, 2], [2, 0], [0, -2], [-2, 0]];
+                directions.sort(() => Math.random() - 0.5);
+                
+                for (const [dx, dy] of directions) {
+                    const nx = x + dx;
+                    const ny = y + dy;
+                    if (nx >= 0 && nx < width && ny >= 0 && ny < height && !visited[ny * width + nx]) {
+                        // 打通中间的墙
+                        grid[y + dy/2][x + dx/2] = CELL.EMPTY;
+                        carve(nx, ny, visited);
+                    }
+                }
+            }
+            
+            const visited = new Array(width * height).fill(false);
+            // 从左上角开始
+            carve(0, 0, visited);
+            
+            // 找一个最远的空位放宝藏
+            let maxDist = 0;
+            let treasurePos = {x: width - 1 - (width % 2 === 0 ? 1 : 0), y: height - 1 - (height % 2 === 0 ? 1 : 0)};
+            
+            // BFS找最远点
+            const queue = [{x: 0, y: 0, dist: 0}];
+            const distVisited = Array(height).fill(null).map(() => Array(width).fill(-1));
+            distVisited[0][0] = 0;
+            const dirs = [[0, 1], [1, 0], [0, -1], [-1, 0]];
+            
+            while (queue.length > 0) {
+                const {x, y, dist} = queue.shift();
+                if (dist > maxDist && grid[y][x] === CELL.EMPTY) {
+                    maxDist = dist;
+                    treasurePos = {x, y};
+                }
+                for (const [dx, dy] of dirs) {
+                    const nx = x + dx;
+                    const ny = y + dy;
+                    if (nx >= 0 && nx < width && ny >= 0 && ny < height && 
+                        grid[ny][nx] === CELL.EMPTY && distVisited[ny][nx] < 0) {
+                        distVisited[ny][nx] = dist + 1;
+                        queue.push({x: nx, y: ny, dist: dist + 1});
+                    }
+                }
+            }
+            
+            grid[treasurePos.y][treasurePos.x] = CELL.TREASURE;
+            
+            return {grid, start: {x: 0, y: 0}, treasure: treasurePos, width, height};
+        }
+        
+        // 放置炸弹
+        function placeMines(grid, mineCount, excludeX, excludeY) {
+            const height = grid.length;
+            const width = grid[0].length;
+            const emptyCells = [];
+            
+            // 收集所有空地
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    if (grid[y][x] === CELL.EMPTY && !(x === excludeX && y === excludeY)) {
+                        emptyCells.push({x, y});
+                    }
+                }
+            }
+            
+            //  Fisher-Yates 洗牌
+            for (let i = emptyCells.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [emptyCells[i], emptyCells[j]] = [emptyCells[j], emptyCells[i]];
+            }
+            
+            // 放置炸弹
+            const placeCount = Math.min(mineCount, emptyCells.length);
+            for (let i = 0; i < placeCount; i++) {
+                const {x, y} = emptyCells[i];
+                grid[y][x] = CELL.MINE;
+            }
+            
+            return placeCount;
+        }
+        
+        // 计算每个格子周围炸弹数
+        function calculateAdjacentMines(grid) {
+            const height = grid.length;
+            const width = grid[0].length;
+            const adjacent = Array(height).fill(null).map(() => Array(width).fill(0));
+            
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    let count = 0;
+                    for (let dy = -1; dy <= 1; dy++) {
+                        for (let dx = -1; dx <= 1; dx++) {
+                            if (dy === 0 && dx === 0) continue;
+                            const ny = y + dy;
+                            const nx = x + dx;
+                            if (ny >= 0 && ny < height && nx >= 0 && nx < width) {
+                                if (grid[ny][nx] === CELL.MINE) {
+                                    count++;
+                                }
+                            }
+                        }
+                    }
+                    adjacent[y][x] = count;
+                }
+            }
+            
+            return adjacent;
+        }
+        
+        // 开始新游戏
+        function startGame(diffKey) {
+            const config = DIFFICULTY[diffKey];
+            currentDiff = diffKey;
+            
+            // 调整canvas大小
+            const maxSize = Math.min(600, window.innerWidth - 40);
+            cellSize = Math.floor(maxSize / Math.max(config.width, config.height));
+            canvas.width = config.width * cellSize;
+            canvas.height = config.height * cellSize;
+            
+            // 生成迷宫
+            const mazeResult = generateMaze(config.width, config.height);
+            grid = mazeResult.grid;
+            const actualWidth = mazeResult.width;
+            const actualHeight = mazeResult.height;
+            
+            // 放置炸弹，排除起点
+            mineCount = placeMines(grid, config.mines, mazeResult.start.x, mazeResult.start.y);
+            
+            // 计算相邻炸弹数
+            window.adjacentMines = calculateAdjacentMines(grid);
+            
+            // 初始化状态
+            const height = grid.length;
+            const width = grid[0].length;
+            state = Array(height).fill(null).map(() => Array(width).fill(STATE.CLOSED));
+            flaggedCount = 0;
+            openedCount = 0;
+            gameOver = false;
+            gameWon = false;
+            elapsedTime = 0;
+            
+            // 打开起点
+            openCell(mazeResult.start.x, mazeResult.start.y);
+            
+            // 更新UI
+            updateStats();
+            render();
+            startTimer();
+            
+            document.getElementById('start-screen').classList.remove('active');
+            document.getElementById('game-screen').classList.add('active');
+            
+            // 显示最佳时间
+            const best = bestTimes[diffKey];
+            document.getElementById('best-time').textContent = best ? `${best}s` : '--';
+        }
+        
+        // 打开单元格
+        function openCell(x, y) {
+            if (state[y][x] !== STATE.CLOSED) return;
+            if (gameOver || gameWon) return;
+            
+            if (state[y][x] === STATE.FLAGGED) return;
+            
+            state[y][x] = STATE.OPEN;
+            openedCount++;
+            
+            const cell = grid[y][x];
+            
+            if (cell === CELL.MINE) {
+                // 踩到炸弹，游戏结束
+                gameOver = true;
+                stopTimer();
+                showResult(false);
+                return;
+            }
+            
+            if (cell === CELL.TREASURE) {
+                // 找到宝藏，检查是否胜利
+                checkWin();
+                return;
+            }
+            
+            // 如果周围没有炸弹，自动打开相邻
+            if (window.adjacentMines[y][x] === 0) {
+                for (let dy = -1; dy <= 1; dy++) {
+                    for (let dx = -1; dx <= 1; dx++) {
+                        if (dy === 0 && dx === 0) continue;
+                        const ny = y + dy;
+                        const nx = x + dx;
+                        if (ny >= 0 && ny < grid.length && nx >= 0 && nx < grid[0].length) {
+                            if (grid[ny][nx] !== CELL.WALL && state[ny][nx] === STATE.CLOSED) {
+                                openCell(nx, ny);
+                            }
+                        }
+                    }
+                }
+            }
+            
+            updateStats();
+        }
+        
+        // 标记/取消标记炸弹
+        function toggleFlag(x, y) {
+            if (state[y][x] === STATE.OPEN || gameOver || gameWon) return;
+            
+            if (state[y][x] === STATE.CLOSED) {
+                state[y][x] = STATE.FLAGGED;
+                flaggedCount++;
+            } else if (state[y][x] === STATE.FLAGGED) {
+                state[y][x] = STATE.CLOSED;
+                flaggedCount--;
+            }
+            
+            updateStats();
+            render();
+        }
+        
+        // 检查是否胜利
+        function checkWin() {
+            // 胜利条件：宝藏已经被打开，所有非炸弹格子都被打开
+            
+            let totalNonMine = 0;
+            let openedNonMine = 0;
+            
+            for (let y = 0; y < grid.length; y++) {
+                for (let x = 0; x < grid[0].length; x++) {
+                    if (grid[y][x] !== CELL.MINE && grid[y][x] !== CELL.WALL) {
+                        totalNonMine++;
+                        if (state[y][x] === STATE.OPEN) {
+                            openedNonMine++;
+                        }
+                    }
+                }
+            }
+            
+            if (openedNonMine === totalNonMine) {
+                gameWon = true;
+                stopTimer();
+                showResult(true);
+            } else {
+                alert(`还有 ${totalNonMine - openedNonMine} 个格子没打开，请继续探索！`);
+            }
+        }
+        
+        // 渲染
+        function render() {
+            const height = grid.length;
+            const width = grid[0].length;
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // 绘制网格
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    const px = x * cellSize;
+                    const py = y * cellSize;
+                    
+                    // 边框
+                    ctx.strokeStyle = COLORS.line;
+                    ctx.lineWidth = 1;
+                    
+                    const cellType = grid[y][x];
+                    const cellState = state[y][x];
+                    
+                    let fillColor;
+                    
+                    if (cellState === STATE.CLOSED) {
+                        fillColor = COLORS.closed;
+                    } else if (cellState === STATE.OPEN) {
+                        fillColor = COLORS.open;
+                    } else if (cellState === STATE.FLAGGED) {
+                        fillColor = COLORS.flagged;
+                    }
+                    
+                    if (cellType === CELL.WALL) {
+                        fillColor = COLORS.wall;
+                    }
+                    
+                    if (gameOver && cellType === CELL.MINE && cellState !== STATE.FLAGGED) {
+                        fillColor = COLORS.mine;
+                    }
+                    
+                    if (cellType === CELL.TREASURE && cellState === STATE.OPEN) {
+                        fillColor = COLORS.treasure;
+                    }
+                    
+                    ctx.fillStyle = fillColor;
+                    ctx.fillRect(px, py, cellSize, cellSize);
+                    ctx.strokeRect(px, py, cellSize, cellSize);
+                    
+                    // 绘制内容
+                    if (cellState === STATE.OPEN || (gameOver && cellType === CELL.MINE)) {
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        const cx = px + cellSize / 2;
+                        const cy = py + cellSize / 2;
+                        
+                        if (cellType === CELL.MINE) {
+                            // 炸弹
+                            ctx.fillStyle = '#0f172a';
+                            ctx.font = `bold ${cellSize * 0.6}px Inter`;
+                            ctx.fillText('💣', cx, cy);
+                        } else if (cellType === CELL.TREASURE) {
+                            ctx.fillStyle = '#ffffff';
+                            ctx.font = `bold ${cellSize * 0.6}px Inter`;
+                            ctx.fillText('💎', cx, cy);
+                        } else if (cellType === CELL.EMPTY) {
+                            const count = window.adjacentMines[y][x];
+                            if (count > 0) {
+                                ctx.fillStyle = getNumberColor(count);
+                                ctx.font = `bold ${cellSize * 0.6}px Inter`;
+                                ctx.fillText(count.toString(), cx, cy);
+                            }
+                        }
+                    } else if (cellState === STATE.FLAGGED) {
+                        ctx.fillStyle = '#0f172a';
+                        ctx.font = `bold ${cellSize * 0.5}px Inter`;
+                        ctx.fillText('🚩', cx, cy);
+                    }
+                }
+            }
+        }
+        
+        // 获取数字颜色（经典扫雷配色）
+        function getNumberColor(count) {
+            const colors = [
+                '#3b82f6', // 1 - blue
+                '#10b981', // 2 - green
+                '#ef4444', // 3 - red
+                '#1e40af', // 4 - dark blue
+                '#7c2d12', // 5 - brown
+                '#0d9488', // 6 - cyan
+                '#0f172a', // 7 - black
+                '#64748b'  // 8 - gray
+            ];
+            return colors[count - 1] || '#000000';
+        }
+        
+        // 更新统计
+        function updateStats() {
+            document.getElementById('mines-left').textContent = mineCount - flaggedCount;
+            document.getElementById('time-elapsed').textContent = elapsedTime + 's';
+        }
+        
+        // 开始计时器
+        function startTimer() {
+            startTime = Date.now();
+            if (timerInterval) {
+                clearInterval(timerInterval);
+            }
+            timerInterval = setInterval(() => {
+                elapsedTime = Math.floor((Date.now() - startTime) / 1000);
+                document.getElementById('time-elapsed').textContent = elapsedTime + 's';
+            }, 1000);
+        }
+        
+        // 停止计时器
+        function stopTimer() {
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+        }
+        
+        // 显示结果弹窗
+        function showResult(won) {
+            const modal = document.getElementById('result-modal');
+            const title = document.getElementById('result-title');
+            const message = document.getElementById('result-message');
+            const bestDiv = document.getElementById('best-record');
+            
+            if (won) {
+                title.textContent = '🎉 恭喜找到了宝藏！';
+                title.style.color = '#10b981';
+                message.textContent = `你用了 ${elapsedTime} 秒找到了宝藏，太棒了！`;
+                
+                // 更新最佳记录
+                const oldBest = bestTimes[currentDiff];
+                if (!oldBest || elapsedTime < oldBest) {
+                    bestTimes[currentDiff] = elapsedTime;
+                    localStorage.setItem('maze-treasure-best-times', JSON.stringify(bestTimes));
+                    bestDiv.style.display = 'block';
+                    if (oldBest) {
+                        bestDiv.textContent = `🏆 新纪录！比之前的 ${oldBest}s 快了 ${oldBest - elapsedTime}s！`;
+                    } else {
+                        bestDiv.textContent = `🏆 这是你第一次挑战这个难度，创造了新纪录！`;
+                    }
+                } else {
+                    bestDiv.style.display = 'none';
+                }
+            } else {
+                title.textContent = '💥 踩到炸弹了！';
+                title.style.color = '#ef4444';
+                message.textContent = '游戏结束，再来一次吧！';
+                bestDiv.style.display = 'none';
+                // 翻开所有炸弹
+                revealAllMines();
+            }
+            
+            render();
+            modal.classList.add('active');
+        }
+        
+        // 翻开所有炸弹
+        function revealAllMines() {
+            for (let y = 0; y < grid.length; y++) {
+                for (let x = 0; x < grid[0].length; x++) {
+                    if (grid[y][x] === CELL.MINE && state[y][x] !== STATE.FLAGGED) {
+                        state[y][x] = STATE.OPEN;
+                    }
+                }
+            }
+        }
+        
+        // Canvas 点击
+        canvas.addEventListener('click', (e) => {
+            if (gameOver || gameWon) return;
+            
+            const rect = canvas.getBoundingClientRect();
+            const x = Math.floor((e.clientX - rect.left) / cellSize);
+            const y = Math.floor((e.clientY - rect.top) / cellSize);
+            
+            if (x >= 0 && x < grid[0].length && y >= 0 && y < grid.length) {
+                if (grid[y][x] !== CELL.WALL) {
+                    openCell(x, y);
+                    render();
+                }
+            }
+        });
+        
+        // 右键标记
+        canvas.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            if (gameOver || gameWon) return;
+            
+            const rect = canvas.getBoundingClientRect();
+            const x = Math.floor((e.clientX - rect.left) / cellSize);
+            const y = Math.floor((e.clientY - rect.top) / cellSize);
+            
+            if (x >= 0 && x < grid[0].length && y >= 0 && y < grid.length) {
+                if (grid[y][x] !== CELL.WALL) {
+                    toggleFlag(x, y);
+                    render();
+                }
+            }
+        });
+        
+        // 长按标记（移动端）
+        canvas.addEventListener('touchstart', (e) => {
+            if (gameOver || gameWon) return;
+            
+            const rect = canvas.getBoundingClientRect();
+            const touch = e.touches[0];
+            const x = Math.floor((touch.clientX - rect.left) / cellSize);
+            const y = Math.floor((touch.clientY - rect.top) / cellSize);
+            
+            longPressTimer = setTimeout(() => {
+                e.preventDefault();
+                if (x >= 0 && x < grid[0].length && y >= 0 && y < grid.length) {
+                    if (grid[y][x] !== CELL.WALL) {
+                        toggleFlag(x, y);
+                        render();
+                    }
+                }
+            }, 500);
+        }, { passive: false });
+        
+        canvas.addEventListener('touchend', () => {
+            if (longPressTimer) {
+                clearTimeout(longPressTimer);
+                longPressTimer = null;
+            }
+        });
+        
+        canvas.addEventListener('touchmove', () => {
+            if (longPressTimer) {
+                clearTimeout(longPressTimer);
+                longPressTimer = null;
+            }
+        });
+        
+        // 绑定按钮事件
+        document.querySelectorAll('.diff-item').forEach(item => {
+            item.addEventListener('click', () => {
+                document.querySelectorAll('.diff-item').forEach(i => i.classList.remove('selected'));
+                item.classList.add('selected');
+                document.getElementById('btn-start-game').disabled = false;
+            });
+        });
+        
+        document.getElementById('btn-start-game').addEventListener('click', () => {
+            const selected = document.querySelector('.diff-item.selected');
+            if (selected) {
+                startGame(selected.dataset.diff);
+            }
+        });
+        
+        document.getElementById('btn-back-menu').addEventListener('click', () => {
+            stopTimer();
+            document.getElementById('game-screen').classList.remove('active');
+            document.getElementById('start-screen').classList.add('active');
+        });
+        
+        document.getElementById('btn-restart').addEventListener('click', () => {
+            if (currentDiff) {
+                startGame(currentDiff);
+            }
+        });
+        
+        document.getElementById('btn-check').addEventListener('click', () => {
+            if (!gameOver && !gameWon) {
+                checkWin();
+            }
+        });
+        
+        document.getElementById('btn-new-game').addEventListener('click', () => {
+            document.getElementById('result-modal').classList.remove('active');
+            startGame(currentDiff);
+        });
+    </script>
+</body>
+</html>
