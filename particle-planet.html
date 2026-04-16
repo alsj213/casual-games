@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>粒子星球 - 引力收集</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 10px;
+        }
+        
+        .game-container {
+            background: rgba(15, 23, 42, 0.95);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            max-width: 90vw;
+            text-align: center;
+        }
+        
+        h1 {
+            color: #f1f5f9;
+            margin-bottom: 8px;
+            font-size: 28px;
+        }
+        
+        .subtitle {
+            color: #94a3b8;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+        
+        #game-canvas {
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            background: #020617;
+            display: block;
+            margin: 0 auto;
+        }
+        
+        .stats {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 15px;
+            color: #cbd5e1;
+            font-size: 14px;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .stat-item {
+            flex: 1;
+            min-width: 100px;
+            background: rgba(30, 41, 59, 0.8);
+            padding: 10px;
+            border-radius: 8px;
+        }
+        
+        .stat-label {
+            color: #94a3b8;
+            font-size: 12px;
+            margin-bottom: 4px;
+        }
+        
+        .stat-value {
+            color: #f1f5f9;
+            font-size: 18px;
+            font-weight: 600;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: rgba(30, 41, 59, 0.8);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 4px;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #10b981 0%, #3b82f6 100%);
+            transition: width 0.3s ease;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(59, 130, 246, 0.4);
+        }
+        
+        .btn-secondary {
+            background: linear-gradient(135deg, #475569 0%, #334155 100%);
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(71, 85, 105, 0.4);
+        }
+        
+        .level-info {
+            color: #94a3b8;
+            font-size: 13px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>🪐 粒子星球 - 引力收集</h1>
+        <p class="subtitle">拖动星球移动，点击增强引力，收集彩色粒子，避开黑洞</p>
+        
+        <canvas id="game-canvas" width="600" height="500"></canvas>
+        
+        <div class="stats">
+            <div class="stat-item">
+                <div class="stat-label">当前大小</div>
+                <div class="stat-value" id="current-size">0</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">收集粒子</div>
+                <div class="stat-value" id="collected-count">0 / <span id="target-count">0</span></div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">目标进度</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="controls">
+            <button class="btn btn-primary" id="btn-restart">重新开始</button>
+            <button class="btn btn-secondary" id="btn-pause">暂停游戏</button>
+            <button class="btn btn-secondary" id="btn-next-level">下一关</button>
+        </div>
+        
+        <div class="level-info" id="level-info">第 1 关 - 入门练习</div>
+    </div>
+
+    <script>
+        // 游戏画布和上下文
+        const canvas = document.getElementById('game-canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // 游戏配置
+        const WIDTH = canvas.width;
+        const HEIGHT = canvas.height;
+        
+        // 粒子类型
+        const TYPES = {
+            NORMAL: 0,      // 普通彩色粒子
+            BLACKHOLE: 1    // 黑洞粒子
+        };
+        
+        // 颜色配置
+        const COLORS = [
+            '#ef4444', // 红
+            '#f97316', // 橙
+            '#eab308', // 黄
+            '#22c55e', // 绿
+            '#06b6d4', // 青
+            '#3b82f6', // 蓝
+            '#8b5cf6', // 紫
+            '#ec4899'  // 粉
+        ];
+        
+        // 关卡配置
+        const LEVELS = [
+            {
+                name: '第 1 关 - 入门练习',
+                description: '收集 20 个粒子，避开 2 个黑洞',
+                targetSize: 20,
+                normalCount: 25,
+                blackholeCount: 2,
+                gravityStrength: 0.5,
+                maxParticles: 50
+            },
+            {
+                name: '第 2 关 - 进阶挑战',
+                description: '收集 40 个粒子，避开 5 个黑洞',
+                targetSize: 40,
+                normalCount: 50,
+                blackholeCount: 5,
+                gravityStrength: 0.45,
+                maxParticles: 100
+            },
+            {
+                name: '第 3 关 - 高手试炼',
+                description: '收集 60 个粒子，避开 8 个黑洞',
+                targetSize: 60,
+                normalCount: 75,
+                blackholeCount: 8,
+                gravityStrength: 0.4,
+                maxParticles: 150
+            },
+            {
+                name: '第 4 关 - 终极考验',
+                description: '收集 80 个粒子，避开 12 个黑洞',
+                targetSize: 80,
+                normalCount: 100,
+                blackholeCount: 12,
+                gravityStrength: 0.35,
+                maxParticles: 200
+            }
+        ];
+        
+        // 游戏状态
+        let currentLevel;
+        let particles;
+        let isPaused;
+        let gameOver;
+        let collectedCount;
+        let lastTime;
+        let boostActive;
+        let boostTimeLeft;
+        
+        // 星球对象
+        let planet = {
+            x: WIDTH / 2,
+            y: HEIGHT / 2,
+            radius: 20,
+            mass: 1,
+            isDragging: false
+        };
+        
+        // 粒子对象
+        class Particle {
+            constructor(type) {
+                this.type = type;
+                this.x = Math.random() * (WIDTH - 40) + 20;
+                this.y = Math.random() * (HEIGHT - 40) + 20;
+                this.vx = (Math.random() - 0.5) * 2;
+                this.vy = (Math.random() - 0.5) * 2;
+                
+                if (this.type === TYPES.NORMAL) {
+                    this.color = COLORS[Math.floor(Math.random() * COLORS.length)];
+                    this.radius = 4 + Math.random() * 4;
+                    this.mass = 1;
+                } else {
+                    this.color = '#000000';
+                    this.radius = 6 + Math.random() * 6;
+                    this.mass = -5;
+                }
+            }
+            
+            update(gravityStrength, boostActive) {
+                // 计算到星球的距离和方向
+                const dx = planet.x - this.x;
+                const dy = planet.y - this.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance < planet.radius + this.radius) {
+                    // 碰撞收集
+                    planet.mass += this.mass;
+                    planet.radius = 20 + planet.mass * 1.5;
+                    return true; // 需要移除
+                }
+                
+                // 引力加速度
+                let gravity = gravityStrength * planet.mass;
+                if (boostActive) {
+                    gravity *= 2.5;
+                }
+                
+                // 单位向量
+                const nx = dx / distance;
+                const ny = dy / distance;
+                
+                // 应用加速度
+                this.vx += nx * gravity;
+                this.vy += ny * gravity;
+                
+                // 速度阻尼（模拟空气阻力）
+                this.vx *= 0.99;
+                this.vy *= 0.99;
+                
+                // 限制最大速度
+                const maxSpeed = 8;
+                const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+                if (speed > maxSpeed) {
+                    this.vx = (this.vx / speed) * maxSpeed;
+                    this.vy = (this.vy / speed) * maxSpeed;
+                }
+                
+                // 更新位置
+                this.x += this.vx;
+                this.y += this.vy;
+                
+                // 边界反弹
+                if (this.x - this.radius < 0) {
+                    this.x = this.radius;
+                    this.vx *= -0.8;
+                } else if (this.x + this.radius > WIDTH) {
+                    this.x = WIDTH - this.radius;
+                    this.vx *= -0.8;
+                }
+                if (this.y - this.radius < 0) {
+                    this.y = this.radius;
+                    this.vy *= -0.8;
+                } else if (this.y + this.radius > HEIGHT) {
+                    this.y = HEIGHT - this.radius;
+                    this.vy *= -0.8;
+                }
+                
+                return false;
+            }
+            
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+                
+                if (this.type === TYPES.BLACKHOLE) {
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.radius * 0.7, 0, Math.PI * 2);
+                    ctx.fillStyle = '#1f2937';
+                    ctx.fill();
+                }
+                ctx.strokeStyle = this.type === TYPES.BLACKHOLE ? '#6b7280' : 'rgba(255,255,255,0.3)';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
+        }
+        
+        // 初始化关卡
+        function initLevel(levelIndex) {
+            currentLevel = levelIndex;
+            const level = LEVELS[currentLevel];
+            
+            planet.x = WIDTH / 2;
+            planet.y = HEIGHT / 2;
+            planet.radius = 20;
+            planet.mass = 0;
+            planet.isDragging = false;
+            
+            particles = [];
+            collectedCount = 0;
+            
+            // 生成普通粒子
+            for (let i = 0; i < level.normalCount; i++) {
+                particles.push(new Particle(TYPES.NORMAL));
+            }
+            
+            // 生成黑洞粒子
+            for (let i = 0; i < level.blackholeCount; i++) {
+                particles.push(new Particle(TYPES.BLACKHOLE));
+            }
+            
+            isPaused = false;
+            gameOver = false;
+            boostActive = false;
+            boostTimeLeft = 0;
+            
+            updateUI();
+        }
+        
+        // 更新UI
+        function updateUI() {
+            const level = LEVELS[currentLevel];
+            document.getElementById('current-size').textContent = Math.max(0, planet.mass);
+            document.getElementById('target-count').textContent = level.targetSize;
+            const progress = Math.max(0, Math.min(100, (planet.mass / level.targetSize) * 100));
+            document.getElementById('progress-fill').style.width = progress + '%';
+            document.getElementById('level-info').textContent = level.name + ' - ' + level.description;
+            
+            const collected = level.targetSize - (level.normalCount - particles.filter(p => p.type === TYPES.NORMAL).length);
+            document.getElementById('collected-count').textContent = 
+                Math.max(0, collected) + ' / ' + level.targetSize;
+        }
+        
+        // 绘制游戏
+        function draw() {
+            // 清空画布
+            ctx.fillStyle = '#020617';
+            ctx.fillRect(0, 0, WIDTH, HEIGHT);
+            
+            // 绘制网格背景
+            ctx.strokeStyle = 'rgba(30, 41, 59, 0.3)';
+            ctx.lineWidth = 1;
+            for (let x = 0; x < WIDTH; x += 20) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, HEIGHT);
+                ctx.stroke();
+            }
+            for (let y = 0; y < HEIGHT; y += 20) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(WIDTH, y);
+                ctx.stroke();
+            }
+            
+            // 绘制粒子
+            particles.forEach(p => p.draw());
+            
+            // 绘制引力范围（光晕）
+            const gradient = ctx.createRadialGradient(
+                planet.x, planet.y, planet.radius,
+                planet.x, planet.y, planet.radius + (boostActive ? 40 : 20)
+            );
+            if (boostActive) {
+                gradient.addColorStop(0, 'rgba(59, 130, 246, 0.6)');
+                gradient.addColorStop(1, 'rgba(59, 130, 246, 0)');
+            } else {
+                gradient.addColorStop(0, 'rgba(147, 51, 234, 0.3)');
+                gradient.addColorStop(1, 'rgba(147, 51, 234, 0)');
+            }
+            ctx.beginPath();
+            ctx.arc(planet.x, planet.y, planet.radius + (boostActive ? 40 : 20), 0, Math.PI * 2);
+            ctx.fillStyle = gradient;
+            ctx.fill();
+            
+            // 绘制星球核心
+            ctx.beginPath();
+            ctx.arc(planet.x, planet.y, planet.radius, 0, Math.PI * 2);
+            const planetGradient = ctx.createRadialGradient(
+                planet.x - planet.radius * 0.3, planet.y - planet.radius * 0.3, 0,
+                planet.x, planet.y, planet.radius
+            );
+            planetGradient.addColorStop(0, '#a855f7');
+            planetGradient.addColorStop(1, '#7c3aed');
+            ctx.fillStyle = planetGradient;
+            ctx.fill();
+            ctx.strokeStyle = '#c4b5fd';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
+            // 中心亮点
+            ctx.beginPath();
+            ctx.arc(planet.x - planet.radius * 0.3, planet.y - planet.radius * 0.3, planet.radius * 0.2, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+            ctx.fill();
+        }
+        
+        // 游戏循环
+        function gameLoop(timestamp) {
+            if (!lastTime) {
+                lastTime = timestamp;
+            }
+            
+            const deltaTime = timestamp - lastTime;
+            lastTime = timestamp;
+            
+            if (!isPaused && !gameOver) {
+                // 更新增强时间
+                if (boostActive) {
+                    boostTimeLeft -= deltaTime;
+                    if (boostTimeLeft <= 0) {
+                        boostActive = false;
+                    }
+                }
+                
+                // 更新粒子
+                const level = LEVELS[currentLevel];
+                particles = particles.filter(p => {
+                    const shouldRemove = p.update(level.gravityStrength, boostActive);
+                    if (shouldRemove && p.type === TYPES.NORMAL) {
+                        collectedCount++;
+                    }
+                    return !shouldRemove;
+                });
+                
+                // 检查游戏结束条件
+                if (planet.mass <= 0) {
+                    gameOver = true;
+                    setTimeout(() => {
+                        alert('💥 星球吸收了太多黑洞，消失了！\n\n点击确定重新开始本关');
+                        initLevel(currentLevel);
+                    }, 100);
+                }
+                
+                // 检查胜利条件
+                if (planet.mass >= LEVELS[currentLevel].targetSize) {
+                    gameOver = true;
+                    setTimeout(() => {
+                        if (currentLevel < LEVELS.length - 1) {
+                            alert('🎉 恭喜过关！\n\n你已经收集了足够的粒子，可以进入下一关了！');
+                            initLevel(currentLevel + 1);
+                        } else {
+                            alert('🏆 恭喜通关所有关卡！\n\n你已经掌握了引力收集的奥秘！');
+                            initLevel(0);
+                        }
+                    }, 100);
+                }
+                
+                updateUI();
+            }
+            
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+        
+        // 鼠标/触摸事件 - 拖动星球
+        canvas.addEventListener('mousedown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            const dx = x - planet.x;
+            const dy = y - planet.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            if (distance <= planet.radius) {
+                planet.isDragging = true;
+            }
+        });
+        
+        canvas.addEventListener('mousemove', (e) => {
+            if (planet.isDragging) {
+                const rect = canvas.getBoundingClientRect();
+                planet.x = e.clientX - rect.left;
+                planet.y = e.clientY - rect.top;
+                
+                // 限制星球在画布内
+                planet.x = Math.max(planet.radius, Math.min(WIDTH - planet.radius, planet.x));
+                planet.y = Math.max(planet.radius, Math.min(HEIGHT - planet.radius, planet.y));
+            }
+        });
+        
+        document.addEventListener('mouseup', () => {
+            planet.isDragging = false;
+        });
+        
+        // 触摸事件支持
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            const rect = canvas.getBoundingClientRect();
+            const touch = e.touches[0];
+            const x = touch.clientX - rect.left;
+            const y = touch.clientY - rect.top;
+            
+            const dx = x - planet.x;
+            const dy = y - planet.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            if (distance <= planet.radius) {
+                planet.isDragging = true;
+            } else {
+                // 点击屏幕其他地方触发引力增强
+                boostActive = true;
+                boostTimeLeft = 1000; // 增强持续1秒
+            }
+        }, { passive: false });
+        
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            if (planet.isDragging) {
+                const rect = canvas.getBoundingClientRect();
+                const touch = e.touches[0];
+                planet.x = touch.clientX - rect.left;
+                planet.y = touch.clientY - rect.top;
+                
+                planet.x = Math.max(planet.radius, Math.min(WIDTH - planet.radius, planet.x));
+                planet.y = Math.max(planet.radius, Math.min(HEIGHT - planet.radius, planet.y));
+            }
+        }, { passive: false });
+        
+        document.addEventListener('touchend', () => {
+            planet.isDragging = false;
+        });
+        
+        // 点击画布增强引力
+        canvas.addEventListener('click', () => {
+            if (!planet.isDragging) {
+                boostActive = true;
+                boostTimeLeft = 1000; // 增强持续1秒
+            }
+        });
+        
+        // 按钮事件
+        document.getElementById('btn-restart').addEventListener('click', () => {
+            initLevel(currentLevel);
+        });
+        
+        document.getElementById('btn-pause').addEventListener('click', () => {
+            isPaused = !isPaused;
+            document.getElementById('btn-pause').textContent = isPaused ? '继续游戏' : '暂停游戏';
+        });
+        
+        document.getElementById('btn-next-level').addEventListener('click', () => {
+            if (currentLevel < LEVELS.length - 1) {
+                initLevel(currentLevel + 1);
+            } else {
+                initLevel(0);
+            }
+        });
+        
+        // 开始游戏
+        initLevel(0);
+        requestAnimationFrame(gameLoop);
+    </script>
+</body>
+</html>
