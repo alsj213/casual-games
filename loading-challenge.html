@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>加载大作战 - 资源加载顺序解谜</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; background-color: #f9fafb; }
+        .dependency {
+            transition: all 0.3s ease;
+        }
+        .dependency.loading {
+            animation: pulse 1s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .dependency.loaded {
+            animation: none;
+        }
+        .dependency.error {
+            animation: shake 0.5s;
+        }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+        .dependency.correct {
+            animation: success 0.5s;
+        }
+        @keyframes success {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        .bar {
+            transition: width 0.3s ease;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-4xl">
+        <!-- Header -->
+        <header class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-gray-900 mb-2">⚡ 加载大作战</h1>
+            <p class="text-gray-600">按正确依赖顺序加载模块，避免循环依赖和未加载引用，成功启动应用！</p>
+        </header>
+
+        <!-- Difficulty Selection -->
+        <div id="diff-screen" class="block">
+            <div class="bg-white rounded-2xl shadow-lg p-6 mb-6">
+                <h2 class="text-2xl font-semibold text-gray-900 mb-4">选择难度</h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <button class="diff-btn bg-green-50 hover:bg-green-100 border-2 border-green-200 rounded-xl p-6 transition text-center" data-diff="easy">
+                        <div class="text-3xl font-bold text-green-700 mb-2">初级</div>
+                        <div class="text-green-600">3 个模块</div>
+                        <div class="text-xs text-green-500 mt-1">简单链式依赖</div>
+                    </button>
+                    <button class="diff-btn bg-yellow-50 hover:bg-yellow-100 border-2 border-yellow-200 rounded-xl p-6 transition text-center" data-diff="medium">
+                        <div class="text-3xl font-bold text-yellow-700 mb-2">中级</div>
+                        <div class="text-yellow-600">5 个模块</div>
+                        <div class="text-xs text-yellow-500 mt-1">树形依赖关系</div>
+                    </button>
+                    <button class="diff-btn bg-red-50 hover:bg-red-100 border-2 border-red-200 rounded-xl p-6 transition text-center" data-diff="hard">
+                        <div class="text-3xl font-bold text-red-700 mb-2">高级</div>
+                        <div class="text-red-600">8 个模块</div>
+                        <div class="text-xs text-red-500 mt-1">复杂DAG依赖</div>
+                    </button>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl shadow-lg p-6">
+                <h3 class="text-xl font-semibold text-gray-900 mb-3">📖 玩法说明</h3>
+                <div class="space-y-2 text-gray-700">
+                    <p>1. 每个模块可能依赖其他模块，必须先加载依赖模块才能加载当前模块</p>
+                    <p>2. 点击模块名称加载它，如果顺序正确，模块会变绿色标记「已加载」</p>
+                    <p>3. 如果顺序错误（依赖未加载），性能条会减少，错误次数满了游戏失败</p>
+                    <p>4. 目标：按照正确依赖顺序加载完所有模块，成功启动应用！</p>
+                    <p>5. 小提示：这就是编程中的<strong>依赖管理</strong>和<strong>懒加载</strong>思想 😄</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Game Screen -->
+        <div id="game-screen" class="hidden">
+            <!-- Stats -->
+            <div class="bg-white rounded-xl shadow-md p-4 mb-6 flex flex-wrap justify-between items-center gap-4">
+                <div>
+                    <span class="text-sm text-gray-600">错误次数：</span>
+                    <span id="errors-left" class="font-bold text-xl text-red-600">3</span>
+                    <span class="text-gray-600">/ 3</span>
+                </div>
+                <div>
+                    <span class="text-sm text-gray-60">已加载：</span>
+                    <span id="loaded-count" class="font-semibold text-gray-900">0</span>
+                    <span class="text-gray-600">/ <span id="total-modules"></span></span>
+                </div>
+                <div class="flex gap-2">
+                    <button id="btn-restart" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition">重来</button>
+                    <button id="btn-back-diff" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg transition">换难度</button>
+                </div>
+            </div>
+
+            <!-- Performance Bar -->
+            <div class="bg-white rounded-2xl shadow-lg p-6 mb-6">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="font-semibold text-gray-900">📊 应用性能条</span>
+                    <span id="performance-text" class="text-sm font-medium"></span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-6 overflow-hidden">
+                    <div id="performance-bar" class="bar h-full bg-gradient-to-r from-green-500 to-blue-500 rounded-full" style="width: 100%"></div>
+                </div>
+            </div>
+
+            <!-- Dependency Graph -->
+            <div class="bg-white rounded-2xl shadow-lg p-6 mb-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">📦 依赖模块</h3>
+                <div id="modules-container" class="space-y-3"></div>
+            </div>
+
+            <!-- Status Message -->
+            <div id="status-panel" class="bg-white rounded-2xl shadow-lg p-6 hidden">
+                <div id="status-message" class="text-center text-2xl font-bold mb-4"></div>
+                <div class="flex gap-4 justify-center">
+                    <button id="btn-play-again" class="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-xl font-semibold transition">再玩一次</button>
+                    <button id="btn-play-again-diff" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-6 py-3 rounded-xl font-semibold transition">选择难度</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Game configurations
+        const levelConfigs = {
+            easy: {
+                modules: [
+                    { id: 'A', name: '核心内核', dependencies: [] },
+                    { id: 'B', name: '用户界面', dependencies: ['A'] },
+                    { id: 'C', name: '业务逻辑', dependencies: ['A', 'B'] }
+                ],
+                maxErrors: 3
+            },
+            medium: {
+                modules: [
+                    { id: 'A', name: '工具库', dependencies: [] },
+                    { id: 'B', name: '数据模型', dependencies: ['A'] },
+                    { id: 'C', name: '控制器', dependencies: ['A', 'B'] },
+                    { id: 'D', name: '路由系统', dependencies: ['A'] },
+                    { id: 'E', name: '应用入口', dependencies: ['C', 'D'] }
+                ],
+                maxErrors: 3
+            },
+            hard: {
+                modules: [
+                    { id: 'A', name: '基础库', dependencies: [] },
+                    { id: 'B', name: '日志模块', dependencies: ['A'] },
+                    { id: 'C', name: '网络模块', dependencies: ['A', 'B'] },
+                    { id: 'D', name: '数据缓存', dependencies: ['A', 'C'] },
+                    { id: 'E', name: '状态管理', dependencies: ['A', 'D'] },
+                    { id: 'F', name: '组件系统', dependencies: ['A', 'E'] },
+                    { id: 'G', name: '页面渲染', dependencies: ['F', 'D'] },
+                    { id: 'H', name: '应用启动', dependencies: ['G', 'C'] }
+                ],
+                maxErrors: 4
+            }
+        };
+
+        // Game State
+        let gameState = {
+            config: null,
+            loaded: new Set(),
+            errors: 0,
+            maxErrors: 0,
+            gameOver: false,
+            won: false
+        };
+
+        // DOM Elements
+        const diffScreen = document.getElementById('diff-screen');
+        const gameScreen = document.getElementById('game-screen');
+        const modulesContainer = document.getElementById('modules-container');
+        const errorsLeftEl = document.getElementById('errors-left');
+        const loadedCountEl = document.getElementById('loaded-count');
+        const totalModulesEl = document.getElementById('total-modules');
+        const performanceBar = document.getElementById('performance-bar');
+        const performanceText = document.getElementById('performance-text');
+        const statusPanel = document.getElementById('status-panel');
+        const statusMessage = document.getElementById('status-message');
+
+        // Event Listeners
+        document.querySelectorAll('.diff-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                startGame(btn.dataset.diff);
+            });
+        });
+        document.getElementById('btn-restart').addEventListener('click', restartGame);
+        document.getElementById('btn-back-diff').addEventListener('click', backToDifficulty);
+        document.getElementById('btn-play-again').addEventListener('click', restartGame);
+        document.getElementById('btn-play-again-diff').addEventListener('click', backToDifficulty);
+
+        // Start Game
+        function startGame(difficulty) {
+            const config = levelConfigs[difficulty];
+            gameState.config = JSON.parse(JSON.stringify(config.modules));
+            gameState.maxErrors = config.maxErrors;
+            gameState.errors = 0;
+            gameState.loaded.clear();
+            gameState.gameOver = false;
+            gameState.won = false;
+
+            totalModulesEl.textContent = config.modules.length;
+            updateStats();
+            renderModules();
+            updatePerformanceBar();
+
+            diffScreen.classList.add('hidden');
+            gameScreen.classList.remove('hidden');
+            statusPanel.classList.add('hidden');
+        }
+
+        // Restart Game with same difficulty
+        function restartGame() {
+            startGame(getCurrentDifficulty());
+        }
+
+        // Back to difficulty selection
+        function backToDifficulty() {
+            gameScreen.classList.add('hidden');
+            statusPanel.classList.add('hidden');
+            diffScreen.classList.remove('hidden');
+        }
+
+        // Get current difficulty
+        function getCurrentDifficulty() {
+            const count = gameState.config.length;
+            if (count === 3) return 'easy';
+            if (count === 5) return 'medium';
+            return 'hard';
+        }
+
+        // Render modules
+        function renderModules() {
+            modulesContainer.innerHTML = '';
+            gameState.config.forEach(mod => {
+                const div = document.createElement('div');
+                const isLoaded = gameState.loaded.has(mod.id);
+                let depsText = mod.dependencies.length > 0
+                    ? `依赖: ${mod.dependencies.join(', ')}`
+                    : '无依赖';
+                div.className = `dependency border-2 rounded-xl p-4 ${isLoaded ? 'border-green-500 bg-green-50' : 'border-gray-200 bg-white hover:border-blue-300 cursor-pointer'}`;
+                div.innerHTML = `
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <span class="inline-block px-2 py-1 rounded text-xs font-bold bg-gray-100 text-gray-600 mr-2">${mod.id}</span>
+                            <span class="text-lg font-semibold text-gray-900">${mod.name}</span>
+                        </div>
+                        ${isLoaded
+                            ? '<span class="px-3 py-1 bg-green-500 text-white text-sm font-bold rounded-full">✓ 已加载</span>'
+                            : '<span class="px-3 py-1 bg-gray-200 text-gray-600 text-sm font-bold rounded-full">⏳ 未加载</span>'}
+                    </div>
+                    <div class="mt-2 text-sm text-gray-500">${depsText}</div>
+                `;
+                if (!isLoaded) {
+                    div.addEventListener('click', () => handleModuleClick(mod.id));
+                }
+                modulesContainer.appendChild(div);
+            });
+        }
+
+        // Handle module click
+        function handleModuleClick(moduleId) {
+            if (gameState.gameOver) return;
+
+            const module = gameState.config.find(m => m.id === moduleId);
+            const allDependenciesLoaded = module.dependencies.every(dep => gameState.loaded.has(dep));
+
+            if (!allDependenciesLoaded) {
+                // Error - dependencies not fully loaded
+                gameState.errors++;
+                updateStats();
+                updatePerformanceBar();
+
+                // Shake error
+                const node = event.currentTarget;
+                node.classList.add('error', 'border-red-500', 'bg-red-50');
+                setTimeout(() => {
+                    node.classList.remove('error');
+                }, 500);
+
+                checkGameOver();
+                return;
+            }
+
+            // Success - load the module
+            gameState.loaded.add(moduleId);
+            updateStats();
+            renderModules();
+            updatePerformanceBar();
+
+            checkWin();
+        }
+
+        // Update statistics
+        function updateStats() {
+            errorsLeftEl.textContent = gameState.maxErrors - gameState.errors;
+            loadedCountEl.textContent = gameState.loaded.size;
+        }
+
+        // Update performance bar
+        function updatePerformanceBar() {
+            const totalModules = gameState.config.length;
+            const percent = 100 - (gameState.errors * (100 / gameState.maxErrors));
+            performanceBar.style.width = `${percent}%`;
+
+            if (percent > 66) {
+                performanceText.textContent = '🚀 性能良好';
+                performanceText.className = 'text-sm font-medium text-green-600';
+            } else if (percent > 33) {
+                performanceText.textContent = '⚠️ 性能堪忧';
+                performanceText.className = 'text-sm font-medium text-yellow-600';
+            } else {
+                performanceText.textContent = '💥 快要卡死';
+                performanceText.className = 'text-sm font-medium text-red-600';
+            }
+        }
+
+        // Check game over
+        function checkGameOver() {
+            if (gameState.errors >= gameState.maxErrors) {
+                gameState.gameOver = true;
+                gameState.won = false;
+                showGameOver();
+            }
+        }
+
+        // Check win
+        function checkWin() {
+            if (gameState.loaded.size === gameState.config.length) {
+                gameState.gameOver = true;
+                gameState.won = true;
+                showWin();
+            }
+        }
+
+        // Show game over
+        function showGameOver() {
+            statusMessage.textContent = '💥 加载错误太多，应用崩溃了！';
+            statusMessage.className = 'text-center text-2xl font-bold mb-4 text-red-600';
+            statusPanel.classList.remove('hidden');
+        }
+
+        // Show win
+        function showWin() {
+            statusMessage.textContent = '🎉 恭喜！应用成功启动，加载顺序完全正确！';
+            statusMessage.className = 'text-center text-2xl font-bold mb-4 text-green-600';
+            statusPanel.classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>
