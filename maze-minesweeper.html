@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>迷宫寻宝 - 扫雷结合迷宫探索</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; background-color: #f9fafb; }
+        .cell-closed { background-color: #e5e7eb; }
+        .cell-open { background-color: #f3f4f6; }
+        .cell-bomb { background-color: #fecaca; }
+        .cell-flagged { background-color: #fef3c7; }
+        .cell-wall { background-color: #374151; }
+        .num-1 { color: #2563eb; }
+        .num-2 { color: #16a34a; }
+        .num-3 { color: #dc2626; }
+        .num-4 { color: #1e3a8a; }
+        .num-5 { color: #7f1d1d; }
+        .num-6 { color: #0d9488; }
+        .num-7 { color: #111827; }
+        .num-8 { color: #4b5563; }
+        canvas { image-rendering: pixelated; }
+        .game-grid { border-collapse: separate; border-spacing: 1px; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-5xl">
+        <!-- Header -->
+        <header class="text-center mb-6">
+            <h1 class="text-4xl font-bold text-gray-900 mb-2">🗺️ 迷宫寻宝</h1>
+            <p class="text-gray-600">在迷宫中寻找宝藏，避开炸弹，数字提示周围炸弹数量</p>
+        </header>
+
+        <!-- Difficulty Selection -->
+        <div id="diff-screen" class="block mb-6">
+            <div class="bg-white rounded-2xl shadow-lg p-6">
+                <h2 class="text-2xl font-semibold text-gray-900 mb-4">选择难度</h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <button id="diff-small" class="diff-btn bg-green-50 hover:bg-green-100 border-2 border-green-200 rounded-xl p-6 transition text-center">
+                        <div class="text-3xl font-bold text-green-700 mb-2">初级</div>
+                        <div class="text-lg text-green-600">9 × 9</div>
+                        <div class="text-sm text-green-500 mt-1">10 个炸弹</div>
+                    </button>
+                    <button id="diff-medium" class="diff-btn bg-yellow-50 hover:bg-yellow-100 border-2 border-yellow-200 rounded-xl p-6 transition text-center">
+                        <div class="text-3xl font-bold text-yellow-700 mb-2">中级</div>
+                        <div class="text-lg text-yellow-600">16 × 16</div>
+                        <div class="text-sm text-yellow-500 mt-1">40 个炸弹</div>
+                    </button>
+                    <button id="diff-large" class="diff-btn bg-red-50 hover:bg-red-100 border-2 border-red-200 rounded-xl p-6 transition text-center">
+                        <div class="text-3xl font-bold text-red-700 mb-2">高级</div>
+                        <div class="text-lg text-red-600">30 × 16</div>
+                        <div class="text-sm text-red-500 mt-1">99 个炸弹</div>
+                    </button>
+                </div>
+
+                <div class="bg-blue-50 rounded-xl p-4">
+                    <h3 class="text-xl font-semibold text-blue-900 mb-2">📖 玩法说明</h3>
+                    <ul class="list-disc list-inside space-y-1 text-blue-800">
+                        <li>灰色墙壁是迷宫围墙，浅色格子是可探索区域</li>
+                        <li>点击格子打开它，如果是炸弹游戏结束</li>
+                        <li>数字表示周围 8 格共有多少个炸弹</li>
+                        <li>长按（右键）可以标记/取消标记疑似炸弹位置</li>
+                        <li>打开所有非炸弹格子找到宝藏即可获胜</li>
+                        <li>起点固定在左上角，宝藏在右下角区域</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Game Screen -->
+        <div id="game-screen" class="hidden">
+            <!-- Info Bar -->
+            <div class="bg-white rounded-xl shadow-md p-4 mb-4 flex flex-wrap justify-between items-center gap-4">
+                <div class="flex gap-6">
+                    <div>
+                        <span class="text-sm text-gray-600">剩余炸弹：</span>
+                        <span id="bombs-left" class="font-bold text-xl text-red-600">0</span>
+                    </div>
+                    <div>
+                        <span class="text-sm text-gray-600">已打开：</span>
+                        <span id="opened-count" class="font-semibold text-gray-900">0</span>
+                    </div>
+                </div>
+                <div class="flex gap-2">
+                    <button id="btn-new-game" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition">新游戏</button>
+                    <button id="btn-back-diff" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg transition">换难度</button>
+                </div>
+            </div>
+
+            <!-- Game Grid -->
+            <div class="bg-white rounded-2xl shadow-lg p-6 mb-6 flex justify-center overflow-x-auto">
+                <div id="grid-container"></div>
+            </div>
+
+            <!-- Status Message -->
+            <div id="status-panel" class="bg-white rounded-2xl shadow-lg p-6 hidden">
+                <div id="status-message" class="text-center text-2xl font-bold mb-4"></div>
+                <div class="flex gap-4 justify-center">
+                    <button id="btn-restart" class="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-xl font-semibold transition">再玩一次</button>
+                    <button id="btn-restart-back" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-6 py-3 rounded-xl font-semibold transition">选择难度</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Game Configuration
+        const difficulties = {
+            small: { width: 9, height: 9, bombs: 10 },
+            medium: { width: 16, height: 16, bombs: 40 },
+            large: { width: 30, height: 16, bombs: 99 }
+        };
+
+        // Game State
+        let gameState = {
+            width: 0,
+            height: 0,
+            bombCount: 0,
+            grid: [],
+            revealed: [],
+            flagged: [],
+            bombsLeft: 0,
+            openedCount: 0,
+            gameOver: false,
+            won: false
+        };
+
+        // Cell Types
+        const CELL_WALL = 1;
+        const CELL_EMPTY = 0;
+        const CELL_BOMB = 9;
+
+        // DOM Elements
+        const diffScreen = document.getElementById('diff-screen');
+        const gameScreen = document.getElementById('game-screen');
+        const gridContainer = document.getElementById('grid-container');
+        const bombsLeftEl = document.getElementById('bombs-left');
+        const openedCountEl = document.getElementById('opened-count');
+        const statusPanel = document.getElementById('status-panel');
+        const statusMessage = document.getElementById('status-message');
+
+        // Event Listeners
+        document.getElementById('diff-small').addEventListener('click', () => startGame('small'));
+        document.getElementById('diff-medium').addEventListener('click', () => startGame('medium'));
+        document.getElementById('diff-large').addEventListener('click', () => startGame('large'));
+        document.getElementById('btn-new-game').addEventListener('click', () => restartGame());
+        document.getElementById('btn-back-diff').addEventListener('click', backToDifficulty);
+        document.getElementById('btn-restart').addEventListener('click', restartGame);
+        document.getElementById('btn-restart-back').addEventListener('click', backToDifficulty);
+
+        // Prevent context menu on grid for better mobile experience
+        document.addEventListener('contextmenu', (e) => {
+            if (e.target.closest('#grid-container')) {
+                e.preventDefault();
+            }
+        });
+
+        // Start Game
+        function startGame(diffKey) {
+            const diff = difficulties[diffKey];
+            gameState.width = diff.width;
+            gameState.height = diff.height;
+            gameState.bombCount = diff.bombs;
+            gameState.bombsLeft = diff.bombs;
+            gameState.openedCount = 0;
+            gameState.gameOver = false;
+            gameState.won = false;
+            
+            // Initialize grids
+            initGrid();
+            generateMaze();
+            placeBombs();
+            calculateNumbers();
+            
+            // Open starting area (top-left)
+            revealCell(0, 0);
+            
+            // Update UI
+            updateStats();
+            renderGrid();
+            
+            // Switch screen
+            diffScreen.classList.add('hidden');
+            gameScreen.classList.remove('hidden');
+            statusPanel.classList.add('hidden');
+        }
+
+        // Initialize empty grids
+        function initGrid() {
+            gameState.grid = [];
+            gameState.revealed = [];
+            gameState.flagged = [];
+            for (let y = 0; y < gameState.height; y++) {
+                gameState.grid[y] = [];
+                gameState.revealed[y] = [];
+                gameState.flagged[y] = [];
+                for (let x = 0; x < gameState.width; x++) {
+                    gameState.grid[y][x] = CELL_WALL;
+                    gameState.revealed[y][x] = false;
+                    gameState.flagged[y][x] = false;
+                }
+            }
+        }
+
+        // Generate maze using DFS
+        function generateMaze() {
+            // Start from (0,0) - must be passage
+            carvePassage(0, 0);
+            
+            // Ensure we have enough passages to place all bombs
+            let passages = 0;
+            for (let y = 0; y < gameState.height; y++) {
+                for (let x = 0; x < gameState.width; x++) {
+                    if (gameState.grid[y][x] === CELL_EMPTY) passages++;
+                }
+            }
+            
+            // If not enough passages, carve more randomly
+            let attempts = 0;
+            while (passages < gameState.bombCount + 10 && attempts < 1000) {
+                const x = Math.floor(Math.random() * gameState.width) | 1;
+                const y = Math.floor(Math.random() * gameState.height) | 1;
+                if (gameState.grid[y][x] === CELL_WALL) {
+                    gameState.grid[y][x] = CELL_EMPTY;
+                    passages++;
+                }
+                attempts++;
+            }
+        }
+
+        // Depth-first search maze carving
+        function carvePassage(x, y) {
+            gameState.grid[y][x] = CELL_EMPTY;
+            
+            // Randomize directions
+            const dirs = [
+                [2, 0], [-2, 0], [0, 2], [0, -2]
+            ];
+            shuffleArray(dirs);
+            
+            for (const [dx, dy] of dirs) {
+                const nx = x + dx;
+                const ny = y + dy;
+                if (nx >= 0 && nx < gameState.width && ny >= 0 && ny < gameState.height && gameState.grid[ny][nx] === CELL_WALL) {
+                    // Carve the wall between current and next
+                    gameState.grid[y + dy/2][x + dx/2] = CELL_EMPTY;
+                    carvePassage(nx, ny);
+                }
+            }
+        }
+
+        // Shuffle array
+        function shuffleArray(arr) {
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+        }
+
+        // Place bombs randomly (avoid start position)
+        function placeBombs() {
+            let placed = 0;
+            const attempts = 0;
+            while (placed < gameState.bombCount && attempts < 1000) {
+                const x = Math.floor(Math.random() * gameState.width);
+                const y = Math.floor(Math.random() * gameState.height);
+                // Don't place on start and don't place on walls
+                if ((x === 0 && y === 0) || gameState.grid[y][x] === CELL_WALL || gameState.grid[y][x] === CELL_BOMB) {
+                    continue;
+                }
+                gameState.grid[y][x] = CELL_BOMB;
+                placed++;
+            }
+        }
+
+        // Calculate numbers for each cell
+        function calculateNumbers() {
+            for (let y = 0; y < gameState.height; y++) {
+                for (let x = 0; x < gameState.width; x++) {
+                    if (gameState.grid[y][x] === CELL_WALL || gameState.grid[y][x] === CELL_BOMB) {
+                        continue;
+                    }
+                    let count = 0;
+                    for (let dy = -1; dy <= 1; dy++) {
+                        for (let dx = -1; dx <= 1; dx++) {
+                            if (dy === 0 && dx === 0) continue;
+                            const ny = y + dy;
+                            const nx = x + dx;
+                            if (ny >= 0 && ny < gameState.height && nx >= 0 && nx < gameState.width) {
+                                if (gameState.grid[ny][nx] === CELL_BOMB) {
+                                    count++;
+                                }
+                            }
+                        }
+                    }
+                    gameState.grid[y][x] = count;
+                }
+            }
+        }
+
+        // Render grid
+        function renderGrid() {
+            const table = document.createElement('table');
+            table.className = 'game-grid';
+            
+            for (let y = 0; y < gameState.height; y++) {
+                const tr = document.createElement('tr');
+                for (let x = 0; x < gameState.width; x++) {
+                    const td = document.createElement('td');
+                    const cellSize = Math.min(40, Math.max(24, Math.floor(400 / gameState.width)));
+                    td.style.width = `${cellSize}px`;
+                    td.style.height = `${cellSize}px`;
+                    td.style.textAlign = 'center';
+                    td.style.fontWeight = 'bold';
+                    td.style.fontSize = `${Math.floor(cellSize * 0.7)}px`;
+                    td.style.borderRadius = '4px';
+                    
+                    // Set cell class based on state
+                    if (gameState.grid[y][x] === CELL_WALL) {
+                        td.className = 'cell-wall';
+                    } else if (!gameState.revealed[y][x]) {
+                        if (gameState.flagged[y][x]) {
+                            td.className = 'cell-flagged';
+                            td.textContent = '🚩';
+                        } else {
+                            td.className = 'cell-closed';
+                        }
+                    } else {
+                        td.className = 'cell-open';
+                        if (gameState.grid[y][x] === CELL_BOMB) {
+                            td.className = 'cell-bomb';
+                            td.textContent = '💣';
+                        } else if (gameState.grid[y][x] > 0) {
+                            td.className = `cell-open num-${gameState.grid[y][x]}`;
+                            td.textContent = gameState.grid[y][x];
+                        }
+                    }
+                    
+                    // Click to open
+                    td.addEventListener('click', () => handleCellClick(x, y));
+                    // Context menu / long press to flag
+                    td.addEventListener('contextmenu', (e) => {
+                        e.preventDefault();
+                        handleRightClick(x, y);
+                    });
+                    // Long press detection for mobile
+                    let longPressTimer;
+                    td.addEventListener('touchstart', (e) => {
+                        longPressTimer = setTimeout(() => {
+                            handleRightClick(x, y);
+                        }, 500);
+                    });
+                    td.addEventListener('touchend', () => {
+                        if (longPressTimer) clearTimeout(longPressTimer);
+                    });
+                    
+                    tr.appendChild(td);
+                }
+                table.appendChild(tr);
+            }
+            
+            gridContainer.innerHTML = '';
+            gridContainer.appendChild(table);
+        }
+
+        // Update statistics display
+        function updateStats() {
+            bombsLeftEl.textContent = gameState.bombsLeft;
+            openedCountEl.textContent = gameState.openedCount;
+        }
+
+        // Handle cell click
+        function handleCellClick(x, y) {
+            if (gameState.gameOver || gameState.won) return;
+            if (gameState.revealed[y][x]) return;
+            if (gameState.flagged[y][x]) return;
+            if (gameState.grid[y][x] === CELL_WALL) return;
+            
+            if (gameState.grid[y][x] === CELL_BOMB) {
+                // Game over
+                gameOver(false);
+                return;
+            }
+            
+            revealCell(x, y);
+            checkWin();
+            updateStats();
+            renderGrid();
+        }
+
+        // Handle right click / long press (flag)
+        function handleRightClick(x, y) {
+            if (gameState.gameOver || gameState.won) return;
+            if (gameState.revealed[y][x]) return;
+            if (gameState.grid[y][x] === CELL_WALL) return;
+            
+            gameState.flagged[y][x] = !gameState.flagged[y][x];
+            gameState.bombsLeft = gameState.bombCount - countFlags();
+            updateStats();
+            renderGrid();
+        }
+
+        // Count flagged cells
+        function countFlags() {
+            let count = 0;
+            for (let y = 0; y < gameState.height; y++) {
+                for (let x = 0; x < gameState.width; x++) {
+                    if (gameState.flagged[y][x]) count++;
+                }
+            }
+            return count;
+        }
+
+        // Flood reveal empty cells
+        function revealCell(x, y) {
+            if (x < 0 || x >= gameState.width || y < 0 || y >= gameState.height) return;
+            if (gameState.revealed[y][x] || gameState.flagged[y][x]) return;
+            if (gameState.grid[y][x] === CELL_WALL) return;
+            
+            gameState.revealed[y][x] = true;
+            if (gameState.grid[y][x] === CELL_EMPTY) {
+                // Flood fill
+                for (let dy = -1; dy <= 1; dy++) {
+                    for (let dx = -1; dx <= 1; dx++) {
+                        if (dy !== 0 || dx !== 0) {
+                            revealCell(x + dx, y + dy);
+                        }
+                    }
+                }
+            }
+            
+            // Count opened cells
+            gameState.openedCount = 0;
+            for (let y = 0; y < gameState.height; y++) {
+                for (let x = 0; x < gameState.width; x++) {
+                    if (gameState.revealed[y][x] && gameState.grid[y][x] !== CELL_WALL) {
+                        gameState.openedCount++;
+                    }
+                }
+            }
+        }
+
+        // Check win condition
+        function checkWin() {
+            const totalEmpty = getTotalEmptyCells();
+            const target = totalEmpty - gameState.bombCount;
+            if (gameState.openedCount >= target) {
+                gameOver(true);
+            }
+        }
+
+        // Get total number of empty (non-wall) cells
+        function getTotalEmptyCells() {
+            let count = 0;
+            for (let y = 0; y < gameState.height; y++) {
+                for (let x = 0; x < gameState.width; x++) {
+                    if (gameState.grid[y][x] !== CELL_WALL) count++;
+                }
+            }
+            return count;
+        }
+
+        // Game over
+        function gameOver(won) {
+            gameState.gameOver = true;
+            gameState.won = won;
+            
+            // Reveal all bombs if lost
+            if (!won) {
+                for (let y = 0; y < gameState.height; y++) {
+                    for (let x = 0; x < gameState.width; x++) {
+                        if (gameState.grid[y][x] === CELL_BOMB) {
+                            gameState.revealed[y][x] = true;
+                        }
+                    }
+                }
+                statusMessage.textContent = '💥 你踩到炸弹了！游戏结束';
+                statusMessage.className = 'text-center text-2xl font-bold text-red-600 mb-4';
+            } else {
+                statusMessage.textContent = '🎉 恭喜！你找到了宝藏，获胜了！';
+                statusMessage.className = 'text-center text-2xl font-bold text-green-600 mb-4';
+            }
+            
+            renderGrid();
+            statusPanel.classList.remove('hidden');
+        }
+
+        // Restart game with same difficulty
+        function restartGame() {
+            const currentDiff = getCurrentDiff();
+            if (currentDiff) {
+                startGame(currentDiff);
+            } else {
+                startGame('medium');
+            }
+        }
+
+        // Get current difficulty key
+        function getCurrentDiff() {
+            for (const [key, cfg] of Object.entries(difficulties)) {
+                if (cfg.width === gameState.width && cfg.height === gameState.height) {
+                    return key;
+                }
+            }
+            return null;
+        }
+
+        // Back to difficulty selection
+        function backToDifficulty() {
+            gameScreen.classList.add('hidden');
+            statusPanel.classList.add('hidden');
+            diffScreen.classList.remove('hidden');
+        }
+
+        console.log('🗺️ 迷宫寻宝 - 已就绪');
+    </script>
+</body>
+</html>
