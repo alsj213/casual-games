@@ -261,7 +261,8 @@ function pour(fromIndex, toIndex) {
 function checkWin() {
   return gameState.every(tube => {
     if (tube.length === 0) return true;
-    if (tube.length !== 4) return false;
+    // All colors in the tube must be the same, regardless of tube length
+    // Fixed bug: previously required non-empty tubes to be full (4 units)
     return tube.every(color => color === tube[0]);
   });
 }
