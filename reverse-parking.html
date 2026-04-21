@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>倒车入库大师 - Casual Games</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 10px;
+            color: #fff;
+        }
+
+        .game-container {
+            max-width: 500px;
+            width: 100%;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 24px;
+            color: #feca57;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .subtitle {
+            text-align: center;
+            font-size: 14px;
+            color: #a5b1c2;
+            margin-bottom: 20px;
+        }
+
+        #game-canvas {
+            display: block;
+            width: 100%;
+            aspect-ratio: 3/4;
+            background: #2d3436;
+            border-radius: 10px;
+            margin: 0 auto 15px;
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .control-btn {
+            padding: 15px;
+            font-size: 18px;
+            font-weight: bold;
+            border: none;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%);
+            color: white;
+            cursor: pointer;
+            transition: transform 0.1s, opacity 0.2s;
+            user-select: none;
+        }
+
+        .control-btn:active {
+            transform: scale(0.95);
+        }
+
+        .control-btn:hover {
+            opacity: 0.9;
+        }
+
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            padding: 10px 15px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+        }
+
+        .level-info {
+            font-size: 16px;
+        }
+
+        .level-info span {
+            color: #feca57;
+            font-weight: bold;
+        }
+
+        .restart-btn {
+            padding: 8px 16px;
+            font-size: 14px;
+            border: none;
+            border-radius: 8px;
+            background: #e17055;
+            color: white;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .restart-btn:hover {
+            background: #d63031;
+        }
+
+        .game-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+
+        .game-overlay.show {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .overlay-content {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            padding: 40px 30px;
+            border-radius: 20px;
+            text-align: center;
+            max-width: 90%;
+            width: 350px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+        }
+
+        .overlay-content h2 {
+            font-size: 28px;
+            margin-bottom: 15px;
+            color: #feca57;
+        }
+
+        .overlay-content p {
+            font-size: 16px;
+            color: #a5b1c2;
+            margin-bottom: 25px;
+        }
+
+        .next-btn {
+            padding: 15px 30px;
+            font-size: 18px;
+            border: none;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #00b894 0%, #00cec9 100%);
+            color: white;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .next-btn:hover {
+            transform: scale(1.05);
+        }
+
+        .instructions {
+            font-size: 12px;
+            color: #888;
+            text-align: center;
+            margin-top: 10px;
+            line-height: 1.5;
+        }
+
+        @media (max-width: 480px) {
+            .game-container {
+                padding: 15px;
+            }
+
+            h1 {
+                font-size: 20px;
+            }
+
+            .subtitle {
+                font-size: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>🚗 倒车入库大师</h1>
+        <p class="subtitle">把车精准停到车位里吧！</p>
+
+        <div class="status-bar">
+            <div class="level-info">关卡: <span id="current-level">1</span>/<span id="total-levels">15</span></div>
+            <button class="restart-btn" id="restart-btn">重来</button>
+        </div>
+
+        <canvas id="game-canvas"></canvas>
+
+        <div class="controls">
+            <button class="control-btn" id="btn-forward">↑ 前进</button>
+            <button class="control-btn" id="btn-backward">↓ 后退</button>
+            <button class="control-btn" id="btn-left">↶ 左转</button>
+            <button class="control-btn" id="btn-right">↷ 右转</button>
+        </div>
+
+        <p class="instructions">使用方向键或按钮控制车辆移动，把车停进黄色区域的车位即可过关</p>
+    </div>
+
+    <div class="game-overlay" id="level-cleared">
+        <div class="overlay-content">
+            <h2>🎉 停车成功！</h2>
+            <p>恭喜你完成了这一关，准备好挑战下一关了吗？</p>
+            <button class="next-btn" id="next-level-btn">下一关</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('game-canvas');
+        const ctx = canvas.getContext('2d');
+
+        // 响应式画布尺寸
+        function resizeCanvas() {
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width * window.devicePixelRatio;
+            canvas.height = rect.height * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        // 游戏状态
+        let currentLevel = 0;
+        let car = {
+            x: 0,
+            y: 0,
+            angle: 0,
+            speed: 0,
+            width: 30,
+            height: 60,
+            maxSpeed: 2,
+            acceleration: 0.1,
+            friction: 0.95
+        };
+
+        // 关卡定义
+        const levels = [
+            // Level 1: 简单直入
+            {
+                carStart: { x: 100, y: 300, angle: 0 },
+                parkingSpot: { x: 250, y: 400, width: 40, height: 70, angle: 0 },
+                obstacles: []
+            },
+            // Level 2: 需要转弯
+            {
+                carStart: { x: 50, y: 200, angle: 90 },
+                parkingSpot: { x: 250, y: 350, width: 40, height: 70, angle: 0 },
+                obstacles: [
+                    { x: 150, y: 300, width: 50, height: 50 }
+                ]
+            },
+            // Level 3: S型弯道
+            {
+                carStart: { x: 50, y: 100, angle: 0 },
+                parkingSpot: { x: 220, y: 420, width: 40, height: 70, angle: 0 },
+                obstacles: [
+                    { x: 100, y: 200, width: 40, height: 40 },
+                    { x: 200, y: 300, width: 40, height: 40 }
+                ]
+            },
+            // Level 4: 两侧障碍
+            {
+                carStart: { x: 100, y: 100, angle: 90 },
+                parkingSpot: { x: 240, y: 400, width: 40, height: 70, angle: 90 },
+                obstacles: [
+                    { x: 180, y: 250, width: 30, height: 100 },
+                    { x: 300, y: 250, width: 30, height: 100 }
+                ]
+            },
+            // Level 5: 斜向车位
+            {
+                carStart: { x: 50, y: 400, angle: 45 },
+                parkingSpot: { x: 200, y: 200, width: 40, height: 70, angle: 45 },
+                obstacles: [
+                    { x: 120, y: 300, width: 50, height: 30 }
+                ]
+            },
+            // Level 6: 狭窄通道
+            {
+                carStart: { x: 50, y: 150, angle: 0 },
+                parkingSpot: { x: 240, y: 400, width: 40, height: 70, angle: 0 },
+                obstacles: [
+                    { x: 100, y: 50, width: 30, height: 200 },
+                    { x: 180, y: 250, width: 30, height: 200 }
+                ]
+            },
+            // Level 7: L型障碍
+            {
+                carStart: { x: 100, y: 100, angle: 0 },
+                parkingSpot: { x: 220, y: 380, width: 40, height: 70, angle: 0 },
+                obstacles: [
+                    { x: 180, y: 100, width: 30, height: 150 },
+                    { x: 100, y: 220, width: 110, height: 30 }
+                ]
+            },
+            // Level 8: 对角停车
+            {
+                carStart: { x: 80, y: 80, angle: 0 },
+                parkingSpot: { x: 230, y: 350, width: 40, height: 70, angle: -45 },
+                obstacles: [
+                    { x: 150, y: 200, width: 40, width: 40 }
+                ]
+            },
+            // Level 9: 三个障碍
+            {
+                carStart: { x: 50, y: 100, angle: 45 },
+                parkingSpot: { x: 240, y: 400, width: 40, height: 70, angle: 0 },
+                obstacles: [
+                    { x: 100, y: 180, width: 40, height: 40 },
+                    { x: 180, y: 260, width: 40, height: 40 },
+                    { x: 100, y: 340, width: 40, height: 40 }
+                ]
+            },
+            // Level 10: 斜向通道
+            {
+                carStart: { x: 50, y: 50, angle: 30 },
+                parkingSpot: { x: 250, y: 380, width: 40, height: 70, angle: 30 },
+                obstacles: [
+                    { x: 120, y: 180, width: 50, height: 30 },
+                    { x: 180, y: 250, width: 30, height: 50 }
+                ]
+            },
+            // Level 11: U型
+            {
+                carStart: { x: 80, y: 100, angle: 0 },
+                parkingSpot: { x: 250, y: 350, width: 40, height: 70, angle: 180 },
+                obstacles: [
+                    { x: 80, y: 200, width: 150, height: 30 },
+                    { x: 200, y: 100, width: 30, height: 130 }
+                ]
+            },
+            // Level 12: 交错障碍
+            {
+                carStart: { x: 50, y: 400, angle: 180 },
+                parkingSpot: { x: 220, y: 100, width: 40, height: 70, angle: 180 },
+                obstacles: [
+                    { x: 100, y: 200, width: 30, height: 60 },
+                    { x: 200, y: 300, width: 30, height: 60 },
+                    { x: 150, y: 150, width: 60, height: 30 },
+                    { x: 150, y: 350, width: 60, height: 30 }
+                ]
+            },
+            // Level 13: 环形
+            {
+                carStart: { x: 120, y: 120, angle: 0 },
+                parkingSpot: { x: 250, y: 400, width: 40, height: 70, angle: 0 },
+                obstacles: [
+                    { x: 50, y: 50, width: 30, height: 250 },
+                    { x: 50, y: 50, width: 200, height: 30 },
+                    { x: 220, y: 50, width: 30, height: 200 },
+                    { x: 50, y: 220, width: 200, height: 30 }
+                ]
+            },
+            // Level 14: 斜向交错
+            {
+                carStart: { x: 60, y: 100, angle: 0 },
+                parkingSpot: { x: 240, y: 400, width: 40, height: 70, angle: 0 },
+                obstacles: [
+                    { x: 120, y: 150, width: 40, height: 40 },
+                    { x: 180, y: 220, width: 40, height: 40 },
+                    { x: 120, y: 290, width: 40, height: 40 },
+                    { x: 180, y: 360, width: 40, height: 40 }
+                ]
+            },
+            // Level 15: 最终挑战 - 精确停车
+            {
+                carStart: { x: 50, y: 100, angle: 15 },
+                parkingSpot: { x: 250, y: 380, width: 40, height: 70, angle: 0 },
+                obstacles: [
+                    { x: 100, y: 180, width: 35, height: 35 },
+                    { x: 160, y: 250, width: 35, height: 35 },
+                    { x: 220, y: 320, width: 35, height: 35 },
+                    { x: 160, y: 120, width: 35, height: 35 },
+                    { x: 100, y: 290, width: 35, height: 35 }
+                ]
+            }
+        ];
+
+        // 键盘控制
+        const keys = {};
+        document.addEventListener('keydown', e => {
+            keys[e.key] = true;
+        });
+        document.addEventListener('keyup', e => {
+            keys[e.key] = false;
+        });
+
+        // 按钮控制
+        document.getElementById('btn-forward').addEventListener('touchstart', () => keys['ArrowUp'] = true);
+        document.getElementById('btn-forward').addEventListener('touchend', () => keys['ArrowUp'] = false);
+        document.getElementById('btn-forward').addEventListener('mousedown', () => keys['ArrowUp'] = true);
+        document.getElementById('btn-forward').addEventListener('mouseup', () => keys['ArrowUp'] = false);
+
+        document.getElementById('btn-backward').addEventListener('touchstart', () => keys['ArrowDown'] = true);
+        document.getElementById('btn-backward').addEventListener('touchend', () => keys['ArrowDown'] = false);
+        document.getElementById('btn-backward').addEventListener('mousedown', () => keys['ArrowDown'] = true);
+        document.getElementById('btn-backward').addEventListener('mouseup', () => keys['ArrowDown'] = false);
+
+        document.getElementById('btn-left').addEventListener('touchstart', () => keys['ArrowLeft'] = true);
+        document.getElementById('btn-left').addEventListener('touchend', () => keys['ArrowLeft'] = false);
+        document.getElementById('btn-left').addEventListener('mousedown', () => keys['ArrowLeft'] = true);
+        document.getElementById('btn-left').addEventListener('mouseup', () => keys['ArrowLeft'] = false);
+
+        document.getElementById('btn-right').addEventListener('touchstart', () => keys['ArrowRight'] = true);
+        document.getElementById('btn-right').addEventListener('touchend', () => keys['ArrowRight'] = false);
+        document.getElementById('btn-right').addEventListener('mousedown', () => keys['ArrowRight'] = true);
+        document.getElementById('btn-right').addEventListener('mouseup', () => keys['ArrowRight'] = false);
+
+        document.getElementById('restart-btn').addEventListener('click', restartLevel);
+        document.getElementById('next-level-btn').addEventListener('click', nextLevel);
+
+        // 转换角度为弧度
+        function degToRad(deg) {
+            return deg * Math.PI / 180;
+        }
+
+        // 加载关卡
+        function loadLevel(levelIndex) {
+            const level = levels[levelIndex];
+            car.x = level.carStart.x;
+            car.y = level.carStart.y;
+            car.angle = level.carStart.angle;
+            car.speed = 0;
+            document.getElementById('current-level').textContent = levelIndex + 1;
+            document.getElementById('total-levels').textContent = levels.length;
+        }
+
+        // 重启当前关卡
+        function restartLevel() {
+            loadLevel(currentLevel);
+        }
+
+        // 下一关
+        function nextLevel() {
+            document.getElementById('level-cleared').classList.remove('show');
+            currentLevel++;
+            if (currentLevel >= levels.length) {
+                // 全部通关
+                setTimeout(() => {
+                    alert('🎉 恭喜你通关了所有关卡！你是倒车入库大师！');
+                    currentLevel = 0;
+                    loadLevel(currentLevel);
+                }, 100);
+            } else {
+                loadLevel(currentLevel);
+            }
+        }
+
+        // 获取车辆四个角的坐标
+        function getCarCorners() {
+            const cx = car.x;
+            const cy = car.y;
+            const w = car.width / 2;
+            const h = car.height / 2;
+            const rad = degToRad(car.angle);
+            const cos = Math.cos(rad);
+            const sin = Math.sin(rad);
+
+            const corners = [
+                { x: cx + (-w * cos - h * sin), y: cy + (-w * sin + h * cos) },
+                { x: cx + (w * cos - h * sin), y: cy + (w * sin + h * cos) },
+                { x: cx + (w * cos + h * sin), y: cy + (w * sin - h * cos) },
+                { x: cx + (-w * cos + h * sin), y: cy + (-w * sin - h * cos) }
+            ];
+
+            return corners;
+        }
+
+        // 检查碰撞
+        function checkCollision() {
+            const canvasRect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / canvasRect.width / window.devicePixelRatio;
+            const scaleY = canvas.height / canvasRect.height / window.devicePixelRatio;
+            const maxW = canvasRect.width;
+            const maxH = canvasRect.height;
+
+            // 检查墙壁碰撞（画布边缘）
+            const corners = getCarCorners();
+            for (const corner of corners) {
+                if (corner.x < 0 || corner.x > maxW || corner.y < 0 || corner.y > maxH) {
+                    return true;
+                }
+            }
+
+            // 检查障碍物碰撞
+            const level = levels[currentLevel];
+            for (const obs of level.obstacles) {
+                // 简化的AABB碰撞检测（旋转后不太准但对于小游戏足够）
+                const carLeft = car.x - car.width;
+                const carRight = car.x + car.width;
+                const carTop = car.y - car.height;
+                const carBottom = car.y + car.height;
+
+                const obsLeft = obs.x;
+                const obsRight = obs.x + obs.width;
+                const obsTop = obs.y;
+                const obsBottom = obs.y + obs.height;
+
+                if (!(carRight < obsLeft || carLeft > obsRight || carBottom < obsTop || carTop > obsBottom)) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        // 检查是否停入车位
+        function checkParking() {
+            const level = levels[currentLevel];
+            const spot = level.parkingSpot;
+
+            // 检查位置距离
+            const dist = Math.sqrt(Math.pow(car.x - spot.x, 2) + Math.pow(car.y - spot.y, 2));
+            const angleDiff = Math.abs(car.angle - spot.angle);
+            const normalizedAngleDiff = Math.min(angleDiff, 360 - angleDiff);
+
+            // 位置足够近且角度足够准
+            return dist < 25 && normalizedAngleDiff < 10 && Math.abs(car.speed) < 0.1;
+        }
+
+        // 更新游戏
+        function update() {
+            // 处理输入
+            if (keys['ArrowUp']) {
+                car.speed += car.acceleration;
+            } else if (keys['ArrowDown']) {
+                car.speed -= car.acceleration;
+            }
+
+            if (keys['ArrowLeft'] && Math.abs(car.speed) > 0.05) {
+                car.angle -= 2 * (car.speed > 0 ? 1 : -1);
+            }
+            if (keys['ArrowRight'] && Math.abs(car.speed) > 0.05) {
+                car.angle += 2 * (car.speed > 0 ? 1 : -1);
+            }
+
+            // 速度限制和摩擦
+            car.speed = Math.max(-car.maxSpeed, Math.min(car.maxSpeed, car.speed));
+            car.speed *= car.friction;
+
+            // 保存旧位置
+            const oldX = car.x;
+            const oldY = car.y;
+            const oldAngle = car.angle;
+
+            // 移动
+            const rad = degToRad(car.angle);
+            car.x += Math.cos(rad) * car.speed;
+            car.y += Math.sin(rad) * car.speed;
+
+            // 如果碰撞，回滚
+            if (checkCollision()) {
+                car.x = oldX;
+                car.y = oldY;
+                car.speed *= -0.5; // 反弹
+            }
+
+            // 检查是否完成
+            if (checkParking()) {
+                setTimeout(() => {
+                    document.getElementById('level-cleared').classList.add('show');
+                }, 300);
+            }
+
+            render();
+            requestAnimationFrame(update);
+        }
+
+        // 渲染
+        function render() {
+            const rect = canvas.getBoundingClientRect();
+            const w = rect.width;
+            const h = rect.height;
+
+            // 清空画布
+            ctx.fillStyle = '#2d3436';
+            ctx.fillRect(0, 0, w, h);
+
+            // 画网格背景
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+            ctx.lineWidth = 1;
+            for (let i = 0; i < w; i += 25) {
+                ctx.beginPath();
+                ctx.moveTo(i, 0);
+                ctx.lineTo(i, h);
+                ctx.stroke();
+            }
+            for (let i = 0; i < h; i += 25) {
+                ctx.beginPath();
+                ctx.moveTo(0, i);
+                ctx.lineTo(w, i);
+                ctx.stroke();
+            }
+
+            // 画停车位
+            const level = levels[currentLevel];
+            const spot = level.parkingSpot;
+
+            ctx.save();
+            ctx.translate(spot.x, spot.y);
+            ctx.rotate(degToRad(spot.angle));
+            ctx.fillStyle = 'rgba(254, 202, 87, 0.5)';
+            ctx.fillRect(-spot.width/2, -spot.height/2, spot.width, spot.height);
+            ctx.strokeStyle = 'rgba(254, 202, 87, 0.8)';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(-spot.width/2, -spot.height/2, spot.width, spot.height);
+            ctx.restore();
+
+            // 画障碍物
+            ctx.fillStyle = 'rgba(231, 76, 60, 0.7)';
+            for (const obs of level.obstacles) {
+                ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
+                ctx.strokeStyle = 'rgba(192, 57, 43, 1)';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(obs.x, obs.y, obs.width, obs.height);
+            }
+
+            // 画车辆
+            ctx.save();
+            ctx.translate(car.x, car.y);
+            ctx.rotate(degToRad(car.angle));
+
+            // 车身
+            ctx.fillStyle = '#3498db';
+            ctx.fillRect(-car.width/2, -car.height/2, car.width, car.height);
+
+            // 车轮
+            ctx.fillStyle = '#2c3e50';
+            const wheelW = 8;
+            const wheelH = 12;
+            // 四个轮子
+            ctx.fillRect(-car.width/2 - 2, -car.height/2 + 8, wheelW, wheelH);
+            ctx.fillRect(car.width/2 - wheelW + 2, -car.height/2 + 8, wheelW, wheelH);
+            ctx.fillRect(-car.width/2 - 2, car.height/2 - 8 - wheelH, wheelW, wheelH);
+            ctx.fillRect(car.width/2 - wheelW + 2, car.height/2 - 8 - wheelH, wheelW, wheelH);
+
+            // 前挡风玻璃
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+            ctx.fillRect(-car.width/2 + 4, -car.height/4, car.width - 8, car.height/3);
+
+            // 车头标记
+            ctx.fillStyle = '#e74c3c';
+            ctx.fillRect(-car.width/4, car.height/2 - 8, car.width/2, 6);
+
+            ctx.restore();
+        }
+
+        // 开始游戏
+        loadLevel(0);
+        update();
+    </script>
+</body>
+</html>
