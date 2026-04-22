@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>价格猜猜看 - Casual Games</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * {
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+        }
+        
+        .product-image {
+            transition: transform 0.3s ease;
+        }
+        
+        .product-image:hover {
+            transform: scale(1.02);
+        }
+        
+        .guess-history {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .guess-item {
+            animation: slideIn 0.2s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        
+        .price-input::-webkit-inner-spin-button,
+        .price-input::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        
+        .price-input {
+            -moz-appearance: textfield;
+        }
+    </style>
+</head>
+<body class="text-white">
+    <div class="container mx-auto px-4 py-8 max-w-md">
+        <div class="text-center mb-6">
+            <h1 class="text-3xl font-bold bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent mb-2">💰 价格猜猜看</h1>
+            <p class="text-gray-300 text-sm">猜猜这个商品多少钱？猜对了你就赢了！</p>
+        </div>
+
+        <div class="bg-white/10 backdrop-blur-lg rounded-2xl p-5 shadow-xl mb-5">
+            <div class="mb-4">
+                <h2 id="product-name" class="text-xl font-semibold mb-2 text-center"></h2>
+                <div class="aspect-square bg-white/20 rounded-xl overflow-hidden flex items-center justify-center">
+                    <img id="product-image" class="product-image w-full h-full object-contain bg-white p-2 rounded">
+                </div>
+            </div>
+            
+            <div class="mb-4">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-gray-300 text-sm">剩余猜测次数</span>
+                    <span id="guesses-left" class="text-yellow-400 font-bold text-xl">8</span>
+                </div>
+                <div class="w-full bg-white/20 rounded-full h-2 overflow-hidden">
+                    <div id="progress-bar" class="bg-gradient-to-r from-green-400 to-yellow-400 h-full transition-all duration-300" style="width: 100%"></div>
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-gray-300 text-sm mb-2">输入你的猜测 (元)</label>
+                <div class="flex gap-2">
+                    <input type="number" id="price-input" placeholder="输入价格" 
+                           class="price-input flex-1 px-4 py-3 bg-white/20 border border-white/30 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:border-yellow-400">
+                    <button id="guess-btn" class="px-6 py-3 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-xl font-semibold text-gray-900 hover:opacity-90 transition-opacity">
+                        猜测
+                    </button>
+                </div>
+                <p id="hint-text" class="text-sm mt-2 text-center"></p>
+            </div>
+
+            <div>
+                <div class="text-gray-300 text-sm mb-2">猜测记录</div>
+                <div id="guess-history" class="guess-history space-y-2"></div>
+            </div>
+        </div>
+
+        <div class="flex gap-2">
+            <button id="new-game-btn" class="flex-1 px-4 py-3 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl font-semibold hover:opacity-90 transition-opacity">
+                🔄 开始新游戏
+            </button>
+        </div>
+    </div>
+
+    <!-- Game Over Modal -->
+    <div id="modal" class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 hidden p-4">
+        <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-8 max-w-sm w-full text-center">
+            <div id="modal-icon" class="text-6xl mb-4"></div>
+            <h2 id="modal-title" class="text-2xl font-bold mb-2"></h2>
+            <p id="modal-message" class="text-gray-300 mb-6"></p>
+            <div class="flex gap-2">
+                <button id="modal-new-game" class="flex-1 px-6 py-3 bg-gradient-to-r from-green-400 to-blue-500 rounded-xl font-semibold hover:opacity-90 transition-opacity">
+                    再来一局
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 商品数据库
+        const products = [
+            { name: "苹果 iPhone 15 128GB", price: 5999, image: "https://image-search-api.oss-cn-hangzhou.aliyuncs.com/iphone15.jpg" },
+            { name: "小米 14 8+256GB", price: 3999, image: "https://image-search-api.oss-cn-hangzhou.aliyuncs.com/xiaomi14.jpg" },
+            { name: "华为 Mate 60 Pro 256GB", price: 6999, image: "https://image-search-api.oss-cn-hangzhou.aliyuncs.com/huawei-mate60.jpg" },
+            { name: "星巴克 中杯美式咖啡", price: 32, image: "https://image-search-api.oss-cn-hangzhou.aliyuncs.com/starbucks-coffee.jpg" },
+            { name: "喜茶 多肉葡萄", price: 23, image: "https://image-search-api.oss-cn-hangzhou.aliyuncs.com/heytea-grapes.jpg" },
+            { name: "麦当劳 麦辣鸡腿堡套餐", price: 31, image: "https://image-search-api.oss-cn-hangzhou.aliyuncs.com/mcdonalds-burger.jpg" },
+            { name: "耐克 Air Force 1 运动鞋", price: 799, image: "https://image-search-api.oss-cn-hangzhou.aliyuncs.com/nike-af1.jpg" },
+            { name: "阿迪达斯 三条纹短袖T恤", price: 229, image: "https://image-search-api.oss-cn-hangzhou.aliyuncs.com/adidas-tshirt.jpg" },
+            { name: "优衣库 UT 印花短袖", price: 99, image: "https://image-search-api.oss-cn-hangzhou.aliyuncs.com/uniqlo-ut.jpg" },
+            { name: "Zara 男士牛仔裤", price: 299, image: "https://image-search-api.oss-cn-hangzhou.aliyuncs.com/zara-jeans.jpg" },
+            { name: "宜家 拉克茶几", price: 199, image: "https://image-search-api.oss-cn-hangzhou.aliyuncs.com/ikea-coffee-table.jpg" },
+            { name: "无印良品 纯棉四件套", price: 498, image: "https://image-search-api.oss-cn-hangzhou.aliyuncs.com/muji-bedding.jpg" },
+            { name: "苹果 AirPods Pro 第二代", price: 1899, image: "https://image-search-api.oss-cn-hangzhou.aliyuncs.com/airpods-pro.jpg" },
+            { name: "索尼 WH-1000XM5 降噪耳机", price: 2499, image: "https://image-search-api.oss-cn-hangzhou.aliyuncs.com/sony-xm5.jpg" },
+            { name: "任天堂 Switch OLED", price: 2099, image: "https://image-search-api.oss-cn-hangzhou.aliyuncs.com/switch-oled.jpg" },
+            { name: "索尼 PlayStation 5 光驱版", price: 3899, image: "https://image-search-api.oss-cn-hangzhou.aliyuncs.com/ps5.jpg" },
+            { name: "微软 Xbox Series X", price: 3899, image: "https://image-search-api.oss-cn-hangzhou.aliyuncs.com/xbox-series-x.jpg" },
+            { name: "特斯拉 Model Y 后轮驱动版", price: 263900, image: "https://image-search-api.oss-cn-hangzhou.aliyuncs.com/tesla-modely.jpg" },
+            { name: "比亚迪 海鸥 活力版", price: 73800, image: "https://image-search-api.oss-cn-hangzhou.aliyuncs.com/byd-seagull.jpg" },
+            { name: "喜之郎 果冻 90g", price: 5, image: "https://image-search-api.oss-cn-hangzhou.aliyuncs.com/xizhilang-jelly.jpg" },
+            { name: "康师傅 红烧牛肉面 5包", price: 12, image: "https://image-search-api.oss-cn-hangzhou.aliyuncs.com/kangshifu-instant.jpg" },
+            { name: "可口可乐 500ml", price: 4, image: "https://image-search-api.oss-cn-hangzhou.aliyuncs.com/coca-cola.jpg" },
+            { name: "贵州茅台 飞天 500ml", price: 1499, image: "https://image-search-api.oss-cn-hangzhou.aliyuncs.com/moutai.jpg" },
+            { name: "五粮液 普五 500ml", price: 1099, image: "https://image-search-api.oss-cn-hangzhou.aliyuncs.com/wuliangye.jpg" },
+            { name: "Apple iPad 10 64GB WiFi", price: 3599, image: "https://image-search-api.oss-cn-hangzhou.aliyuncs.com/ipad-10.jpg" },
+            { name: "Apple MacBook Air M2 256GB", price: 7999, image: "https://image-search-api.oss-cn-hangzhou.aliyuncs.com/macbook-air-m2.jpg" },
+            { name: "戴森 V10 Detect Fluffy 吸尘器", price: 4990, image: "https://image-search-api.oss-cn-hangzhou.aliyuncs.com/dyson-v10.jpg" },
+            { name: "戴森 Supersonic 吹风机", price: 2990, image: "https://image-search-api.oss-cn-hangzhou.aliyuncs.com/dyson-hairdryer.jpg" },
+            { name: "大疆 Osmo Mobile 6 手机云台", price: 999, image: "https://image-search-api.oss-cn-hangzhou.aliyuncs.com/dji-osmo-mobile-6.jpg" },
+            { name: "GoPro HERO12 Black", price: 2798, image: "https://image-search-api.oss-cn-hangzhou.aliyuncs.com/gopro-hero12.jpg" }
+        ];
+
+        let currentGame = {
+            product: null,
+            guessesLeft: 0,
+            guesses: []
+        };
+
+        const elements = {
+            productName: document.getElementById('product-name'),
+            productImage: document.getElementById('product-image'),
+            guessesLeft: document.getElementById('guesses-left'),
+            progressBar: document.getElementById('progress-bar'),
+            priceInput: document.getElementById('price-input'),
+            guessBtn: document.getElementById('guess-btn'),
+            guessHistory: document.getElementById('guess-history'),
+            hintText: document.getElementById('hint-text'),
+            newGameBtn: document.getElementById('new-game-btn'),
+            modal: document.getElementById('modal'),
+            modalIcon: document.getElementById('modal-icon'),
+            modalTitle: document.getElementById('modal-title'),
+            modalMessage: document.getElementById('modal-message'),
+            modalNewGame: document.getElementById('modal-new-game')
+        };
+
+        // 开始新游戏
+        function startNewGame() {
+            // 随机选择一个商品
+            const randomIndex = Math.floor(Math.random() * products.length);
+            currentGame.product = products[randomIndex];
+            currentGame.guessesLeft = 8;
+            currentGame.guesses = [];
+            
+            // 更新UI
+            elements.productName.textContent = currentGame.product.name;
+            elements.productImage.src = currentGame.product.image;
+            elements.productImage.onerror = function() {
+                // 如果图片加载失败，用占位
+                this.src = 'https://via.placeholder.com/400x400/f0f0f0/cccccc?text=' + encodeURIComponent(currentGame.product.name);
+            };
+            updateUI();
+            elements.guessHistory.innerHTML = '';
+            elements.hintText.textContent = '';
+            elements.priceInput.value = '';
+            elements.priceInput.focus();
+        }
+
+        function updateUI() {
+            elements.guessesLeft.textContent = currentGame.guessesLeft;
+            const percentage = (currentGame.guessesLeft / 8) * 100;
+            elements.progressBar.style.width = percentage + '%';
+        }
+
+        function addGuess(guess, hint) {
+            const guessDiv = document.createElement('div');
+            guessDiv.className = `guess-item px-4 py-3 rounded-lg flex items-center justify-between ${hint.hintClass}`;
+            guessDiv.innerHTML = `
+                <span class="font-semibold">${guess} 元</span>
+                <span class="text-sm">${hint.text}</span>
+            `;
+            elements.guessHistory.insertBefore(guessDiv, elements.guessHistory.firstChild);
+        }
+
+        function handleGuess() {
+            const inputVal = elements.priceInput.value.trim();
+            if (!inputVal) {
+                elements.hintText.textContent = '⚠️ 请输入价格';
+                elements.hintText.className = 'text-yellow-400';
+                return;
+            }
+
+            const guess = parseInt(inputVal);
+            if (isNaN(guess) || guess <= 0) {
+                elements.hintText.textContent = '⚠️ 请输入有效的价格';
+                elements.hintText.className = 'text-yellow-400';
+                return;
+            }
+
+            // 检查是否已经猜过这个价格
+            if (currentGame.guesses.includes(guess)) {
+                elements.hintText.textContent = '⚠️ 你已经猜过这个价格了';
+                elements.hintText.className = 'text-yellow-400';
+                return;
+            }
+
+            currentGame.guesses.push(guess);
+            currentGame.guessesLeft--;
+
+            const actualPrice = currentGame.product.price;
+            let hint;
+
+            if (guess === actualPrice) {
+                // 猜对了
+                showModal(true, guess);
+                return;
+            } else if (guess > actualPrice) {
+                hint = { text: '🔽 猜高了', hintClass: 'bg-orange-500/20 border border-orange-500/50 text-orange-300' };
+                elements.hintText.textContent = '🔽 猜高了，再试试低点';
+                elements.hintText.className = 'text-orange-400';
+            } else {
+                hint = { text: '🔼 猜低了', hintClass: 'bg-blue-500/20 border border-blue-500/50 text-blue-300' };
+                elements.hintText.textContent = '🔼 猜低了，再试试高点';
+                elements.hintText.className = 'text-blue-400';
+            }
+
+            addGuess(guess, hint);
+            updateUI();
+            elements.priceInput.value = '';
+            elements.priceInput.focus();
+
+            if (currentGame.guessesLeft <= 0) {
+                // 游戏结束
+                showModal(false, actualPrice);
+            }
+        }
+
+        function showModal(won, price) {
+            if (won) {
+                elements.modalIcon.textContent = '🎉';
+                elements.modalTitle.textContent = '恭喜猜对了！';
+                elements.modalMessage.textContent = `实际价格就是 ${price} 元，太棒了！`;
+            } else {
+                elements.modalIcon.textContent = '😔';
+                elements.modalTitle.textContent = '游戏结束';
+                elements.modalMessage.textContent = `正确价格是 ${price} 元，下次加油！`;
+            }
+            elements.modal.classList.remove('hidden');
+        }
+
+        // 事件绑定
+        elements.guessBtn.addEventListener('click', handleGuess);
+        elements.priceInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                handleGuess();
+            }
+        });
+        elements.newGameBtn.addEventListener('click', startNewGame);
+        elements.modalNewGame.addEventListener('click', () => {
+            elements.modal.classList.add('hidden');
+            startNewGame();
+        });
+
+        // 防止模态框点击背景关闭
+        elements.modal.addEventListener('click', (e) => {
+            if (e.target === elements.modal) {
+                elements.modal.classList.add('hidden');
+            }
+        });
+
+        // 开始游戏
+        startNewGame();
+    </script>
+</body>
+</html>
