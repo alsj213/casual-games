@@ -63,25 +63,85 @@
             from { transform: translateY(-10px); opacity: 0; }
             to { transform: translateY(0); opacity: 1; }
         }
+        
+        .player-item.active {
+            background: rgba(59, 130, 246, 0.3);
+            border-color: rgb(59, 130, 246);
+        }
+        
+        .mode-btn.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .difficulty-tag {
+            font-size: 0.65rem;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-weight: 600;
+        }
     </style>
 </head>
 <body>
     <div class="container mx-auto px-4 py-6 max-w-md">
-        <div class="text-center mb-6">
-            <h1 class="text-3xl font-bold text-white mb-2">😊 Emoji猜成语</h1>
-            <p class="text-purple-100 text-sm">根据表情猜成语，一共 50 关，看看你能过几关！</p>
+        <div class="text-center mb-4">
+            <h1 class="text-3xl font-bold text-white mb-1">😊 Emoji猜成语</h1>
+            <p class="text-purple-100 text-sm">根据表情猜成语，300题题库，三种难度，支持多人PK</p>
         </div>
 
-        <div class="bg-white/10 backdrop-blur-lg rounded-2xl p-5 shadow-xl mb-4">
+        <!-- Mode Selection -->
+        <div id="mode-selection" class="mb-4">
+            <div class="bg-white/10 backdrop-blur-lg rounded-xl p-4">
+                <h3 class="text-white font-semibold mb-3 text-center">选择游戏模式</h3>
+                <div class="grid grid-cols-2 gap-2">
+                    <button id="mode-single" class="mode-btn w-full py-3 bg-white/20 border border-white/30 rounded-lg font-semibold text-white hover:bg-white/30 transition-colors active">
+                        🚀 单人闯关
+                    </button>
+                    <button id="mode-pk" class="mode-btn w-full py-3 bg-white/20 border border-white/30 rounded-lg font-semibold text-white hover:bg-white/30 transition-colors">
+                        👥 多人PK
+                    </button>
+                </div>
+                <div class="mt-3" id="player-count-container" style="display: none;">
+                    <h4 class="text-white text-sm mb-2">玩家数量</h4>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button class="player-count-btn py-2 bg-white/20 border border-white/30 rounded-lg text-white font-semibold hover:bg-white/30" data-count="2">2人</button>
+                        <button class="player-count-btn py-2 bg-white/20 border border-white/30 rounded-lg text-white font-semibold hover:bg-white/30" data-count="3">3人</button>
+                        <button class="player-count-btn py-2 bg-white/20 border border-white/30 rounded-lg text-white font-semibold hover:bg-white/30" data-count="4">4人</button>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <h4 class="text-white text-sm mb-2">难度选择</h4>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button class="difficulty-btn py-2 bg-green-500/30 border border-green-400 rounded-lg text-white font-semibold hover:opacity-90 active" data-difficulty="easy">初级</button>
+                        <button class="difficulty-btn py-2 bg-yellow-500/30 border border-yellow-400 rounded-lg text-white font-semibold hover:opacity-90" data-difficulty="medium">中级</button>
+                        <button class="difficulty-btn py-2 bg-red-500/30 border border-red-400 rounded-lg text-white font-semibold hover:opacity-90" data-difficulty="hard">高级</button>
+                    </div>
+                </div>
+                <button id="start-game" class="w-full mt-4 py-3 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-lg font-bold text-gray-900 hover:opacity-90 transition-opacity">
+                    开始游戏
+                </button>
+            </div>
+        </div>
+
+        <!-- PK Players Score -->
+        <div id="pk-scoreboard" class="mb-4" style="display: none;">
+            <div class="bg-white/10 backdrop-blur-lg rounded-xl p-3">
+                <div id="players-container" class="grid gap-2"></div>
+            </div>
+        </div>
+
+        <!-- Main Game Area -->
+        <div id="game-area" class="bg-white/10 backdrop-blur-lg rounded-2xl p-5 shadow-xl mb-4" style="display: none;">
             <div class="mb-4">
                 <div class="flex items-center justify-between mb-3">
-                    <span class="text-white text-sm">关卡进度</span>
+                    <span class="text-white text-sm">进度</span>
                     <span id="level-info" class="text-yellow-300 font-bold"></span>
                 </div>
                 <div class="w-full bg-white/20 rounded-full h-2 overflow-hidden">
                     <div id="progress-bar" class="bg-gradient-to-r from-yellow-300 to-pink-300 h-full transition-all duration-300" style="width: 0%"></div>
                 </div>
             </div>
+
+            <div id="hint-count" class="mb-3 text-center text-purple-100 text-sm" style="display: none;"></div>
 
             <div id="emoji-container" class="flex flex-wrap justify-center gap-3 mb-6">
                 <!-- Emoji boxes will be inserted here -->
@@ -91,23 +151,30 @@
                 <!-- Answer characters will be inserted here -->
             </div>
 
+            <div id="hint-area" class="mb-4 p-3 bg-white/10 rounded-lg hidden">
+                <div id="hint-text" class="text-white text-sm"></div>
+            </div>
+
             <div id="keyboard-container" class="space-y-2">
                 <!-- Keyboard will be inserted here -->
             </div>
         </div>
 
-        <div class="flex gap-2">
+        <div id="game-controls" class="flex gap-2 mb-4" style="display: none;">
             <button id="hint-btn" class="flex-1 px-4 py-3 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-xl font-semibold text-gray-900 hover:opacity-90 transition-opacity">
-                💡 提示
+                💡 获取提示
             </button>
             <button id="skip-btn" class="flex-1 px-4 py-3 bg-gradient-to-r from-gray-400 to-gray-500 rounded-xl font-semibold text-white hover:opacity-90 transition-opacity">
-                ⏭️ 跳过
+                ⏭️ 跳过此题
             </button>
         </div>
 
-        <div class="mt-4">
-            <button id="level-select-btn" class="w-full px-4 py-3 bg-white/20 border border-white/30 rounded-xl font-semibold text-white hover:bg-white/30 transition-colors">
+        <div class="flex gap-2">
+            <button id="level-select-btn" class="flex-1 px-4 py-3 bg-white/20 border border-white/30 rounded-xl font-semibold text-white hover:bg-white/30 transition-colors">
                 📋 选择关卡
+            </button>
+            <button id="restart-btn" class="flex-1 px-4 py-3 bg-white/20 border border-white/30 rounded-xl font-semibold text-white hover:bg-white/30 transition-colors">
+                🔄 重新开始
             </button>
         </div>
     </div>
@@ -125,119 +192,443 @@
         </div>
     </div>
 
-    <!-- Win Modal -->
-    <div id="win-modal" class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 hidden p-4">
+    <!-- Correct Answer Modal -->
+    <div id="correct-modal" class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 hidden p-4">
         <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-8 max-w-sm w-full text-center">
             <div class="text-6xl mb-4">🎉</div>
-            <h2 id="win-title" class="text-2xl font-bold text-white mb-2">恭喜过关！</h2>
-            <p id="win-message" class="text-gray-300 mb-6"></p>
+            <h2 id="correct-title" class="text-2xl font-bold text-white mb-2">答对了！</h2>
+            <p id="correct-message" class="text-gray-300 mb-6"></p>
             <div class="flex gap-2">
-                <button id="next-level" class="flex-1 px-6 py-3 bg-gradient-to-r from-green-400 to-blue-500 rounded-xl font-semibold hover:opacity-90 transition-opacity">
-                    下一关
+                <button id="next-question" class="flex-1 px-6 py-3 bg-gradient-to-r from-green-400 to-blue-500 rounded-xl font-semibold hover:opacity-90 transition-opacity">
+                    下一题
                 </button>
             </div>
         </div>
     </div>
 
     <script>
-        // Emoji 猜成语题库
+        // Emoji 猜成语题库 - 300题，分三个难度
         const puzzles = [
-            { emojis: ['🐯', '🐯', '🐺'], answer: '虎头虎脑' },
-            { emojis: ['🐛', '🍃', '🐟', '🌾'], answer: '春华秋实' },
-            { emojis: ['💰', '🐃', '🔑', '💣'], answer: '对牛弹琴' },
-            { emojis: ['👀', '👀', '🐺', '🐑'], answer: '阳奉阴违' },
-            { emojis: ['💧', '💧', '🔥', '🔥'], answer: '水深火热' },
-            { emojis: ['🎹', '🐟', '🍚', '🔔'], answer: '余音绕梁' },
-            { emojis: ['🌞', '☀️', '⭐', '🌙'], answer: '日新月异' },
-            { emojis: ['💎', '🐶', '🔴', '❤️'], answer: '忠心耿耿' },
-            { emojis: ['🧵', '☁️', '🌧️', '💧'], answer: '行云流水' },
-            { emojis: ['🌳', '🌳', '🌳', '🍁'], answer: '一叶知秋' },
-            { emojis: ['👦', '👩', '🐴', '👨'], answer: '青梅竹马' },
-            { emojis: ['🔴', '🍎', '💚', '🍏'], answer: '红男绿女' },
-            { emojis: ['🐓', '🐔', '🍑', '🍐'], answer: '说三道四' },
-            { emojis: ['🌙', '🏠', '🧑‍🌾', '🥛'], answer: '闭月羞花' },
-            { emojis: ['1️⃣', '🍻', '🍻', '🍻'], answer: '一石三鸟' },
-            { emojis: ['💣', '✍️', '✅', '🎨'], answer: '绘声绘色' },
-            { emojis: ['🌶️', '🐔', '🍼', '🍜'], answer: '鸡鸣狗盗' },
-            { emojis: ['👋', '🗣️', '👋', '🐔'], answer: '三三两两' },
-            { emojis: ['💡', '🏃', '🌧️', '🔥'], answer: '电光石火' },
-            { emojis: ['🐸', '🐦', '🦗', '🐝'], answer: '蛙鸣蝉噪' },
-            { emojis: ['👴', '👵', '👦', '👧'], answer: '老老少少' },
-            { emojis: ['🐉', '🐯', '🌊', '🏔️'], answer: '龙潭虎穴' },
-            { emojis: ['🎈', '🎈', '🏠', '🎈'], answer: '大同小异' },
-            { emojis: ['✋', '🔴', '🔔', '🍚'], answer: '一拍即合' },
-            { emojis: ['🏔️', '🏔️', '🌊', '🌊'], answer: '千山万水' },
-            { emojis: ['👁️', '👁️', '🚶', '👁️'], answer: '三足鼎立' },
-            { emojis: ['💎', '✂️', '🧵', '🎻'], answer: '断章取义' },
-            { emojis: ['🔥', '🚗', '💰', '🌙'], answer: '风月无边' },
-            { emojis: ['🦅', '🦅', '🦆', '🐓'], answer: '惺惺相惜' },
-            { emojis: ['🌙', '🌙', '⛰️', '🌊'], answer: '山高水长' },
-            { emojis: ['🍳', '🍴', '💀', '🔥'], answer: '生灵涂炭' },
-            { emojis: ['🐑', '🐑', '➡️', '🐺'], answer: '引狼入室' },
-            { emojis: ['🌸', '🌎', '🍃', '🍃'], answer: '春暖花开' },
-            { emojis: ['💧', '👓', '❤️', '💔'], answer: '忠心不二' },
-            { emojis: ['🎓', '👑', '🚗', '🎻'], answer: '琴棋书画' },
-            { emojis: ['🌿', '🌿', '🔍', '🌿'], answer: '寻花问柳' },
-            { emojis: ['👃', '👃', '🔑', '🔦'], answer: '口口声声' },
-            { emojis: ['🌈', '🎿', '🏔️', '🌧️'], answer: '冰天雪地' },
-            { emojis: ['💎', '🔨', '🔨', '🔩'], answer: '凿壁偷光' },
-            { emojis: ['🌞', '🚢', '🌊', '📜'], answer: '一帆风顺' },
-            { emojis: ['👻', '💩', '🌳', '🧣'], answer: '草木皆兵' },
-            { emojis: ['🗡️', '🔪', '🪵', '🌳'], answer: '入木三分' },
-            { emojis: ['👂', '🔥', '🍃', '🌙'], answer: '闻鸡起舞' },
-            { emojis: ['📖', '🐟', '🍵', '🍃'], answer: '津津有味' },
-            { emojis: ['🐜', '🐜', '🗣️', '⚡'], answer: '娓娓道来' },
-            { emojis: ['🐎', '🌿', '👁️', '🦢'], answer: '走马观花' },
-            { emojis: ['🖐️', '🎭', '❤️', '🥜'], answer: '妙手回春' },
-            { emojis: ['🐟', '🐟', '🦶', '👂'], answer: '鱼目混珠' },
-            { emojis: ['👈', '👉', '🍃', '🌙'], answer: '左右逢源' },
-            { emojis: ['💩', '🍅', '🥚', '🚗'], answer: '亡羊补牢' }
-        ];
+            // 初级 (1-100) - 比较容易看出
+            { emojis: ['🐯', '🐯', '🐺'], answer: '虎头虎脑', difficulty: 'easy' },
+            { emojis: ['🐛', '🍃', '🐟', '🌾'], answer: '春华秋实', difficulty: 'easy' },
+            { emojis: ['💰', '🐃', '🔑', '💣'], answer: '对牛弹琴', difficulty: 'easy' },
+            { emojis: ['👀', '👀', '🐺', '🐑'], answer: '阳奉阴违', difficulty: 'medium' },
+            { emojis: ['💧', '💧', '🔥', '🔥'], answer: '水深火热', difficulty: 'easy' },
+            { emojis: ['🎹', '🐟', '🍚', '🔔'], answer: '余音绕梁', difficulty: 'medium' },
+            { emojis: ['🌞', '☀️', '⭐', '🌙'], answer: '日新月异', difficulty: 'easy' },
+            { emojis: ['💎', '🐶', '🔴', '❤️'], answer: '忠心耿耿', difficulty: 'medium' },
+            { emojis: ['🧵', '☁️', '🌧️', '💧'], answer: '行云流水', difficulty: 'easy' },
+            { emojis: ['🌳', '🌳', '🌳', '🍁'], answer: '一叶知秋', difficulty: 'easy' },
+            { emojis: ['👦', '👩', '🐴', '👨'], answer: '青梅竹马', difficulty: 'easy' },
+            { emojis: ['🔴', '🍎', '💚', '🍏'], answer: '红男绿女', difficulty: 'medium' },
+            { emojis: ['🐓', '🐔', '🍑', '🍐'], answer: '说三道四', difficulty: 'easy' },
+            { emojis: ['🌙', '🏠', '🧑‍🌾', '🥛'], answer: '闭月羞花', difficulty: 'medium' },
+            { emojis: ['1️⃣', '🍻', '🍻', '🍻'], answer: '一石三鸟', difficulty: 'easy' },
+            { emojis: ['💣', '✍️', '✅', '🎨'], answer: '绘声绘色', difficulty: 'medium' },
+            { emojis: ['🌶️', '🐔', '🍼', '🍜'], answer: '鸡鸣狗盗', difficulty: 'medium' },
+            { emojis: ['👋', '🗣️', '👋', '🐔'], answer: '三三两两', difficulty: 'easy' },
+            { emojis: ['💡', '🏃', '🌧️', '🔥'], answer: '电光石火', difficulty: 'medium' },
+            { emojis: ['🐸', '🐦', '🦗', '🐝'], answer: '蛙鸣蝉噪', difficulty: 'medium' },
+            { emojis: ['👴', '👵', '👦', '👧'], answer: '老老少少', difficulty: 'easy' },
+            { emojis: ['🐉', '🐯', '🌊', '🏔️'], answer: '龙潭虎穴', difficulty: 'easy' },
+            { emojis: ['🎈', '🎈', '🏠', '🎈'], answer: '大同小异', difficulty: 'easy' },
+            { emojis: ['✋', '🔴', '🔔', '🍚'], answer: '一拍即合', difficulty: 'easy' },
+            { emojis: ['🏔️', '🏔️', '🌊', '🌊'], answer: '千山万水', difficulty: 'easy' },
+            { emojis: ['👁️', '👁️', '🚶', '👁️'], answer: '三足鼎立', difficulty: 'medium' },
+            { emojis: ['💎', '✂️', '🧵', '🎻'], answer: '断章取义', difficulty: 'medium' },
+            { emojis: ['🔥', '🚗', '💰', '🌙'], answer: '风月无边', difficulty: 'hard' },
+            { emojis: ['🦅', '🦅', '🦆', '🐓'], answer: '惺惺相惜', difficulty: 'medium' },
+            { emojis: ['🌙', '🌙', '⛰️', '🌊'], answer: '山高水长', difficulty: 'easy' },
+            { emojis: ['🍳', '🍴', '💀', '🔥'], answer: '生灵涂炭', difficulty: 'medium' },
+            { emojis: ['🐑', '🐑', '➡️', '🐺'], answer: '引狼入室', difficulty: 'easy' },
+            { emojis: ['🌸', '🌎', '🍃', '🍃'], answer: '春暖花开', difficulty: 'easy' },
+            { emojis: ['💧', '👓', '❤️', '💔'], answer: '忠心不二', difficulty: 'medium' },
+            { emojis: ['🎓', '👑', '🚗', '🎻'], answer: '琴棋书画', difficulty: 'easy' },
+            { emojis: ['🌿', '🌿', '🔍', '🌿'], answer: '寻花问柳', difficulty: 'medium' },
+            { emojis: ['👃', '👃', '🔑', '🔦'], answer: '口口声声', difficulty: 'easy' },
+            { emojis: ['🌈', '🎿', '🏔️', '🌧️'], answer: '冰天雪地', difficulty: 'easy' },
+            { emojis: ['💎', '🔨', '🔨', '🔩'], answer: '凿壁偷光', difficulty: 'medium' },
+            { emojis: ['🌞', '🚢', '🌊', '📜'], answer: '一帆风顺', difficulty: 'easy' },
+            { emojis: ['👻', '💩', '🌳', '🧣'], answer: '草木皆兵', difficulty: 'easy' },
+            { emojis: ['🗡️', '🔪', '🪵', '🌳'], answer: '入木三分', difficulty: 'medium' },
+            { emojis: ['👂', '🔥', '🍃', '🌙'], answer: '闻鸡起舞', difficulty: 'easy' },
+            { emojis: ['📖', '🐟', '🍵', '🍃'], answer: '津津有味', difficulty: 'easy' },
+            { emojis: ['🐜', '🐜', '🗣️', '⚡'], answer: '娓娓道来', difficulty: 'medium' },
+            { emojis: ['🐎', '🌿', '👁️', '🦢'], answer: '走马观花', difficulty: 'easy' },
+            { emojis: ['🖐️', '🎭', '❤️', '🥜'], answer: '妙手回春', difficulty: 'medium' },
+            { emojis: ['🐟', '🐟', '🦶', '👂'], answer: '鱼目混珠', difficulty: 'medium' },
+            { emojis: ['👈', '👉', '🍃', '🌙'], answer: '左右逢源', difficulty: 'medium' },
+            { emojis: ['💩', '🍅', '🥚', '🚗'], answer: '亡羊补牢', difficulty: 'easy' },
+            { emojis: ['🍚', '🌾', '👑', '🔴'], answer: '九五之尊', difficulty: 'medium' },
+            { emojis: ['🐺', '🐺', '🐂', '🐯'], answer: '狼吞虎咽', difficulty: 'easy' },
+            { emojis: ['🏃', '🏃', '💨', '💨'], answer: '风风火火', difficulty: 'easy' },
+            { emojis: ['🌙', '✂️', '🎁', '🍐'], answer: '披荆斩棘', difficulty: 'medium' },
+            { emojis: ['👀', '🌙', '🏃', '🍐'], answer: '海底捞月', difficulty: 'hard' },
+            { emojis: ['🍀', '🍀', '🚢', '🌊'], answer: '一帆风顺', difficulty: 'easy' },
+            { emojis: ['🔥', '🚗', '🍄', '🌾'], answer: '走马观花', difficulty: 'easy' },
+            { emojis: ['🐉', '🐉', '🍶', '🍶'], answer: '九牛二虎', difficulty: 'medium' },
+            { emojis: ['🔴', '❤️', '🔥', '🗣️'], answer: '红红火火', difficulty: 'easy' },
+            { emojis: ['🐵', '🪨', '💦', '🏔️'], answer: '排山倒海', difficulty: 'medium' },
+            { emojis: ['🍎', '🍐', '🍋', '🍌'], answer: '五花八门', difficulty: 'easy' },
+            { emojis: ['👦', '💎', '👧', '🌙'], answer: '金童玉女', difficulty: 'easy' },
+            { emojis: ['🌳', '🍂', '🍂', '🍂'], answer: '落叶知秋', difficulty: 'easy' },
+            { emojis: ['🤲', '🌱', '🐯', '🦅'], answer: '如虎添翼', difficulty: 'easy' },
+            { emojis: ['🌙', '🏔️', '🌙', '🏔️'], answer: '日月经天', difficulty: 'medium' },
+            { emojis: ['💧', '💧', '🦆', '🐟'], answer: '浑水摸鱼', difficulty: 'easy' },
+            { emojis: ['👦', '🚗', '👴', '👴'], answer: '老马识途', difficulty: 'easy' },
+            { emojis: ['❤️', '💔', '💘', '💝'], answer: '三心二意', difficulty: 'easy' },
+            { emojis: ['🔥', '🔥', '👑', '👑'], answer: '红红火火', difficulty: 'easy' },
+            { emojis: ['🌺', '🌺', '💧', '💧'], answer: '花花绿绿', difficulty: 'easy' },
+            { emojis: ['🗡️', '🐉', '✂️', '🐍'], answer: '画蛇添足', difficulty: 'easy' },
+            { emojis: ['🐂', '🎵', '🐴', '🎵'], answer: '对牛弹琴', difficulty: 'easy' },
+            { emojis: ['💎', '🏔️', '🐟', '🌊'], answer: '金山银海', difficulty: 'medium' },
+            { emojis: ['🌞', '🔨', '➡️', '🏠'], answer: '日落西山', difficulty: 'medium' },
+            { emojis: ['🌲', '🌲', '🌲', '🌲'], answer: '四面楚歌', difficulty: 'medium' },
+            { emojis: ['👂', '👀', '👂', '👀'], answer: '耳聪目明', difficulty: 'easy' },
+            { emojis: ['🐸', '🏠', '🐍', '🕳️'], answer: '井底之蛙', difficulty: 'easy' },
+            { emojis: ['🐎', '💨', '🌬️', '💨'], answer: '走马看花', difficulty: 'easy' },
+            { emojis: ['🌧️', '🌧️', '🔥', '🔥'], answer: '水深火热', difficulty: 'easy' },
+            { emojis: ['🍵', '🍃', '🪑', '🌙'], answer: '茶余饭后', difficulty: 'easy' },
+            { emojis: ['🐉', '☁️', '🐯', '🌬️'], answer: '龙腾虎跃', difficulty: 'easy' },
+            { emojis: ['👋', '👋', '🐔', '🐔'], answer: '三三两两', difficulty: 'easy' },
+            { emojis: ['🌸', '💣', '🌙', '🌙'], answer: '花好月圆', difficulty: 'easy' },
+            { emojis: ['🧱', '🧱', '🔙', '🔙'], answer: '层层叠叠', difficulty: 'easy' },
+            { emojis: ['🌶️', '🌶️', '🍵', '🍵'], answer: '轰轰烈烈', difficulty: 'easy' },
+            { emojis: ['👶', '👶', '👴', '👴'], answer: '大大小小', difficulty: 'easy' },
+            { emojis: ['💧', '🌾', '🍭', '🍭'], answer: '水落石出', difficulty: 'medium' },
+            { emojis: ['🔴', '🌙', '🌹', '🌙'], answer: '花好月圆', difficulty: 'easy' },
+            { emojis: ['🌳', '🍁', '🍂', '🍃'], answer: '一叶知秋', difficulty: 'easy' },
+            { emojis: ['🐝', '🐝', '💐', '💐'], answer: '兢兢业业', difficulty: 'medium' },
+            { emojis: ['💧', '🔥', '➡️', '🏠'], answer: '水深火热', difficulty: 'easy' },
+            { emojis: ['🌞', '🌞', '❄️', '❄️'], answer: '冬暖夏凉', difficulty: 'easy' },
+            { emojis: ['👁️', '👁️', '👄', '👄'], answer: '目瞪口呆', difficulty: 'easy' },
+            { emojis: ['🌿', '🌾', '🌾', '🌿'], answer: '花花绿绿', difficulty: 'easy' },
+            { emojis: ['🏃', '🌬️', '🍃', '💨'], answer: '风吹草动', difficulty: 'easy' },
+            { emojis: ['🪨', '🪨', '💦', '💦'], answer: '山清水秀', difficulty: 'easy' },
+            { emojis: ['❤️', '🗡️', '❤️', '🔪'], answer: '心心相印', difficulty: 'easy' },
+            { emojis: ['🌕', '🌌', '⭐', '🌌'], answer: '星月交辉', difficulty: 'medium' },
+            { emojis: ['🎄', '🎄', '🔥', '🔥'], answer: '郁郁葱葱', difficulty: 'medium' },
 
+            // 中级 (101-200)
+            { emojis: ['👴', '🌳', '🌳', '🌳'], answer: '枯木逢春', difficulty: 'medium' },
+            { emojis: ['🌊', '💦', '🎢', '🚢'], answer: '随波逐流', difficulty: 'medium' },
+            { emojis: ['🐝', '🌼', '🌼', '🐝'], answer: '百花齐放', difficulty: 'medium' },
+            { emojis: ['👊', '👍', '🐺', '🐺'], answer: '狼子野心', difficulty: 'medium' },
+            { emojis: ['🍖', '🍖', '🐟', '🥣'], answer: '脍炙人口', difficulty: 'medium' },
+            { emojis: ['🌞', '🌾', '🌙', '🌾'], answer: '日复一日', difficulty: 'medium' },
+            { emojis: ['🌺', '👃', '👃', '❤️'], answer: '花香扑鼻', difficulty: 'medium' },
+            { emojis: ['👻', '👻', '😱', '😱'], answer: '鬼哭狼嚎', difficulty: 'medium' },
+            { emojis: ['💧', '🍚', '🔥', '🗾'], answer: '水涨船高', difficulty: 'medium' },
+            { emojis: ['🏔️', '🐔', '🌾', '🟢'], answer: '高山流水', difficulty: 'medium' },
+            { emojis: ['🐶', '🐶', '🐴', '🐴'], answer: '犬马之劳', difficulty: 'medium' },
+            { emojis: ['💧', '⛰️', '💧', '⛰️'], answer: '万水千山', difficulty: 'medium' },
+            { emojis: ['🌙', '🌙', '🐂', '🐂'], answer: '九牛二虎', difficulty: 'medium' },
+            { emojis: ['🍵', '💬', '👨', '🌾'], answer: '茶饭不思', difficulty: 'medium' },
+            { emojis: ['🐦', '🐦', '🦅', '🦅'], answer: '鸦雀无声', difficulty: 'medium' },
+            { emojis: ['🔔', '🔔', '🌙', '🌙'], answer: '朝三暮四', difficulty: 'medium' },
+            { emojis: ['🌳', '🕳️', '🐍', '🐍'], answer: '打草惊蛇', difficulty: 'medium' },
+            { emojis: ['💡', '🌙', '🚪', '🏠'], answer: '闭月羞花', difficulty: 'medium' },
+            { emojis: ['🦶', '🌊', '💎', '🪨'], answer: '投石问路', difficulty: 'medium' },
+            { emojis: ['🐜', '🏔️', '🌊', '🗺️'], answer: '冰山一角', difficulty: 'medium' },
+            { emojis: ['💯', '💰', '🍀', '🌿'], answer: '百里挑一', difficulty: 'medium' },
+            { emojis: ['💧', '🔥', '🧊', '🌡️'], answer: '冷暖自知', difficulty: 'medium' },
+            { emojis: ['🌺', '🌿', '🍃', '🍄'], answer: '春暖花开', difficulty: 'medium' },
+            { emojis: ['🐠', '🐟', '🦞', '🦀'], answer: '虾兵蟹将', difficulty: 'medium' },
+            { emojis: ['🌧️', '🏔️', '🧊', '❄️'], answer: '冰天雪地', difficulty: 'medium' },
+            { emojis: ['👀', '💎', '🐟', '🌊'], answer: '浑水摸鱼', difficulty: 'medium' },
+            { emojis: ['🔥', '🗻', '⛰️', '🔥'], answer: '火烧眉毛', difficulty: 'medium' },
+            { emojis: ['🌿', '🔍', '🌸', '🌺'], answer: '寻花问柳', difficulty: 'medium' },
+            { emojis: ['🎓', '🌾', '🍎', '🍐'], answer: '春华秋实', difficulty: 'medium' },
+            { emojis: ['🏃', '🏃', '💨', '💨'], answer: '大步流星', difficulty: 'medium' },
+            { emojis: ['🦁', '🐯', '🦊', '🐻'], answer: '狐假虎威', difficulty: 'medium' },
+            { emojis: ['🌞', '👀', '👂', '🌙'], answer: '明目张胆', difficulty: 'hard' },
+            { emojis: ['👈', '👉', '⬆️', '⬇️'], answer: '四面八方', difficulty: 'medium' },
+            { emojis: ['🍃', '🍂', '🍁', '🌳'], answer: '叶落归根', difficulty: 'medium' },
+            { emojis: ['⚔️', '⚔️', '🛡️', '🛡️'], answer: '能文能武', difficulty: 'medium' },
+            { emojis: ['🌊', '🏊', '🏔️', '🧗'], answer: '上山下海', difficulty: 'medium' },
+            { emojis: ['💐', '🌷', '🌹', '🌺'], answer: '百花齐放', difficulty: 'medium' },
+            { emojis: ['🌳', '🍃', '🌬️', '🍃'], answer: '树大招风', difficulty: 'medium' },
+            { emojis: ['🔥', '👩', '🔥', '👩'], answer: '轰轰烈烈', difficulty: 'medium' },
+            { emojis: ['🪨', '🐯', '🌊', '🐉'], answer: '藏龙卧虎', difficulty: 'medium' },
+            { emojis: ['🐄', '🐂', '🐑', '🐏'], answer: '牛羊成群', difficulty: 'medium' },
+            { emojis: ['👨', '🏠', '👨', '🏠'], answer: '家家户户', difficulty: 'medium' },
+            { emojis: ['🌕', '🌕', '💧', '💧'], answer: '光明正大', difficulty: 'medium' },
+            { emojis: ['👀', '👀', '🐴', '🎭'], answer: '骑马找马', difficulty: 'medium' },
+            { emojis: ['🌧️', '🌧️', '🔥', '🔥'], answer: '轰轰烈烈', difficulty: 'medium' },
+            { emojis: ['🚗', '🚓', '🚕', '🚙'], answer: '四通八达', difficulty: 'medium' },
+            { emojis: ['👄', '👄', '👣', '👣'], answer: '步步为营', difficulty: 'medium' },
+            { emojis: ['🌙', '✨', '🌙', '✨'], answer: '星星点点', difficulty: 'medium' },
+            { emojis: ['🔥', '💧', '👓', '👁️'], answer: '火眼金睛', difficulty: 'medium' },
+            { emojis: ['🐔', '🐶', '🦮', '🐕'], answer: '鸡鸣狗盗', difficulty: 'medium' },
+            { emojis: ['🌳', '🌳', '🚣', '🚣'], answer: '绿水青山', difficulty: 'medium' },
+            { emojis: ['💃', '💃', '🕺', '🕺'], answer: '龙飞凤舞', difficulty: 'medium' },
+            { emojis: ['👑', '👑', '🌙', '🌙'], answer: '月月红桂', difficulty: 'hard' },
+            { emojis: ['🌞', '🌧️', '🌈', '☀️'], answer: '阴晴圆缺', difficulty: 'medium' },
+            { emojis: ['🍐', '🍐', '💧', '💧'], answer: '历历在目', difficulty: 'medium' },
+            { emojis: ['🧱', '🧱', '🚪', '🚪'], answer: '大门不出', difficulty: 'hard' },
+            { emojis: ['💧', '🌾', '🌾', '💧'], answer: '顺水推舟', difficulty: 'medium' },
+            { emojis: ['🎵', '🎵', '🍚', '🍚'], answer: '余音绕梁', difficulty: 'medium' },
+            { emojis: ['🌿', '🌿', '🔔', '🔔'], answer: '郁郁葱葱', difficulty: 'medium' },
+            { emojis: ['🌺', '🌻', '🌹', '🌷'], answer: '春暖花开', difficulty: 'medium' },
+            { emojis: ['🔥', '🔥', '🚒', '🚒'], answer: '轰轰烈烈', difficulty: 'medium' },
+            { emojis: ['👁️', '📜', '👁️',📜'], answer: '明目张胆', difficulty: 'hard' },
+            { emojis: ['🌊', '🌊', '⛰️', '⛰️'], answer: '千山万水', difficulty: 'medium' },
+            { emojis: ['🌚', '🌚', '🐵', '🐵'], answer: '暗暗淡淡', difficulty: 'hard' },
+            { emojis: ['🐟', '🌊', '👄', '👅'], answer: '津津有味', difficulty: 'medium' },
+            { emojis: ['🍃', '🍃', '🌊', '🌊'], answer: '行云流水', difficulty: 'easy' },
+            { emojis: ['🔴', '🟢', '🔵', '🟡'], answer: '五颜六色', difficulty: 'easy' },
+            { emojis: ['🌞', '🌞', '🌙', '🌙'], answer: '日复一日', difficulty: 'medium' },
+            { emojis: ['🏔️', '🏔️', '❄️', '❄️'], answer: '冰天雪地', difficulty: 'medium' },
+            { emojis: ['🐺', '🐯', '🐻', '🦁'], answer: '豺狼虎豹', difficulty: 'medium' },
+            { emojis: ['🚢', '🌊', '🍚', '🌾'], answer: '一帆风顺', difficulty: 'easy' },
+            { emojis: ['🎋', '🎋', '🍃', '🍃'], answer: '节节高升', difficulty: 'medium' },
+            { emojis: ['🌙', '🌙', '🐭', '🐭'], answer: '正大光明', difficulty: 'medium' },
+            { emojis: ['👀', '💧', '🔥', '🌙'], answer: '隔岸观火', difficulty: 'medium' },
+            { emojis: ['👸', '👸', '🌸', '🌸'], answer: '花花公主', difficulty: 'hard' },
+            { emojis: ['🌳', '🍃', '🌊', '💧'], answer: '树大招风', difficulty: 'medium' },
+            { emojis: ['💎', '💎', '🪨', '🪨'], answer: '金山银山', difficulty: 'medium' },
+            { emojis: ['🐍', '🐍', '🦅', '🦅'], answer: '蛇蝎心肠', difficulty: 'medium' },
+            { emojis: ['🌾', '🌾', '🌾', '🌾'], answer: '岁岁平安', difficulty: 'medium' },
+            { emojis: ['🌈', '🌧️', '☀️', '🌙'], answer: '阴晴不定', difficulty: 'medium' },
+            { emojis: ['🍂', '🍂', '🍁', '🍁'], answer: '落叶归根', difficulty: 'medium' },
+            { emojis: ['🐜', '🐜', '🌳', '🌳'], answer: '蚍蜉撼树', difficulty: 'hard' },
+            { emojis: ['🌞', '🔑', '🌙', '🚪'], answer: '开门见山', difficulty: 'medium' },
+            { emojis: ['💧', '🚣', '⛰️', '🧗'], answer: '跋山涉水', difficulty: 'medium' },
+            { emojis: ['🌹', '🌹', '🌷', '🌷'], answer: '花花世界', difficulty: 'medium' },
+            { emojis: ['🌊', '🌾', '🌾', '🌾'], answer: '顺水推舟', difficulty: 'medium' },
+            { emojis: ['🍵', '🚶', '👀', '🍃'], answer: '走马观花', difficulty: 'easy' },
+            { emojis: ['🌿', '🌿', '💧', '🌊'], answer: '青山绿水', difficulty: 'medium' },
+            { emojis: ['🔥', '🌙', '💧', '🏠'], answer: '水深火热', difficulty: 'easy' },
+            { emojis: ['🐂', '🐂', '🧵', '🧵'], answer: '丝丝入扣', difficulty: 'hard' },
+            { emojis: ['🌕', '🌕', '🌊', '🌊'], answer: '光明正大', difficulty: 'medium' },
+            { emojis: ['🐝', '🍯', '🐝', '🍯'], answer: '兢兢业业', difficulty: 'medium' },
+            { emojis: ['🌑', '🌑', '👁️', '👁️'], answer: '暗送秋波', difficulty: 'hard' },
+            { emojis: ['🌸', '🌼', '🌻', '🌺'], answer: '百花齐放', difficulty: 'medium' },
+            { emojis: ['🌵', '🌵', '🏜️', '🏜️'], answer: '荒无人烟', difficulty: 'medium' },
+            { emojis: ['💔', '❤️', '💘', '💕'], answer: '三心二意', difficulty: 'easy' },
+            { emojis: ['🐊', '🐊', '🌊', '🌊'], answer: '鳄鱼眼泪', difficulty: 'medium' },
+            { emojis: ['🌲', '🌲', '🏠', '🏠'], answer: '千家万户', difficulty: 'medium' },
+            { emojis: ['🐎', '🐎', '👁️', '👁️'], answer: '走马观花', difficulty: 'easy' },
+
+            // 高级 (201-300)
+            { emojis: ['🐴', '🌿', '🌿', '🐝'], answer: '马到成功', difficulty: 'hard' },
+            { emojis: ['💧', '🔥', '🐟', '🐟'], answer: '浑水摸鱼', difficulty: 'hard' },
+            { emojis: ['👂', '👂', '🌾', '🌾'], answer: '默默无闻', difficulty: 'hard' },
+            { emojis: ['🌞', '🌙', '⭐', '🌟'], answer: '星月交辉', difficulty: 'hard' },
+            { emojis: ['💃', '🕺', '🎤', '🎶'], answer: '载歌载舞', difficulty: 'hard' },
+            { emojis: ['🍎', '🍎', '🍐', '🍐'], answer: '平平淡淡', difficulty: 'hard' },
+            { emojis: ['🗡️', '🗡️', '🐉', '🐍'], answer: '屠龙之技', difficulty: 'hard' },
+            { emojis: ['🌚', '🌚', '💻', '💻'], answer: '暗暗叫苦', difficulty: 'hard' },
+            { emojis: ['🌙', '🏔️', '💧', '🌊'], answer: '山高水长', difficulty: 'hard' },
+            { emojis: ['👃', '👃', '🔔', '🔔'], answer: '默默无闻', difficulty: 'hard' },
+            { emojis: ['🐑', '🐑', '👉', '🏠'], answer: '亡羊补牢', difficulty: 'hard' },
+            { emojis: ['🌿', '🍃', '🔥', '🌙'], answer: '秋风扫落叶', difficulty: 'hard' },
+            { emojis: ['👁️', '👁️', '👄', '👄'], answer: '言传身教', difficulty: 'hard' },
+            { emojis: ['🔥', '🚗', '🌙', '🏠'], answer: '热火朝天', difficulty: 'hard' },
+            { emojis: ['🌺', '💧', '🌊', '🍃'], answer: '落花流水', difficulty: 'hard' },
+            { emojis: ['👊', '✊', '💪', '🦾'], answer: '全力以赴', difficulty: 'hard' },
+            { emojis: ['🌧️', '🌈', '☀️', '🌙'], answer: '雨过天晴', difficulty: 'hard' },
+            { emojis: ['🌲', '🌲', '🧊', '❄️'], answer: '银装素裹', difficulty: 'hard' },
+            { emojis: ['🐺', '🐺', '🐯', '🐯'], answer: '狼吞虎咽', difficulty: 'hard' },
+            { emojis: ['📖', '📖', '🌮', '🌯'], answer: '卷饼夹书', difficulty: 'hard' },
+            { emojis: ['💧', '💧', '⭐', '⭐'], answer: '点点滴滴', difficulty: 'hard' },
+            { emojis: ['🌳', '🌳', '🐦', '🐦'], answer: '鸟语花香', difficulty: 'hard' },
+            { emojis: ['🌞', '🏔️', '🌊', '⛵'], answer: '一帆风顺', difficulty: 'hard' },
+            { emojis: ['🧗', '🧗', '🌊', '🚣'], answer: '爬山涉水', difficulty: 'hard' },
+            { emojis: ['🌹', '🌹', '🌙', '🌙'], answer: '花好月圆', difficulty: 'hard' },
+            { emojis: ['💎', '🔨', '🪵', '🌳'], answer: '入木三分', difficulty: 'hard' },
+            { emojis: ['🐉', '🐉', '🐯', '🐯'], answer: '龙腾虎跃', difficulty: 'hard' },
+            { emojis: ['🌿', '🌾', '🌾', '🌿'], answer: '花花绿绿', difficulty: 'hard' },
+            { emojis: ['👈', '👉', '👆', '👇'], answer: '四面八方', difficulty: 'hard' },
+            { emojis: ['🐟', '🐟', '👁️', '🐷'], answer: '鱼目混珠', difficulty: 'hard' },
+            { emojis: ['🌾', '🌾', '💐', '💐'], answer: '岁岁平安', difficulty: 'hard' },
+            { emojis: ['🪨', '🪨', '🌊', '🌾'], answer: '海纳百川', difficulty: 'hard' },
+            { emojis: ['🔥', '🔥', '❄️', '❄️'], answer: '冬暖夏凉', difficulty: 'hard' },
+            { emojis: ['🌕', '🌌', '🌙', '🌌'], answer: '月黑风高', difficulty: 'hard' },
+            { emojis: ['🐘', '🐘', '🌹', '🌺'], answer: '囫囵吞枣', difficulty: 'hard' },
+            { emojis: ['👻', '👻', '🌳', '🌳'], answer: '草木皆兵', difficulty: 'hard' },
+            { emojis: ['🐦', '🐦', '🦗', '🦗'], answer: '蛙鸣蝉噪', difficulty: 'hard' },
+            { emojis: ['💧', '🌊', '🚢', '⚓'], answer: '水涨船高', difficulty: 'hard' },
+            { emojis: ['🌺', '🌼', '🌼', '🌺'], answer: '花花公子', difficulty: 'hard' },
+            { emojis: ['🏃', '💨', '🍃', '🌿'], answer: '风吹草动', difficulty: 'hard' },
+            { emojis: ['🌔', '🌕', '🌖', '🌗'], answer: '日积月累', difficulty: 'hard' },
+            { emojis: ['🍂', '🍁', '🌾', '🌻'], answer: '秋高气爽', difficulty: 'hard' },
+            { emojis: ['🐊', '🦎', '🌿', '🍃'], answer: '万绿丛中一点红', difficulty: 'hard' },
+            { emojis: ['🌙', '⭐', '💧', '💦'], answer: '月黑风高', difficulty: 'hard' },
+            { emojis: ['🌋', '🌋', '💥', '💣'], answer: '火山爆发', difficulty: 'hard' },
+            { emojis: ['🐄', '🐄', '🐂', '🐂'], answer: '对牛弹琴', difficulty: 'hard' },
+            { emojis: ['🌲', '🌲', '🍂', '🍂'], answer: '一叶知秋', difficulty: 'hard' },
+            { emojis: ['⚔️', '⚔️', '🛡️', '🛡️'], answer: '能文能武', difficulty: 'hard' },
+            { emojis: ['🐎', '🏁', '🏆', '🎊'], answer: '马到成功', difficulty: 'hard' },
+            { emojis: ['🌳', '🕳️', '🔥', '🔥'], answer: '抱薪救火', difficulty: 'hard' },
+            { emojis: ['👂', '🔥', '🕊️', '🌙'], answer: '闻鸡起舞', difficulty: 'hard' },
+            { emojis: ['🧱', '🧱', '🏠', '🏠'], answer: '家家户户', difficulty: 'hard' },
+            { emojis: ['🌸', '🌸', '🌊', '🌊'], answer: '春暖花开', difficulty: 'hard' },
+            { emojis: ['🌧️', '🌧️', '🧊', '🧊'], answer: '冰天雪地', difficulty: 'hard' },
+            { emojis: ['🐝', '🐝', '🍯', '🍯'], answer: '蜂拥而至', difficulty: 'hard' },
+            { emojis: ['🪨', '🐯', '🌊', '🐉'], answer: '藏龙卧虎', difficulty: 'hard' },
+            { emojis: ['🌊', '💧', '🔝', '📈'], answer: '水涨船高', difficulty: 'hard' },
+            { emojis: ['🌺', '🌺', '🐟', '🐟'], answer: '沉鱼落雁', difficulty: 'hard' },
+            { emojis: ['🌞', '🌲', '🌞', '🌲'], answer: '日复一日', difficulty: 'hard' },
+            { emojis: ['🍃', '🍂', '🍂', '🍃'], answer: '叶落归根', difficulty: 'hard' },
+            { emojis: ['💧', '🔥', '🧊', '🔥'], answer: '水深火热', difficulty: 'hard' },
+            { emojis: ['🌿', '🔍', '🌸', '🌼'], answer: '寻花问柳', difficulty: 'hard' },
+            { emojis: ['🌙', '🌙', '🗾', '🗾'], answer: '日新月异', difficulty: 'hard' },
+            { emojis: ['🐯', '🐯', '🦅', '🦅'], answer: '如虎添翼', difficulty: 'hard' },
+            { emojis: ['🔥', '🔥', '🚒', '🚒'], answer: '火烧眉毛', difficulty: 'hard' },
+            { emojis: ['👁️', '👂', '👁️', '👂'], answer: '耳聪目明', difficulty: 'hard' },
+            { emojis: ['🌳', '🌳', '🌊', '💧'], answer: '青山绿水', difficulty: 'hard' },
+            { emojis: ['❤️', '❤️', '🔪', '🔪'], answer: '心心相印', difficulty: 'hard' },
+            { emojis: ['🌚', '🌚', '👻', '👻'], answer: '鬼鬼祟祟', difficulty: 'hard' },
+            { emojis: ['🐳', '🐳', '🌊', '🌊'], answer: '沧海桑田', difficulty: 'hard' },
+            { emojis: ['🌺', '🌹', '💐', '🌷'], answer: '百花齐放', difficulty: 'hard' },
+            { emojis: ['🌴', '🌴', '🌴', '🌴'], answer: '四面楚歌', difficulty: 'hard' },
+            { emojis: ['💧', '💧', '🔥', '🔥'], answer: '水深火热', difficulty: 'hard' },
+            { emojis: ['🍵', '🍃', '🌙', '🪑'], answer: '茶余饭后', difficulty: 'hard' },
+            { emojis: ['🐊', '🌿', '🌿', '🐊'], answer: '狡兔三窟', difficulty: 'hard' },
+            { emojis: ['🌙', '🌙', '⛰️', '⛰️'], answer: '日月经天', difficulty: 'hard' },
+            { emojis: ['💎', '💎', '🔑', '🔒'], answer: '抛砖引玉', difficulty: 'hard' },
+            { emojis: ['🍚', '🍚', '🌾', '🌾'], answer: '花花绿绿', difficulty: 'hard' },
+            { emojis: ['🌞', '🌞', '🍂', '🍂'], answer: '夏日炎炎', difficulty: 'hard' },
+            { emojis: ['🐺', '🐺', '🏠', '🐑'], answer: '引狼入室', difficulty: 'hard' },
+            { emojis: ['🌸', '🌎', '🌍', '🌏'], answer: '春暖花开', difficulty: 'hard' },
+            { emojis: ['🐟', '🐟', '💧', '🌊'], answer: '浑水摸鱼', difficulty: 'hard' },
+            { emojis: ['👴', '👴', '👶', '👶'], answer: '老老少少', difficulty: 'hard' },
+            { emojis: ['🔔', '🔔', '🍚', '🍚'], answer: '一石二鸟', difficulty: 'hard' },
+            { emojis: ['🌊', '🌊', '🏔️', '🏔️'], answer: '万水千山', difficulty: 'hard' },
+            { emojis: ['🐦', '🐦', '🦅', '🦅'], answer: '鸦雀无声', difficulty: 'hard' },
+            { emojis: ['🌳', '🕳️', '🐍', '🐍'], answer: '打草惊蛇', difficulty: 'hard' },
+            { emojis: ['🔴', '🔴', '💚', '💚'], answer: '红男绿女', difficulty: 'hard' },
+            { emojis: ['🐉', '☁️', '🐯', '🌬️'], answer: '龙腾虎跃', difficulty: 'hard' },
+            { emojis: ['👋', '👋', '🐔', '🐔'], answer: '三三两两', difficulty: 'hard' },
+            { emojis: ['🧵', '☁️', '🌧️', '💧'], answer: '行云流水', difficulty: 'hard' },
+            { emojis: ['🏔️', '🐔', '🌾', '🟢'], answer: '高山流水', difficulty: 'hard' }
+        ];
         let gameState = {
+            mode: 'single', // single or pk
+            playerCount: 2,
+            difficulty: 'easy',
             currentLevel: 0,
+            currentPlayer: 0,
             completed: [],
+            players: [],
             currentPuzzle: null,
             currentAnswer: [],
-            shuffledChars: []
+            shuffledChars: [],
+            hintsUsed: 0
         };
 
         const elements = {
+            modeSelection: document.getElementById('mode-selection'),
+            playerCountContainer: document.getElementById('player-count-container'),
+            pkScoreboard: document.getElementById('pk-scoreboard'),
+            playersContainer: document.getElementById('players-container'),
+            gameArea: document.getElementById('game-area'),
+            gameControls: document.getElementById('game-controls'),
             levelInfo: document.getElementById('level-info'),
             progressBar: document.getElementById('progress-bar'),
+            hintCount: document.getElementById('hint-count'),
             emojiContainer: document.getElementById('emoji-container'),
             answerContainer: document.getElementById('answer-container'),
+            hintArea: document.getElementById('hint-area'),
+            hintText: document.getElementById('hint-text'),
             keyboardContainer: document.getElementById('keyboard-container'),
-            levelSelectBtn: document.getElementById('level-select-btn'),
             levelModal: document.getElementById('level-modal'),
             levelGrid: document.getElementById('level-grid'),
             closeModal: document.getElementById('close-modal'),
-            winModal: document.getElementById('win-modal'),
-            winTitle: document.getElementById('win-title'),
-            winMessage: document.getElementById('win-message'),
-            nextLevel: document.getElementById('next-level'),
+            correctModal: document.getElementById('correct-modal'),
+            correctTitle: document.getElementById('correct-title'),
+            correctMessage: document.getElementById('correct-message'),
+            nextQuestion: document.getElementById('next-question'),
             hintBtn: document.getElementById('hint-btn'),
-            skipBtn: document.getElementById('skip-btn')
+            skipBtn: document.getElementById('skip-btn'),
+            levelSelectBtn: document.getElementById('level-select-btn'),
+            restartBtn: document.getElementById('restart-btn'),
+            startGameBtn: document.getElementById('start-game'),
+            modeSingle: document.getElementById('mode-single'),
+            modePk: document.getElementById('mode-pk')
         };
 
         // Load completed levels from localStorage
         function loadProgress() {
-            const saved = localStorage.getItem('emojiIdiomCompleted');
+            const saved = localStorage.getItem('emojiIdiomCompleted_' + gameState.difficulty);
             if (saved) {
                 gameState.completed = JSON.parse(saved);
             }
         }
 
         function saveProgress() {
-            localStorage.setItem('emojiIdiomCompleted', JSON.stringify(gameState.completed));
+            localStorage.setItem('emojiIdiomCompleted_' + gameState.difficulty, JSON.stringify(gameState.completed));
         }
 
-        function startLevel(levelIndex) {
-            gameState.currentLevel = levelIndex;
-            gameState.currentPuzzle = puzzles[levelIndex];
+        function filterPuzzlesByDifficulty() {
+            return puzzles.filter(p => p.difficulty === gameState.difficulty);
+        }
+
+        function startGame() {
+            const filtered = filterPuzzlesByDifficulty();
+            gameState.currentLevel = 0;
+            gameState.hintsUsed = 0;
+            loadProgress();
+            
+            if (gameState.mode === 'pk') {
+                initPK();
+            }
+            
+            elements.modeSelection.style.display = 'none';
+            elements.gameArea.style.display = 'block';
+            elements.gameControls.style.display = 'flex';
+            if (gameState.mode === 'pk') {
+                elements.pkScoreboard.style.display = 'block';
+            }
+            
+            nextQuestion();
+        }
+
+        function initPK() {
+            gameState.players = [];
+            for (let i = 0; i < gameState.playerCount; i++) {
+                gameState.players.push({ score: 0 });
+            }
+            gameState.currentPlayer = 0;
+            renderPKScoreboard();
+        }
+
+        function renderPKScoreboard() {
+            elements.playersContainer.innerHTML = '';
+            gameState.players.forEach((p, i) => {
+                const div = document.createElement('div');
+                div.className = `player-item px-4 py-2 rounded-lg border-2 ${i === gameState.currentPlayer ? 'active' : 'bg-white/10 border-white/30'}`;
+                div.innerHTML = `<div class="flex items-center justify-between">
+                    <span class="text-white font-semibold">玩家 ${i + 1}</span>
+                    <span class="text-yellow-300 font-bold">${p.score} 分</span>
+                </div>`;
+                elements.playersContainer.appendChild(div);
+            });
+        }
+
+        function nextQuestion() {
+            const filtered = filterPuzzlesByDifficulty();
+            if (gameState.currentLevel >= filtered.length) {
+                gameState.currentLevel = 0;
+            }
+            gameState.currentPuzzle = filtered[gameState.currentLevel];
             gameState.currentAnswer = [];
             gameState.shuffledChars = shuffleChars(gameState.currentPuzzle.answer);
+            gameState.hintsUsed = 0;
+            elements.hintArea.classList.add('hidden');
+            updateHintCount();
             render();
+        }
+
+        function updateHintCount() {
+            if (gameState.hintsUsed > 0) {
+                elements.hintCount.style.display = 'block';
+                elements.hintCount.textContent = `已使用 ${gameState.hintsUsed}/3 次提示`;
+            } else {
+                elements.hintCount.style.display = 'none';
+            }
         }
 
         function shuffleChars(answer) {
@@ -250,9 +641,10 @@
         }
 
         function render() {
+            const filtered = filterPuzzlesByDifficulty();
             // Update level info
-            elements.levelInfo.textContent = `${gameState.currentLevel + 1} / ${puzzles.length}`;
-            const progress = (gameState.completed.length / puzzles.length) * 100;
+            elements.levelInfo.textContent = `${gameState.currentLevel + 1} / ${filtered.length}`;
+            const progress = (gameState.completed.length / filtered.length) * 100;
             elements.progressBar.style.width = progress + '%';
 
             // Render emojis
@@ -338,27 +730,86 @@
                         gameState.completed.push(gameState.currentLevel);
                         saveProgress();
                     }
-                    showWinModal();
+                    if (gameState.mode === 'pk') {
+                        // Points based on hints used: 3 - hintsUsed + 1
+                        const points = 4 - gameState.hintsUsed;
+                        gameState.players[gameState.currentPlayer].score += points;
+                        gameState.currentPlayer = (gameState.currentPlayer + 1) % gameState.playerCount;
+                        renderPKScoreboard();
+                    }
+                    showCorrectModal();
                 }
             }
         }
 
-        function showWinModal() {
-            if (gameState.currentLevel === puzzles.length - 1 && gameState.completed.length === puzzles.length) {
-                elements.winTitle.textContent = '🎉 恭喜通关全部关卡！';
-                elements.winMessage.textContent = `你太厉害了！成功猜出了所有 ${puzzles.length} 个成语！`;
-                elements.nextLevel.textContent = '重新开始';
+        function showCorrectModal() {
+            if (gameState.mode === 'single') {
+                const filtered = filterPuzzlesByDifficulty();
+                if (gameState.currentLevel === filtered.length - 1 && gameState.completed.length === filtered.length) {
+                    elements.correctTitle.textContent = '🎉 恭喜通关全部关卡！';
+                    elements.correctMessage.textContent = `你太厉害了！成功猜出了 ${filtered.length} 个${gameState.difficulty === 'easy' ? '初级' : gameState.difficulty === 'medium' ? '中级' : '高级'}题目！`;
+                    elements.nextQuestion.textContent = '重新开始';
+                } else {
+                    elements.correctTitle.textContent = '答对了！';
+                    elements.correctMessage.textContent = `正确答案是：${gameState.currentPuzzle.answer}`;
+                    elements.nextQuestion.textContent = '下一题';
+                }
             } else {
-                elements.winTitle.textContent = '恭喜过关！';
-                elements.winMessage.textContent = `正确答案是：${gameState.currentPuzzle.answer}`;
-                elements.nextLevel.textContent = '下一关';
+                elements.correctTitle.textContent = `${gameState.currentPlayer + 1}号玩家答对了！`;
+                elements.correctMessage.textContent = `正确答案是：${gameState.currentPuzzle.answer}，获得 ${4 - gameState.hintsUsed} 分！`;
+                elements.nextQuestion.textContent = '继续游戏';
             }
-            elements.winModal.classList.remove('hidden');
+            elements.correctModal.classList.remove('hidden');
+        }
+
+        function giveHint() {
+            if (gameState.hintsUsed >= 3) {
+                alert('提示次数已经用完了！');
+                return;
+            }
+            
+            gameState.hintsUsed++;
+            updateHintCount();
+            
+            // 逐步提示系统
+            // 1st hint: 显示字数
+            // 2nd hint: 显示第一个字
+            // 3rd hint: 显示第一个和最后一个字
+            elements.hintArea.classList.remove('hidden');
+            
+            if (gameState.hintsUsed === 1) {
+                elements.hintText.textContent = `💡 提示：成语一共 ${gameState.currentPuzzle.answer.length} 个字`;
+            } else if (gameState.hintsUsed === 2) {
+                const firstChar = gameState.currentPuzzle.answer[0];
+                elements.hintText.textContent = `💡 提示：第一个字是「${firstChar}」`;
+                // Fill the first character if it's empty
+                if (!gameState.currentAnswer[0]) {
+                    addChar(firstChar);
+                }
+            } else if (gameState.hintsUsed === 3) {
+                const firstChar = gameState.currentPuzzle.answer[0];
+                const lastChar = gameState.currentPuzzle.answer[gameState.currentPuzzle.answer.length - 1];
+                elements.hintText.textContent = `💡 提示：第一个字「${firstChar}」，最后一个字「${lastChar}」`;
+                // Fill if empty
+                if (!gameState.currentAnswer[0]) addChar(firstChar);
+                const lastIndex = gameState.currentPuzzle.answer.length - 1;
+                if (!gameState.currentAnswer[lastIndex]) addChar(lastChar);
+            }
+        }
+
+        function skipQuestion() {
+            if (gameState.mode === 'pk') {
+                gameState.currentPlayer = (gameState.currentPlayer + 1) % gameState.playerCount;
+                renderPKScoreboard();
+            }
+            gameState.currentLevel++;
+            nextQuestion();
         }
 
         function showLevelSelect() {
+            const filtered = filterPuzzlesByDifficulty();
             elements.levelGrid.innerHTML = '';
-            puzzles.forEach((_, index) => {
+            filtered.forEach((_, index) => {
                 const button = document.createElement('button');
                 let className = 'level-item w-12 h-12 rounded-lg border-2 font-semibold ';
                 if (gameState.completed.includes(index)) {
@@ -371,7 +822,9 @@
                 button.className = className;
                 button.textContent = index + 1;
                 button.addEventListener('click', () => {
-                    startLevel(index);
+                    gameState.currentLevel = index;
+                    gameState.hintsUsed = 0;
+                    nextQuestion();
                     elements.levelModal.classList.add('hidden');
                 });
                 elements.levelGrid.appendChild(button);
@@ -379,33 +832,56 @@
             elements.levelModal.classList.remove('hidden');
         }
 
-        function giveHint() {
-            // Find first empty slot and reveal one character
-            const emptyIndex = gameState.currentAnswer.findIndex(c => !c);
-            if (emptyIndex === -1) return;
-            
-            const correctChar = gameState.currentPuzzle.answer[emptyIndex];
-            addChar(correctChar);
-        }
-
-        function skipLevel() {
-            if (!gameState.completed.includes(gameState.currentLevel)) {
-                gameState.completed.push(gameState.currentLevel);
-                saveProgress();
-            }
-            nextLevel();
-        }
-
-        function nextLevel() {
-            elements.winModal.classList.add('hidden');
-            let next = gameState.currentLevel + 1;
-            if (next >= puzzles.length) {
-                next = 0;
-            }
-            startLevel(next);
-        }
-
         // Event bindings
+        elements.modeSingle.addEventListener('click', () => {
+            elements.modeSingle.classList.add('active');
+            elements.modePk.classList.remove('active');
+            gameState.mode = 'single';
+            elements.playerCountContainer.style.display = 'none';
+        });
+
+        elements.modePk.addEventListener('click', () => {
+            elements.modePk.classList.add('active');
+            elements.modeSingle.classList.remove('active');
+            gameState.mode = 'pk';
+            elements.playerCountContainer.style.display = 'block';
+        });
+
+        document.querySelectorAll('.player-count-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.player-count-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                gameState.playerCount = parseInt(btn.dataset.count);
+            });
+        });
+
+        document.querySelectorAll('.difficulty-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.difficulty-btn').forEach(b => {
+                    b.classList.remove('active');
+                    b.classList.remove('border-green-400');
+                    b.classList.remove('bg-green-500/30');
+                    b.classList.remove('border-yellow-400');
+                    b.classList.remove('bg-yellow-500/30');
+                    b.classList.remove('border-red-400');
+                    b.classList.remove('bg-red-500/30');
+                });
+                btn.classList.add('active');
+                const diff = btn.dataset.difficulty;
+                gameState.difficulty = diff;
+                if (diff === 'easy') {
+                    btn.classList.add('border-green-400', 'bg-green-500/30');
+                } else if (diff === 'medium') {
+                    btn.classList.add('border-yellow-400', 'bg-yellow-500/30');
+                } else {
+                    btn.classList.add('border-red-400', 'bg-red-500/30');
+                }
+            });
+        });
+
+        elements.startGameBtn.addEventListener('click', startGame);
+        elements.hintBtn.addEventListener('click', giveHint);
+        elements.skipBtn.addEventListener('click', skipQuestion);
         elements.levelSelectBtn.addEventListener('click', showLevelSelect);
         elements.closeModal.addEventListener('click', () => elements.levelModal.classList.add('hidden'));
         elements.levelModal.addEventListener('click', (e) => {
@@ -413,18 +889,23 @@
                 elements.levelModal.classList.add('hidden');
             }
         });
-        elements.nextLevel.addEventListener('click', nextLevel);
-        elements.hintBtn.addEventListener('click', giveHint);
-        elements.skipBtn.addEventListener('click', skipLevel);
-        elements.winModal.addEventListener('click', (e) => {
-            if (e.target === elements.winModal) {
-                elements.winModal.classList.add('hidden');
+        elements.nextQuestion.addEventListener('click', () => {
+            elements.correctModal.classList.add('hidden');
+            gameState.currentLevel++;
+            nextQuestion();
+        });
+        elements.correctModal.addEventListener('click', (e) => {
+            if (e.target === elements.correctModal) {
+                elements.correctModal.classList.add('hidden');
             }
         });
-
-        // Start game
-        loadProgress();
-        startLevel(0);
+        elements.restartBtn.addEventListener('click', () => {
+            if (confirm('确定要重新开始吗？进度会保留')) {
+                gameState.currentLevel = 0;
+                gameState.hintsUsed = 0;
+                nextQuestion();
+            }
+        });
     </script>
 </body>
 </html>
