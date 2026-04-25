@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>卡路里猜猜看 - Casual Games</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * {
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            min-height: 100vh;
+        }
+        
+        .food-image {
+            transition: transform 0.3s ease;
+        }
+        
+        .food-image:hover {
+            transform: scale(1.02);
+        }
+        
+        .guess-history {
+            max-height: 180px;
+            overflow-y: auto;
+        }
+        
+        .guess-item {
+            animation: slideIn 0.2s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        
+        .calorie-input::-webkit-inner-spin-button,
+        .calorie-input::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        
+        .calorie-input {
+            -moz-appearance: textfield;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mx-auto px-4 py-8 max-w-md">
+        <div class="text-center mb-6">
+            <h1 class="text-3xl font-bold bg-gradient-to-r from-green-300 to-emerald-100 bg-clip-text text-transparent mb-2">🔥 卡路里猜猜看</h1>
+            <p class="text-green-100 text-sm">常见食物猜猜卡路里，提示高了还是低了，猜对获胜！</p>
+        </div>
+
+        <div class="bg-white/10 backdrop-blur-lg rounded-2xl p-5 shadow-xl mb-5">
+            <div class="mb-4">
+                <h2 id="food-name" class="text-xl font-semibold mb-3 text-center text-white"></h2>
+                <div class="aspect-square bg-white/20 rounded-xl overflow-hidden flex items-center justify-center">
+                    <img id="food-image" class="food-image w-full h-full object-contain bg-white p-2 rounded">
+                </div>
+            </div>
+            
+            <div class="mb-4">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-green-100 text-sm">剩余猜测次数</span>
+                    <span id="guesses-left" class="text-yellow-300 font-bold text-xl">8</span>
+                </div>
+                <div class="w-full bg-white/20 rounded-full h-2 overflow-hidden">
+                    <div id="progress-bar" class="bg-gradient-to-r from-green-400 to-yellow-400 h-full transition-all duration-300" style="width: 100%"></div>
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-green-100 text-sm mb-2">输入你的猜测 (卡路里 kcal)</label>
+                <div class="flex gap-2">
+                    <input type="number" id="calorie-input" placeholder="输入卡路里" 
+                           class="calorie-input flex-1 px-4 py-3 bg-white/20 border border-white/30 rounded-xl text-white placeholder-green-200 focus:outline-none focus:border-yellow-400">
+                    <button id="guess-btn" class="px-6 py-3 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-xl font-semibold text-gray-900 hover:opacity-90 transition-opacity">
+                        猜测
+                    </button>
+                </div>
+                <p id="hint-text" class="text-sm mt-2 text-center"></p>
+            </div>
+
+            <div>
+                <div class="text-green-100 text-sm mb-2">猜测记录</div>
+                <div id="guess-history" class="guess-history space-y-2"></div>
+            </div>
+        </div>
+
+        <div class="flex gap-2">
+            <button id="hint-btn" class="flex-1 px-4 py-3 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-xl font-semibold text-gray-900 hover:opacity-90 transition-opacity">
+                💡 提示
+            </button>
+            <button id="new-game-btn" class="flex-1 px-4 py-3 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl font-semibold text-white hover:opacity-90 transition-opacity">
+                🔄 换一题
+            </button>
+        </div>
+    </div>
+
+    <!-- Game Over Modal -->
+    <div id="modal" class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 hidden p-4">
+        <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-8 max-w-sm w-full text-center">
+            <div id="modal-icon" class="text-6xl mb-4"></div>
+            <h2 id="modal-title" class="text-2xl font-bold mb-2 text-white"></h2>
+            <p id="modal-message" class="text-gray-300 mb-6"></p>
+            <div class="flex gap-2">
+                <button id="modal-new-game" class="flex-1 px-6 py-3 bg-gradient-to-r from-green-400 to-blue-500 rounded-xl font-semibold hover:opacity-90 transition-opacity">
+                    再来一题
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 食物卡路里数据库
+        const foods = [
+            { name: "苹果 1个 (100g)", calories: 52, category: "水果" },
+            { name: "香蕉 1根 (100g)", calories: 89, category: "水果" },
+            { name: "橙子 1个 (100g)", calories: 47, category: "水果" },
+            { name: "草莓 100g", calories: 32, category: "水果" },
+            { name: "葡萄 100g", calories: 44, category: "水果" },
+            { name: "西瓜 100g", calories: 30, category: "水果" },
+            { name: "芒果 100g", calories: 65, category: "水果" },
+            { name: "梨 100g", calories: 44, category: "水果" },
+            { name: "猕猴桃 100g", calories: 61, category: "水果" },
+            { name: "火龙果 100g", calories: 51, category: "水果" },
+            { name: "米饭 一碗 (150g)", calories: 174, category: "主食" },
+            { name: "面条 一碗 (150g)", calories: 165, category: "主食" },
+            { name: "馒头 1个 (100g)", calories: 223, category: "主食" },
+            { name: "面包 一片 (50g)", calories: 150, category: "主食" },
+            { name: "燕麦片 100g", calories: 367, category: "主食" },
+            { name: "玉米 一根 (200g)", calories: 112, category: "主食" },
+            { name: "红薯 100g", calories: 86, category: "主食" },
+            { name: "土豆 100g", calories: 77, category: "主食" },
+            { name: "紫薯 100g", calories: 70, category: "主食" },
+            { name: "小米粥 一碗 (200g)", calories: 102, category: "主食" },
+            { name: "鸡胸肉 100g", calories: 133, category: "肉类" },
+            { name: "瘦猪肉 100g", calories: 143, category: "肉类" },
+            { name: "瘦牛肉 100g", calories: 125, category: "肉类" },
+            { name: "羊肉 100g", calories: 203, category: "肉类" },
+            { name: "鸡腿 1个 (100g)", calories: 181, category: "肉类" },
+            { name: "鸡翅 1个 (50g)", calories: 190, category: "肉类" },
+            { name: "培根 100g", calories: 405, category: "肉类" },
+            { name: "香肠 100g", calories: 508, category: "肉类" },
+            { name: "虾仁 100g", calories: 93, category: "海鲜" },
+            { name: "三文鱼 100g", calories: 208, category: "海鲜" },
+            { name: "鳕鱼 100g", calories: 83, category: "海鲜" },
+            { name: "螃蟹 100g", calories: 103, category: "海鲜" },
+            { name: "虾 100g", calories: 93, category: "海鲜" },
+            { name: "鱿鱼 100g", calories: 75, category: "海鲜" },
+            { name: "鸡蛋 1个 (50g)", calories: 143, category: "蛋奶" },
+            { name: "鸭蛋 1个 (50g)", calories: 180, category: "蛋奶" },
+            { name: "牛奶 一盒 (250ml)", calories: 132, category: "蛋奶" },
+            { name: "酸奶 一杯 (100g)", calories: 72, category: "蛋奶" },
+            { name: "奶酪 100g", calories: 328, category: "蛋奶" },
+            { name: "黄油 100g", calories: 888, category: "蛋奶" },
+            { name: "豆浆 一杯 (250ml)", calories: 80, category: "蛋奶" },
+            { name: "西兰花 100g", calories: 34, category: "蔬菜" },
+            { name: "胡萝卜 100g", calories: 37, category: "蔬菜" },
+            { name: "西红柿 100g", calories: 20, category: "蔬菜" },
+            { name: "黄瓜 100g", calories: 15, category: "蔬菜" },
+            { name: "茄子 100g", calories: 21, category: "蔬菜" },
+            { name: "青椒 100g", calories: 22, category: "蔬菜" },
+            { name: "菠菜 100g", calories: 28, category: "蔬菜" },
+            { name: "生菜 100g", calories: 15, category: "蔬菜" },
+            { name: "土豆丝 一盘 (200g)", calories: 260, category: "蔬菜" },
+            { name: "炒青菜 一盘 (200g)", calories: 180, category: "蔬菜" },
+            { name: "可乐 一罐 (330ml)", calories: 142, category: "饮料" },
+            { name: "雪碧 一罐 (330ml)", calories: 143, category: "饮料" },
+            { name: "橙汁 一杯 (250ml)", calories: 112, category: "饮料" },
+            { name: "苹果汁 一杯 (250ml)", calories: 117, category: "饮料" },
+            { name: "矿泉水 一瓶 (500ml)", calories: 0, category: "饮料" },
+            { name: "奶茶 一杯 (500ml)", calories: 380, category: "饮料" },
+            { name: "美式咖啡 一杯", calories: 5, category: "饮料" },
+            { name: "拿铁咖啡 一杯", calories: 150, category: "饮料" },
+            { name: "绿茶 一杯", calories: 2, category: "饮料" },
+            { name: "珍珠奶茶 中杯", calories: 450, category: "饮料" },
+            { name: "汉堡 一个", calories: 490, category: "快餐" },
+            { name: "薯条 一份", calories: 390, category: "快餐" },
+            { name: "炸鸡 一块 (100g)", calories: 290, category: "快餐" },
+            { name: "披萨 一片 (100g)", calories: 260, category: "快餐" },
+            { name: "三明治 一个", calories: 330, category: "快餐" },
+            { name: "热狗 一个", calories: 290, category: "快餐" },
+            { name: "冰淇淋 一球 (100g)", calories: 207, category: "甜品" },
+            { name: "巧克力 100g", calories: 546, category: "甜品" },
+            { name: "蛋糕 100g", calories: 378, category: "甜品" },
+            { name: "饼干 100g", calories: 450, category: "甜品" },
+            { name: "糖果 100g", calories: 440, category: "甜品" },
+            { name: "蜂蜜 一勺 (10g)", calories: 32, category: "甜品" },
+            { name: "薯片 一袋 (100g)", calories: 547, category: "零食" },
+            { name: "爆米花 一桶 (100g)", calories: 480, category: "零食" },
+            { name: "坚果 混合 100g", calories: 600, category: "零食" },
+            { name: "花生 100g", calories: 567, category: "零食" },
+            { name: "瓜子 100g", calories: 574, category: "零食" },
+            { name: "开心果 100g", calories: 586, category: "零食" },
+            { name: "方便面 一包 (100g)", calories: 473, category: "速食" },
+            { name: "速冻饺子 一盘 (200g)", calories: 420, category: "速食" },
+            { name: "火腿肠 一根 (50g)", calories: 136, category: "速食" },
+            { name: "橄榄油 100g", calories: 899, category: "油脂" },
+            { name: "花生油 100g", calories: 899, category: "油脂" },
+            { name: "色拉油 100g", calories: 898, category: "油脂" },
+            { name: "牛油火锅底料 100g", calories: 780, category: "油脂" },
+            { name: "芝麻酱 100g", calories: 630, category: "酱料" },
+            { name: "花生酱 100g", calories: 590, category: "酱料" },
+            { name: "老干妈 100g", calories: 288, category: "酱料" },
+            { name: "豆瓣酱 100g", calories: 220, category: "酱料" },
+            { name: "沙拉酱 100g", calories: 660, category: "酱料" },
+            { name: "重庆火锅 一份 (500g)", calories: 1200, category: "火锅" },
+            { name: "北京烤鸭 一只 (1000g)", calories: 3800, category: "整只" },
+            { name: "宫保鸡丁 一盘 (300g)", calories: 650, category: "炒菜" },
+            { name: "麻婆豆腐 一盘 (300g)", calories: 480, category: "炒菜" },
+            { name: "红烧肉 一盘 (300g)", calories: 900, category: "炒菜" },
+            { name: "鱼香肉丝 一盘 (300g)", calories: 560, category: "炒菜" },
+            { name: "西红柿炒鸡蛋 一盘 (300g)", calories: 450, category: "炒菜" },
+            { name: "青椒炒肉 一盘 (300g)", calories: 580, category: "炒菜" },
+            { name: "水煮鱼 一份 (500g)", calories: 950, category: "川菜" },
+            { name: "麻婆豆腐 一份 (300g)", calories: 460, category: "川菜" },
+            { name: "回锅肉 一份 (300g)", calories: 820, category: "川菜" },
+            { name: "拍黄瓜 一份 (200g)", calories: 120, category: "凉菜" },
+            { name: "凉拌木耳 一份 (200g)", calories: 150, category: "凉菜" },
+            { name: "卤牛肉 100g", calories: 180, category: "卤味" },
+            { name: "卤猪脚 一只 (300g)", calories: 720, category: "卤味" },
+            { name: "茶叶蛋 一个 (50g)", calories: 70, category: "卤味" },
+            { name: "烤鸭 一块 (100g)", calories: 450, category: "烧腊" },
+            { name: "烧鹅 一块 (100g)", calories: 420, category: "烧腊" },
+            { name: "叉烧 一块 (100g)", calories: 390, category: "烧腊" },
+            { name: "培根 两片 (50g)", calories: 203, category: "早餐" },
+            { name: "煎蛋 一个", calories: 190, category: "早餐" },
+            { name: "煮蛋 一个", calories: 143, category: "早餐" },
+            { name: "油条 一根", calories: 270, category: "早餐" },
+            { name: "豆浆 一杯", calories: 80, category: "早餐" },
+            { name: "小笼包 一笼 (5个)", calories: 450, category: "早餐" },
+            { name: "烧卖 三个", calories: 300, category: "早餐" },
+            { name: "馄饨 一碗 (10个)", calories: 400, category: "早餐" },
+            { name: "啤酒 一瓶 (500ml)", calories: 160, category: "酒精" },
+            { name: "白酒 一杯 (50ml)", calories: 140, category: "酒精" },
+            { name: "红酒 一杯 (150ml)", calories: 120, category: "酒精" },
+            { name: "威士忌 一杯 (50ml)", calories: 110, category: "酒精" },
+            { name: "粽子 一个 (100g) 甜", calories: 230, category: "主食" },
+            { name: "粽子 一个 (100g) 咸", calories: 260, category: "主食" },
+            { name: "月饼 一个 (100g) 莲蓉", calories: 420, category: "甜品" },
+            { name: "月饼 一个 (100g) 五仁", calories: 410, category: "甜品" },
+            { name: "苏打饼干 一片", calories: 40, category: "饼干" },
+            { name: "奥利奥 一块", calories: 50, category: "饼干" },
+            { name: "桃酥 一块", calories: 120, category: "饼干" },
+            { name: "方便面 一桶", calories: 470, category: "速食" },
+            { name: "粉丝 一份 (100g)", calories: 335, category: "主食" },
+            { name: "米粉 一份 (100g)", calories: 356, category: "主食" },
+            { name: "年糕 100g", calories: 154, category: "主食" },
+            { name: "荞麦面 100g", calories: 337, category: "主食" },
+            { name: "意大利面 100g 干", calories: 350, category: "主食" },
+            { name: "通心粉 100g 干", calories: 354, category: "主食" },
+            { name: "黑巧克力 100g 70%", calories: 598, category: "甜品" },
+            { name: "牛奶巧克力 100g", calories: 539, category: "甜品" },
+            { name: "白巧克力 100g", calories: 544, category: "甜品" },
+            { name: "士力架 一根", calories: 250, category: "甜品" },
+            { name: "能量棒 一根", calories: 200, category: "甜品" },
+            { name: "德芙 一块", calories: 80, category: "甜品" },
+            { name: "瓜子 一把 (50g)", calories: 287, category: "零食" },
+            { name: "花生 一把 (50g)", calories: 283, category: "零食" },
+            { name: "碧根果 一把 (50g)", calories: 340, category: "零食" },
+            { name: "夏威夷果 一把 (50g)", calories: 350, category: "零食" },
+            { name: "腰果 一把 (50g)", calories: 290, category: "零食" },
+            { name: "杏仁 一把 (50g)", calories: 298, category: "零食" },
+            { name: "核桃 一把 (50g)", calories: 325, category: "零食" },
+            { name: "开心果 一把 (50g)", calories: 293, category: "零食" },
+            { name: "cheese 披萨 一片", calories: 280, category: "快餐" },
+            { name: "培根披萨 一片", calories: 310, category: "快餐" },
+            { name: "海鲜披萨 一片", calories: 290, category: "快餐" },
+            { name: "超级大汉堡 一个", calories: 800, category: "快餐" },
+            { name: "麦辣鸡腿堡 一个", calories: 520, category: "快餐" },
+            { name: "巨无霸 一个", calories: 560, category: "快餐" },
+            { name: "麦香鱼 一个", calories: 340, category: "快餐" },
+            { name: "上校鸡块 一份 (5块)", calories: 250, category: "快餐" },
+            { name: "鸡米花 一份", calories: 390, category: "快餐" },
+            { name: "麦旋风 一杯", calories: 320, category: "甜品" },
+            { name: "圣代 一杯", calories: 260, category: "甜品" },
+            { name: "甜筒 一个", calories: 180, category: "甜品" },
+            { name: "板烧鸡腿堡 一个", calories: 430, category: "快餐" },
+            { name: "奥尔良烤翅 一对", calories: 290, category: "快餐" },
+            { name: "香辣鸡腿堡 一个", calories: 490, category: "快餐" },
+            { name: "薯条 中份", calories: 340, category: "快餐" },
+            { name: "薯条 大份", calories: 450, category: "快餐" },
+            { name: "鸡块 四块", calories: 200, category: "快餐" },
+            { name: "土豆泥 一杯", calories: 130, category: "快餐" },
+            { name: "玉米杯 一个", calories: 110, category: "快餐" },
+            { name: "嫩牛五方 一个", calories: 460, category: "快餐" },
+            { name: "老北京鸡肉卷 一个", calories: 460, category: "快餐" },
+            { name: "墨西哥鸡肉卷 一个", calories: 450, category: "快餐" },
+            { name: "豆浆 小杯", calories: 40, category: "饮料" },
+            { name: "可乐 中杯", calories: 220, category: "饮料" },
+            { name: "雪碧 中杯", calories: 210, category: "饮料" },
+            { name: "冰红茶 中杯", calories: 230, category: "饮料" },
+            { name: "柠檬水 中杯", calories: 120, category: "饮料" },
+            { name: "拿铁 大杯", calories: 200, category: "饮料" },
+            { name: "美式咖啡 大杯", calories: 10, category: "饮料" },
+            { name: "卡布奇诺 中杯", calories: 120, category: "饮料" },
+            { name: "摩卡 中杯", calories: 190, category: "饮料" },
+            { name: "珍珠奶茶 中杯", calories: 350, category: "饮料" },
+            { name: "烧仙草 一杯", calories: 380, category: "饮料" },
+            { name: "杨枝甘露 一杯", calories: 330, category: "饮料" },
+            { name: "柠檬茶 一杯", calories: 240, category: "饮料" },
+            { name: "冻顶乌龙茶 一杯", calories: 10, category: "饮料" },
+            { name: "东鹏特饮 一瓶", calories: 110, category: "饮料" },
+            { name: "红牛 一罐", calories: 110, category: "饮料" },
+            { name: "脉动 一瓶", calories: 60, category: "饮料" },
+            { name: "怡宝 一瓶", calories: 0, category: "饮料" },
+            { name: "农夫山泉 一瓶", calories: 0, category: "饮料" },
+            { name: "冰露 一瓶", calories: 0, category: "饮料" },
+            { name: "百岁山 一瓶", calories: 0, category: "饮料" },
+            { name: "康师傅绿茶 一瓶", calories: 100, category: "饮料" },
+            { name: "康师傅红茶 一瓶", calories: 110, category: "饮料" },
+            { name: "统一冰红茶 一瓶", calories: 105, category: "饮料" },
+            { name: "加多宝 一罐", calories: 140, category: "饮料" },
+            { name: "王老吉 一罐", calories: 140, category: "饮料" },
+            { name: "雪花啤酒 一瓶", calories: 140, category: "酒精" },
+            { name: "青岛啤酒 一瓶", calories: 130, category: "酒精" },
+            { name: "燕京啤酒 一瓶", calories: 140, category: "酒精" },
+            { name: "哈尔滨啤酒 一瓶", calories: 135, category: "酒精" },
+            { name: "百威啤酒 一瓶", calories: 145, category: "酒精" },
+            { name: "珠江啤酒 一瓶", calories: 135, category: "酒精" },
+            { name: "青岛纯生 一瓶", calories: 150, category: "酒精" },
+            { name: "哈尔滨小麦王 一瓶", calories: 145, category: "酒精" },
+            { name: "茅台 一杯 (50ml)", calories: 170, category: "酒精" },
+            { name: "五粮液 一杯 (50ml)", calories: 150, category: "酒精" },
+            { name: "剑南春 一杯 (50ml)", calories: 155, category: "酒精" },
+            { name: "泸州老窖 一杯 (50ml)", calories: 150, category: "酒精" },
+            { name: "山西汾酒 一杯 (50ml)", calories: 145, category: "酒精" },
+            { name: "牛栏山 一杯 (50ml)", calories: 140, category: "酒精" },
+            { name: "江小白 一杯 (50ml)", calories: 130, category: "酒精" },
+            { name: "长城干红 一杯 (150ml)", calories: 120, category: "酒精" },
+            { name: "张裕解百纳 一杯 (150ml)", calories: 125, category: "酒精" },
+            { name: "牛腱子 100g", calories: 123, category: "牛肉" },
+            { name: "牛腩 100g", calories: 193, category: "牛肉" },
+            { name: "牛肋条 100g", calories: 243, category: "牛肉" },
+            { name: "牛里脊 100g", calories: 107, category: "牛肉" },
+            { name: "五花肉 100g", calories: 508, category: "猪肉" },
+            { name: "后腿肉 100g", calories: 320, category: "猪肉" },
+            { name: "前腿肉 100g", calories: 310, category: "猪肉" },
+            { name: "猪里脊 100g", calories: 155, category: "猪肉" },
+            { name: "梅花肉 100g", calories: 396, category: "猪肉" },
+            { name: "排骨 100g", calories: 264, category: "猪肉" },
+            { name: "猪蹄 一只 (300g)", calories: 720, category: "猪肉" },
+            { name: "猪肝 100g", calories: 129, category: "内脏" },
+            { name: "猪心 100g", calories: 119, category: "内脏" },
+            { name: "猪肚 100g", calories: 110, category: "内脏" },
+            { name: "猪大肠 100g", calories: 196, category: "内脏" },
+            { name: "鸭腿 一个 (200g)", calories: 360, category: "鸭肉" },
+            { name: "鸭胸肉 100g", calories: 133, category: "鸭肉" },
+            { name: "鹅肉 100g", calories: 251, category: "鹅肉" },
+            { name: "兔肉 100g", calories: 102, category: "兔肉" },
+            { name: "驴肉 100g", calories: 116, category: "驴肉" },
+            { name: "马肉 100g", calories: 107, category: "马肉" },
+            { name: "鸵鸟肉 100g", calories: 112, category: "其他肉类" },
+            { name: "袋鼠肉 100g", calories: 109, category: "其他肉类" },
+            { name: "鹌鹑 一只", calories: 135, category: "禽类" },
+            { name: "鸽子 一只", calories: 240, category: "禽类" },
+            { name: "火鸡 100g", calories: 106, category: "禽类" },
+            { name: "鸵鸟蛋 一个", calories: 1300, category: "蛋类" },
+            { name: "鹅蛋 一个", calories: 180, category: "蛋类" },
+            { name: "鹌鹑蛋 一个", calories: 14, category: "蛋类" },
+            { name: "咸鸭蛋 一个", calories: 190, category: "蛋类" },
+            { name: "皮蛋 一个", calories: 170, category: "蛋类" },
+            { name: "松花蛋 一个", calories: 170, category: "蛋类" },
+            { name: "草鱼 100g", calories: 112, category: "鱼类" },
+            { name: "鲤鱼 100g", calories: 109, category: "鱼类" },
+            { name: "鲫鱼 100g", calories: 108, category: "鱼类" },
+            { name: "鲈鱼 100g", calories: 105, category: "鱼类" },
+            { name: "鲑鱼 100g", calories: 208, category: "鱼类" },
+            { name: "金枪鱼 100g", calories: 184, category: "鱼类" },
+            { name: "鳕鱼 100g", calories: 88, category: "鱼类" },
+            { name: "带鱼 100g", calories: 127, category: "鱼类" },
+            { name: "黄鱼 100g", calories: 99, category: "鱼类" },
+            { name: "鱿鱼 100g", calories: 75, category: "鱼类" },
+            { name: "墨鱼 100g", calories: 69, category: "鱼类" },
+            { name: "章鱼 100g", calories: 135, category: "鱼类" },
+            { name: "海带 100g", calories: 16, category: "藻类" },
+            { name: "紫菜 100g", calories: 246, category: "藻类" },
+            { name: "裙带菜 100g", calories: 49, category: "藻类" },
+            { name: "发菜 100g", calories: 205, category: "藻类" },
+            { name: "木耳 干 100g", calories: 205, category: "菌类" },
+            { name: "木耳 水发 100g", calories: 21, category: "菌类" },
+            { name: "香菇 干 100g", calories: 211, category: "菌类" },
+            { name: "香菇 鲜 100g", calories: 26, category: "菌类" },
+            { name: "金针菇 100g", calories: 32, category: "菌类" },
+            { name: "杏鲍菇 100g", calories: 31, category: "菌类" },
+            { name: "草菇 100g", calories: 24, category: "菌类" },
+            { name: "平菇 100g", calories: 20, category: "菌类" },
+            { name: "鸡腿菇 100g", calories: 24, category: "菌类" },
+            { name: "竹荪 100g", calories: 155, category: "菌类" },
+            { name: "银耳 干 100g", calories: 200, category: "菌类" },
+            { name: "豆腐 100g", calories: 70, category: "豆制品" },
+            { name: "豆腐 嫩 100g", calories: 58, category: "豆制品" },
+            { name: "豆腐 老 100g", calories: 85, category: "豆制品" },
+            { name: "豆浆 100g", calories: 32, category: "豆制品" },
+            { name: "豆腐皮 100g", calories: 409, category: "豆制品" },
+            { name: "豆腐干 100g", calories: 140, category: "豆制品" },
+            { name: "腐竹 100g", calories: 459, category: "豆制品" },
+            { name: "豆腐乳 100g", calories: 152, category: "豆制品" },
+            { name: "臭豆腐 100g", calories: 130, category: "豆制品" },
+            { name: "千张 100g", calories: 262, category: "豆制品" },
+            { name: "素鸡 100g", calories: 189, category: "豆制品" },
+            { name: "油豆腐 100g", calories: 244, category: "豆制品" },
+            { name: "凉皮 一份 (300g)", calories: 360, category: "小吃" },
+            { name: "肉夹馍 一个", calories: 550, category: "小吃" },
+            { name: "手抓饼 一个", calories: 480, category: "小吃" },
+            { name: "煎饼果子 一个", calories: 450, category: "小吃" },
+            { name: "鸡蛋灌饼 一个", calories: 520, category: "小吃" },
+            { name: "葱油饼 一张", calories: 500, category: "小吃" },
+            { name: "手擀面 一碗", calories: 500, category: "主食" },
+            { name: "刀削面 一碗", calories: 550, category: "主食" },
+            { name: "拉面 一碗", calories: 520, category: "主食" },
+            { name: "油泼面 一碗", calories: 600, category: "主食" },
+            { name: "biangbiang面 一碗", calories: 800, category: "主食" },
+            { name: "臊子面 一碗", calories: 480, category: "主食" },
+            { name: "打卤面 一碗", calories: 460, category: "主食" },
+            { name: "炸酱面 一碗", calories: 580, category: "主食" },
+            { name: "热干面 一碗", calories: 530, category: "主食" },
+            { name: "重庆小面 一碗", calories: 520, category: "主食" },
+            { name: "担担面 一碗", calories: 480, category: "主食" },
+            { name: "兰州拉面 一碗", calories: 450, category: "主食" },
+            { name: "羊肉泡馍 一碗", calories: 700, category: "主食" },
+            { name: "肉包子 一个", calories: 230, category: "主食" },
+            { name: "菜包子 一个", calories: 180, category: "主食" },
+            { name: "饺子 一盘 (20个)", calories: 1000, category: "主食" },
+            { name: "馄饨 一碗 (10个)", calories: 400, category: "主食" },
+            { name: "汤圆 一碗 (10个)", calories: 600, category: "甜品" },
+            { name: "月饼 一个 (100g) 五仁", calories: 410, category: "甜品" },
+            { name: "月饼 一个 (100g) 莲蓉", calories: 420, category: "甜品" },
+            { name: "月饼 一个 (100g) 豆沙", calories: 400, category: "甜品" },
+            { name: "月饼 一个 (100g) 蛋黄莲蓉", calories: 450, category: "甜品" },
+            { name: "冰皮月饼 一个 (50g)", calories: 200, category: "甜品" },
+            { name: "流心月饼 一个 (50g)", calories: 250, category: "甜品" },
+            { name: "月饼 一个 (100g) 抹茶", calories: 390, category: "甜品" },
+            { name: "月饼 一个 (100g) 巧克力", calories: 430, category: "甜品" }
+        ];
+
+        let gameState = {
+            currentFood: null,
+            guessesLeft: 0,
+            guesses: []
+        };
+
+        const elements = {
+            foodName: document.getElementById('food-name'),
+            foodImage: document.getElementById('food-image'),
+            guessesLeft: document.getElementById('guesses-left'),
+            progressBar: document.getElementById('progress-bar'),
+            calorieInput: document.getElementById('calorie-input'),
+            guessBtn: document.getElementById('guess-btn'),
+            guessHistory: document.getElementById('guess-history'),
+            hintText: document.getElementById('hint-text'),
+            hintBtn: document.getElementById('hint-btn'),
+            newGameBtn: document.getElementById('new-game-btn'),
+            modal: document.getElementById('modal'),
+            modalIcon: document.getElementById('modal-icon'),
+            modalTitle: document.getElementById('modal-title'),
+            modalMessage: document.getElementById('modal-message'),
+            modalNewGame: document.getElementById('modal-new-game')
+        };
+
+        function startNewGame() {
+            // 随机选择一个食物
+            const randomIndex = Math.floor(Math.random() * foods.length);
+            gameState.currentFood = foods[randomIndex];
+            gameState.guessesLeft = 8;
+            gameState.guesses = [];
+            
+            // Update UI
+            elements.foodName.textContent = gameState.currentFood.name;
+            // 使用占位颜色代替图片，避免图片加载问题
+            elements.foodImage.onerror = function() {
+                this.style.display = 'none';
+                this.parentElement.style.backgroundColor = 'rgba(255,255,255,0.2)';
+                const text = document.createElement('div');
+                text.className = 'text-white text-4xl';
+                text.textContent = '🍽️';
+                this.parentElement.appendChild(text);
+            };
+            
+            updateUI();
+            elements.guessHistory.innerHTML = '';
+            elements.hintText.textContent = '';
+            elements.calorieInput.value = '';
+            elements.calorieInput.focus();
+        }
+
+        function updateUI() {
+            elements.guessesLeft.textContent = gameState.guessesLeft;
+            const percentage = (gameState.guessesLeft / 8) * 100;
+            elements.progressBar.style.width = percentage + '%';
+        }
+
+        function addGuess(guess, hint) {
+            const guessDiv = document.createElement('div');
+            guessDiv.className = `guess-item px-4 py-3 rounded-lg flex items-center justify-between ${hint.hintClass}`;
+            guessDiv.innerHTML = `
+                <span class="font-semibold text-white">${guess} kcal</span>
+                <span class="text-sm ${hint.textClass}">${hint.text}</span>
+            `;
+            elements.guessHistory.insertBefore(guessDiv, elements.guessHistory.firstChild);
+        }
+
+        function handleGuess() {
+            const inputVal = elements.calorieInput.value.trim();
+            if (!inputVal) {
+                elements.hintText.textContent = '⚠️ 请输入卡路里';
+                elements.hintText.className = 'text-yellow-300 text-sm mt-2 text-center';
+                return;
+            }
+
+            const guess = parseInt(inputVal);
+            if (isNaN(guess) || guess < 0 || guess > 5000) {
+                elements.hintText.textContent = '⚠️ 请输入有效的卡路里 (0-5000)';
+                elements.hintText.className = 'text-yellow-300 text-sm mt-2 text-center';
+                return;
+            }
+
+            // 检查是否已经猜过这个数字
+            if (gameState.guesses.includes(guess)) {
+                elements.hintText.textContent = '⚠️ 你已经猜过这个数字了';
+                elements.hintText.className = 'text-yellow-300 text-sm mt-2 text-center';
+                return;
+            }
+
+            gameState.guesses.push(guess);
+            gameState.guessesLeft--;
+
+            const actual = gameState.currentFood.calories;
+            let hint;
+
+            if (guess === actual) {
+                // 猜对了
+                showModal(true);
+                return;
+            } else if (guess > actual) {
+                hint = { 
+                    text: '🔽 太高了', 
+                    hintClass: 'bg-orange-500/20 border border-orange-500/50', 
+                    textClass: 'text-orange-300' 
+                };
+                elements.hintText.textContent = '🔽 太高了，再试试低点';
+                elements.hintText.className = 'text-orange-300 text-sm mt-2 text-center';
+            } else {
+                hint = { 
+                    text: '🔼 太低了', 
+                    hintClass: 'bg-blue-500/20 border border-blue-500/50', 
+                    textClass: 'text-blue-300' 
+                };
+                elements.hintText.textContent = '🔼 太低了，再试试高点';
+                elements.hintText.className = 'text-blue-300 text-sm mt-2 text-center';
+            }
+
+            addGuess(guess, hint);
+            updateUI();
+            elements.calorieInput.value = '';
+            elements.calorieInput.focus();
+
+            if (gameState.guessesLeft <= 0) {
+                // 游戏结束
+                showModal(false, actual);
+            }
+        }
+
+        function showModal(won, actual) {
+            if (won) {
+                elements.modalIcon.textContent = '🎉';
+                elements.modalTitle.textContent = '恭喜猜对了！';
+                elements.modalMessage.textContent = `正确答案就是 ${gameState.currentFood.calories} 卡路里`;
+            } else {
+                elements.modalIcon.textContent = '😔';
+                elements.modalTitle.textContent = '游戏结束';
+                elements.modalMessage.textContent = `正确答案是 ${actual} 卡路里，下次加油！`;
+            }
+            elements.modal.classList.remove('hidden');
+        }
+
+        // Event bindings
+        elements.guessBtn.addEventListener('click', handleGuess);
+        elements.calorieInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                handleGuess();
+            }
+        });
+        elements.newGameBtn.addEventListener('click', startNewGame);
+        elements.hintBtn.addEventListener('click', () => {
+            // 提示：范围提示
+            const actual = gameState.currentFood.calories;
+            let range = 50;
+            if (actual > 500) range = 100;
+            if (actual > 1000) range = 200;
+            const min = Math.max(0, actual - range);
+            const max = actual + range;
+            alert(`💡 提示：卡路里在 ${min} - ${max} 之间`);
+        });
+        elements.modalNewGame.addEventListener('click', () => {
+            elements.modal.classList.add('hidden');
+            startNewGame();
+        });
+        elements.modal.addEventListener('click', (e) => {
+            if (e.target === elements.modal) {
+                elements.modal.classList.add('hidden');
+            }
+        });
+
+        // Start game
+        startNewGame();
+    </script>
+</body>
+</html>
