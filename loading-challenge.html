@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>加载大作战 - 点击竞速加速</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; background-color: #f9fafb; }
+        .progress-bar {
+            transition: width 0.1s linear;
+        }
+        .player-bar {
+            box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+        }
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 0 10px currentColor; }
+            50% { box-shadow: 0 0 20px currentColor; }
+        }
+        .loading {
+            animation: pulse-glow 1s infinite;
+        }
+        .click-flash {
+            animation: flash 0.3s;
+        }
+        @keyframes flash {
+            0% { background-color: rgba(255, 255, 255, 0.5); }
+            100% { background-color: transparent; }
+        }
+        .finished {
+            animation: finished-pulse 1s infinite;
+        }
+        @keyframes finished-pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.8; }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-4xl">
+        <!-- Header -->
+        <header class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-gray-900 mb-2">⚡ 加载大作战</h1>
+            <p class="text-gray-600">多个进度条同时加载，疯狂点击加速！第一个冲到 100% 就是赢家！</p>
+        </header>
+
+        <!-- Game Mode Selection -->
+        <div id="mode-screen" class="block">
+            <div class="bg-white rounded-2xl shadow-lg p-6 mb-6">
+                <h2 class="text-2xl font-semibold text-gray-900 mb-4">选择游戏模式</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <button class="mode-btn bg-blue-50 hover:bg-blue-100 border-2 border-blue-200 rounded-xl p-6 transition text-center" data-players="2">
+                        <div class="text-3xl font-bold text-blue-700 mb-2">2 个竞争者</div>
+                        <div class="text-blue-600">经典对决</div>
+                    </button>
+                    <button class="mode-btn bg-green-50 hover:bg-green-100 border-2 border-green-200 rounded-xl p-6 transition text-center" data-players="3">
+                        <div class="text-3xl font-bold text-green-700 mb-2">3 个竞争者</div>
+                        <div class="text-green-600">混战模式</div>
+                    </button>
+                    <button class="mode-btn bg-yellow-50 hover:bg-yellow-100 border-2 border-yellow-200 rounded-xl p-6 transition text-center" data-players="4">
+                        <div class="text-3xl font-bold text-yellow-700 mb-2">4 个竞争者</div>
+                        <div class="text-yellow-600">大乱斗</div>
+                    </button>
+                    <button class="mode-btn bg-purple-50 hover:bg-purple-100 border-2 border-purple-200 rounded-xl p-6 transition text-center" data-players="1">
+                        <div class="text-3xl font-bold text-purple-700 mb-2">单人挑战</div>
+                        <div class="text-purple-600">挑战最短时间</div>
+                    </button>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl shadow-lg p-6">
+                <h3 class="text-xl font-semibold text-gray-900 mb-3">📖 玩法说明</h3>
+                <div class="space-y-2 text-gray-700">
+                    <p>1. 所有进度条会自动缓慢增长，你控制蓝色的「你的进度条」</p>
+                    <p>2. 不断点击你的进度条，每次点击会额外增加进度</p>
+                    <p>3. <strong>运气元素</strong>：每次点击有小概率触发「大暴击」进度暴涨！</p>
+                    <p>4. 第一个到达 100% 的竞争者获胜！</p>
+                    <p>5. 比拼手速和运气，快来试试你能赢吗 😄</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Game Screen -->
+        <div id="game-screen" class="hidden">
+            <!-- Status -->
+            <div class="bg-white rounded-xl shadow-md p-4 mb-6 flex flex-wrap justify-between items-center gap-4">
+                <div>
+                    <span class="text-sm text-gray-600">状态：</span>
+                    <span id="game-status" class="font-semibold text-blue-600">加载中...</span>
+                </div>
+                <div>
+                    <span class="text-sm text-gray-600">点击次数：</span>
+                    <span id="click-count" class="font-semibold text-gray-900">0</span>
+                </div>
+                <div class="flex gap-2">
+                    <button id="btn-restart" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition">重来</button>
+                    <button id="btn-back-mode" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg transition">换模式</button>
+                </div>
+            </div>
+
+            <!-- Progress Bars Container -->
+            <div id="bars-container" class="space-y-6 mb-8"></div>
+
+            <!-- Player Click Area -->
+            <div id="click-area-container" class="mb-6 hidden">
+                <button id="click-btn" class="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white text-2xl font-bold py-8 rounded-2xl shadow-lg hover:shadow-xl transition-all active:scale-95">
+                    🖱️ 点击这里加速！
+                </button>
+                <p class="text-center text-gray-500 mt-2 text-sm">每次点击增加 2-5% 进度，有 15% 概率触发暴击 8-15%！</p>
+            </div>
+
+            <!-- Result Panel -->
+            <div id="result-panel" class="bg-white rounded-2xl shadow-lg p-8 hidden">
+                <div id="result-message" class="text-center text-3xl font-bold mb-6"></div>
+                <div id="result-stats" class="text-center text-gray-600 mb-8 space-y-2"></div>
+                <div class="flex gap-4 justify-center">
+                    <button id="btn-play-again" class="bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-xl font-semibold transition">再来一局</button>
+                    <button id="btn-back-menu" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-8 py-3 rounded-xl font-semibold transition">返回菜单</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Color palette for AI competitors
+        const colors = [
+            { name: '你', bg: 'from-blue-500 to-blue-600', text: 'blue', bar: '#3b82f6' },
+            { name: 'AI 1', bg: 'from-red-500 to-red-600', text: 'red', bar: '#ef4444' },
+            { name: 'AI 2', bg: 'from-green-500 to-green-600', text: 'green', bar: '#22c55e' },
+            { name: 'AI 3', bg: 'from-yellow-500 to-yellow-600', text: 'yellow', bar: '#eab308' },
+            { name: 'AI 4', bg: 'from-purple-500 to-purple-600', text: 'purple', bar: '#a855f7' }
+        ];
+
+        // Game State
+        let gameState = {
+            numPlayers: 2,
+            players: [],
+            gameRunning: false,
+            gameOver: false,
+            winner: null,
+            clickCount: 0,
+            startTime: null,
+            aiBaseSpeed: 0.3, // AI auto increment per frame (100fps = 10 frames per second)
+            intervalId: null
+        };
+
+        // DOM Elements
+        const modeScreen = document.getElementById('mode-screen');
+        const gameScreen = document.getElementById('game-screen');
+        const barsContainer = document.getElementById('bars-container');
+        const clickAreaContainer = document.getElementById('click-area-container');
+        const clickBtn = document.getElementById('click-btn');
+        const gameStatusEl = document.getElementById('game-status');
+        const clickCountEl = document.getElementById('click-count');
+        const resultPanel = document.getElementById('result-panel');
+        const resultMessage = document.getElementById('result-message');
+        const resultStats = document.getElementById('result-stats');
+
+        // Event Listeners
+        document.querySelectorAll('.mode-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                startGame(parseInt(btn.dataset.players));
+            });
+        });
+        document.getElementById('btn-restart').addEventListener('click', restartGame);
+        document.getElementById('btn-back-mode').addEventListener('click', backToMode);
+        document.getElementById('btn-play-again').addEventListener('click', restartGame);
+        document.getElementById('btn-back-menu').addEventListener('click', backToMode);
+        clickBtn.addEventListener('click', handlePlayerClick);
+
+        // Start Game
+        function startGame(numPlayers) {
+            gameState.numPlayers = numPlayers;
+            gameState.gameRunning = true;
+            gameState.gameOver = false;
+            gameState.winner = null;
+            gameState.clickCount = 0;
+            gameState.players = [];
+            gameState.startTime = Date.now();
+
+            // Initialize players
+            for (let i = 0; i < numPlayers; i++) {
+                gameState.players.push({
+                    id: i,
+                    name: colors[i].name,
+                    progress: 0,
+                    finished: false,
+                    color: colors[i]
+                });
+            }
+
+            // Render
+            renderBars();
+            updateStats();
+
+            // Show/hide screens
+            modeScreen.classList.add('hidden');
+            gameScreen.classList.remove('hidden');
+            resultPanel.classList.add('hidden');
+            if (numPlayers > 1) {
+                clickAreaContainer.classList.remove('hidden');
+            } else {
+                clickAreaContainer.classList.remove('hidden'); // still show click area for single player
+            }
+
+            gameStatusEl.textContent = '比赛进行中';
+
+            // Start game loop
+            gameState.intervalId = setInterval(gameLoop, 10); // 100 FPS
+        }
+
+        // Restart game with same number of players
+        function restartGame() {
+            if (gameState.intervalId) {
+                clearInterval(gameState.intervalId);
+            }
+            startGame(gameState.numPlayers);
+        }
+
+        // Back to mode selection
+        function backToMode() {
+            if (gameState.intervalId) {
+                clearInterval(gameState.intervalId);
+            }
+            gameScreen.classList.add('hidden');
+            resultPanel.classList.add('hidden');
+            modeScreen.classList.remove('hidden');
+        }
+
+        // Render all progress bars
+        function renderBars() {
+            barsContainer.innerHTML = '';
+            gameState.players.forEach(player => {
+                const barDiv = document.createElement('div');
+                barDiv.className = `bg-white rounded-xl shadow-lg p-6 ${player.finished ? 'ring-4 ring-green-500' : ''}`;
+                barDiv.id = `player-${player.id}`;
+
+                const percent = Math.min(100, player.progress).toFixed(1);
+
+                barDiv.innerHTML = `
+                    <div class="flex justify-between items-center mb-3">
+                        <span class="text-lg font-semibold text-${player.color.text}-900">${player.name}</span>
+                        <span class="text-xl font-bold text-${player.color.text}-600">${percent}%</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-8 overflow-hidden">
+                        <div id="bar-${player.id}" class="progress-bar h-full bg-gradient-to-r ${player.color.bg} ${player.progress < 100 ? 'loading' : 'finished'}" style="width: ${percent}%"></div>
+                    </div>
+                `;
+
+                if (player.id === 0 && !player.finished) { // Player is always first slot
+                    barDiv.addEventListener('click', handlePlayerClick);
+                }
+
+                barsContainer.appendChild(barDiv);
+            });
+        }
+
+        // Update progress bars
+        function updateBars() {
+            gameState.players.forEach(player => {
+                const percent = Math.min(100, player.progress).toFixed(1);
+                const barEl = document.getElementById(`bar-${player.id}`);
+                if (barEl) {
+                    barEl.style.width = `${percent}%`;
+                }
+                const percentEl = document.querySelector(`#player-${player.id} .text-xl`);
+                if (percentEl) {
+                    percentEl.textContent = `${percent}%`;
+                }
+            });
+        }
+
+        // Handle player click
+        function handlePlayerClick() {
+            if (!gameState.gameRunning || gameState.gameOver) return;
+
+            gameState.clickCount++;
+
+            // Random increment: normal 2-5%, crit 8-15%
+            const isCrit = Math.random() < 0.15;
+            let increment;
+            if (isCrit) {
+                increment = 8 + Math.random() * 7;
+                // Visual flash for crit
+                clickBtn.classList.add('click-flash');
+                setTimeout(() => clickBtn.classList.remove('click-flash'), 300);
+                gameStatusEl.textContent = `💥 暴击！+${increment.toFixed(1)}%`;
+            } else {
+                increment = 2 + Math.random() * 3;
+            }
+
+            gameState.players[0].progress += increment;
+            updateStats();
+            updateBars();
+            checkGameOver();
+        }
+
+        // Game loop - AI auto increment
+        function gameLoop() {
+            if (!gameState.gameRunning || gameState.gameOver) return;
+
+            // AI players get auto increment
+            for (let i = 1; i < gameState.players.length; i++) {
+                const player = gameState.players[i];
+                if (!player.finished && player.progress < 100) {
+                    // Add some randomness to AI speed so it's not constant
+                    const randomFactor = 0.7 + Math.random() * 0.6;
+                    player.progress += gameState.aiBaseSpeed * randomFactor;
+                }
+            }
+
+            updateBars();
+            checkGameOver();
+        }
+
+        // Check if game over
+        function checkGameOver() {
+            let winner = null;
+            for (const player of gameState.players) {
+                if (player.progress >= 100 && !player.finished) {
+                    player.progress = 100;
+                    player.finished = true;
+                    winner = player;
+                    break;
+                }
+            }
+
+            if (winner) {
+                endGame(winner);
+            }
+        }
+
+        // End game
+        function endGame(winner) {
+            gameState.gameRunning = false;
+            gameState.gameOver = true;
+            gameState.winner = winner;
+
+            if (gameState.intervalId) {
+                clearInterval(gameState.intervalId);
+            }
+
+            const endTime = Date.now();
+            const duration = ((endTime - gameState.startTime) / 1000).toFixed(2);
+
+            renderBars();
+
+            // Show result
+            if (winner.id === 0) {
+                resultMessage.textContent = `🎉 你赢了！`;
+                resultMessage.className = 'text-center text-3xl font-bold mb-6 text-green-600';
+            } else {
+                resultMessage.textContent = `💀 ${winner.name} 赢了！`;
+                resultMessage.className = 'text-center text-3xl font-bold mb-6 text-red-600';
+            }
+
+            let statsHtml = '';
+            statsHtml += `<p>用时：${duration} 秒</p>`;
+            if (gameState.numPlayers > 1) {
+                statsHtml += `<p>你的点击次数：${gameState.clickCount} 次</p>`;
+            }
+            statsHtml += '<p>最终进度：</p><ul class="text-left max-w-xs mx-auto space-y-1 mt-2">';
+            gameState.players.forEach(p => {
+                statsHtml += `<li><span class="font-semibold text-${p.color.text}-700">${p.name}</span>: ${p.progress.toFixed(1)}%</li>`;
+            });
+            statsHtml += '</ul>';
+
+            resultStats.innerHTML = statsHtml;
+            resultPanel.classList.remove('hidden');
+
+            if (winner.id === 0) {
+                gameStatusEl.textContent = `你赢了！用时 ${duration} 秒`;
+            } else {
+                gameStatusEl.textContent = `${winner.name} 赢了`;
+            }
+        }
+
+        // Update stats
+        function updateStats() {
+            clickCountEl.textContent = gameState.clickCount;
+        }
+    </script>
+</body>
+</html>
