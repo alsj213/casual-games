@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>卡路里猜猜看 - Casual Games</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * {
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            min-height: 100vh;
+        }
+        
+        .food-image {
+            transition: transform 0.3s ease;
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+        
+        .food-image-container {
+            aspect-square;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        
+        .food-image:hover {
+            transform: scale(1.02);
+        }
+        
+        .category-tag {
+            transition: all 0.2s ease;
+        }
+        
+        .category-tag.active {
+            background: rgba(255, 255, 255, 0.3);
+            border-color: rgb(255, 255, 255);
+            transform: scale(1.05);
+        }
+        
+        .calorie-input::-webkit-inner-spin-button,
+        .calorie-input::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        
+        .calorie-input {
+            -moz-appearance: textfield;
+        }
+        
+        .result-item {
+            animation: slideIn 0.2s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(-8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container mx-auto px-4 py-6 max-w-md">
+        <div class="text-center mb-4">
+            <h1 class="text-3xl font-bold bg-gradient-to-r from-green-300 to-emerald-100 bg-clip-text text-transparent mb-1">🔥 卡路里猜猜看</h1>
+            <p class="text-green-100 text-sm">常见食物猜卡路里，相对误差计分，边玩边涨知识！</p>
+        </div>
+
+        <!-- Category Selection -->
+        <div id="category-selection" class="mb-4">
+            <div class="bg-white/10 backdrop-blur-lg rounded-xl p-4">
+                <h3 class="text-white font-semibold mb-3 text-center">选择食物分类</h3>
+                <div class="grid grid-cols-2 gap-2" id="category-buttons">
+                    <!-- Category buttons -->
+                </div>
+                <div class="mt-3 text-center text-green-100 text-sm">
+                    最高分: <span id="category-high-score" class="font-bold text-yellow-300">0</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Game Area -->
+        <div id="game-area" class="bg-white/10 backdrop-blur-lg rounded-2xl p-5 shadow-xl mb-4" style="display: none;">
+            <div class="mb-4">
+                <h2 id="food-name" class="text-xl font-semibold mb-3 text-center text-white"></h2>
+                <div class="aspect-square bg-white/20 rounded-xl overflow-hidden flex items-center justify-center">
+                    <img id="food-image" class="food-image w-full h-full object-contain bg-white p-2 rounded">
+                </div>
+            </div>
+            
+            <div class="mb-4">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-green-100 text-sm">当前得分</span>
+                    <span id="current-score" class="text-yellow-300 font-bold text-xl">0</span>
+                </div>
+                <div class="w-full bg-white/20 rounded-full h-2 overflow-hidden">
+                    <div id="progress-bar" class="bg-gradient-to-r from-green-400 to-yellow-400 h-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-green-100 text-sm mb-2">输入你的猜测 (卡路里 kcal)</label>
+                <div class="flex gap-2">
+                    <input type="number" id="calorie-input" placeholder="输入卡路里" 
+                           class="calorie-input flex-1 px-4 py-3 bg-white/20 border border-white/30 rounded-xl text-white placeholder-green-200 focus:outline-none focus:border-yellow-400">
+                    <button id="guess-btn" class="px-6 py-3 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-xl font-semibold text-gray-900 hover:opacity-90 transition-opacity">
+                        猜测
+                    </button>
+                </div>
+                <p id="hint-text" class="text-sm mt-2 text-center"></p>
+            </div>
+
+            <div id="result-card" class="mb-4 p-4 bg-white/15 rounded-xl hidden result-item">
+                <h3 class="text-white font-semibold mb-2">正确答案</h3>
+                <div class="space-y-1 text-green-100 text-sm">
+                    <p>🍽️ 食物: <span id="result-name" class="font-bold text-white"></span></p>
+                    <p>🔥 卡路里: <span id="result-calories" class="font-bold text-yellow-300"></span> kcal</p>
+                    <p>📊 你的误差: <span id="result-error" class="font-bold text-yellow-300"></span>%</p>
+                    <p>✅ 本局得分: <span id="result-score" class="font-bold text-green-300"></span></p>
+                    <p id="result-note" class="text-xs italic mt-2"></p>
+                </div>
+            </div>
+
+            <div>
+                <div class="text-green-100 text-sm mb-2">历史猜测</div>
+                <div id="guess-history" class="space-y-2 max-h-32 overflow-y-auto"></div>
+            </div>
+        </div>
+
+        <div class="flex gap-2">
+            <button id="hint-btn" class="flex-1 px-4 py-3 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-xl font-semibold text-gray-900 hover:opacity-90 transition-opacity">
+                💡 获取提示
+            </button>
+            <button id="next-food-btn" class="flex-1 px-4 py-3 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl font-semibold text-white hover:opacity-90 transition-opacity">
+                ➡️ 下一题
+            </button>
+        </div>
+    </div>
+
+    <!-- Game Over Modal -->
+    <div id="modal" class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 hidden p-4">
+        <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-8 max-w-sm w-full text-center">
+            <div id="modal-icon" class="text-6xl mb-4"></div>
+            <h2 id="modal-title" class="text-2xl font-bold mb-2 text-white"></h2>
+            <p id="modal-message" class="text-gray-300 mb-6"></p>
+            <div class="flex gap-2">
+                <button id="modal-next-food" class="flex-1 px-6 py-3 bg-gradient-to-r from-green-400 to-blue-500 rounded-xl font-semibold hover:opacity-90 transition-opacity">
+                    下一题
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 食物卡路里数据库 - 分类分组
+        const foodDB = {
+            fruits: {
+                name: "🍎 蔬菜水果",
+                foods: [
+                    { name: "苹果 1个 (100g)", calories: 52, note: "苹果热量很低，减肥友好" },
+                    { name: "香蕉 1根 (100g)", calories: 89, note: "香蕉比苹果热量稍高，富含钾" },
+                    { name: "橙子 1个 (100g)", calories: 47, note: "维生素C丰富，热量很低" },
+                    { name: "草莓 100g", calories: 32, note: "低糖低热量，减肥首选" },
+                    { name: "葡萄 100g", calories: 44, note: "天然果糖，热量适中" },
+                    { name: "西瓜 100g", calories: 30, note: "水分含量高，热量非常低" },
+                    { name: "芒果 100g", calories: 65, note: "甜度较高，热量比西瓜高" },
+                    { name: "梨 100g", calories: 44, note: "润肺清爽，热量很低" },
+                    { name: "猕猴桃 100g", calories: 61, note: "维生素C丰富，热量适中" },
+                    { name: "火龙果 100g", calories: 51, note: "膳食纤维丰富，热量不高" },
+                    { name: "荔枝 100g", calories: 70, note: "甜度高，热量不算低" },
+                    { name: "龙眼 100g", calories: 68, note: "比荔枝热量稍低" },
+                    { name: "柚子 100g", calories: 41, note: "糖尿病友好，热量很低" },
+                    { name: "柠檬 100g", calories: 35, note: "很少直接吃完一整个，切片泡水" },
+                    { name: "榴莲 100g", calories: 147, note: "热量很高，营养丰富，请勿贪吃" },
+                    { name: "车厘子 100g", calories: 63, note: "美味但热量不高，放心吃" },
+                    { name: "蓝莓 100g", calories: 57, note: "花青素丰富，热量适中" },
+                    { name: "树莓 100g", calories: 52, note: "低糖健康，热量低" },
+                    { name: "菠萝 100g", calories: 41, note: "酵素丰富，热量低" },
+                    { name: "哈密瓜 100g", calories: 34, note: "水分多，热量低" },
+                    { name: "黄瓜 100g", calories: 15, note: "几乎可以不限量吃" },
+                    { name: "西红柿 100g", calories: 20, note: "低糖低热，减肥圣品" },
+                    { name: "胡萝卜 100g", calories: 37, note: "胡萝卜素丰富，热量低" },
+                    { name: "西兰花 100g", calories: 34, note: "营养密度极高，热量低" },
+                    { name: "菠菜 100g", calories: 28, note: "铁含量丰富，热量低" },
+                    { name: "生菜 100g", calories: 15, note: "沙拉标配，极低热量" },
+                    { name: "白菜 100g", calories: 17, note: "膳食纤维丰富，热量低" },
+                    { name: "娃娃菜 100g", calories: 14, note: "比白菜热量还低" },
+                    { name: "茄子 100g", calories: 21, note: "吸油才会变高热量，清蒸很低" },
+                    { name: "青椒 100g", calories: 22, note: "辣椒类热量都很低" },
+                    { name: "冬瓜 100g", calories: 11, note: "热量最低的蔬菜之一" },
+                    { name: "丝瓜 100g", calories: 20, note: "水分多，热量低" },
+                    { name: "苦瓜 100g", calories: 19, note: "清热降火，热量低" },
+                    { name: "南瓜 100g", calories: 23, note: "天然甜味，热量低" },
+                    { name: "洋葱 100g", calories: 40, note: "杀菌防癌，热量低" },
+                    { name: "大蒜 100g", calories: 126, note: "很少一次吃100g，所以还好" },
+                    { name: "土豆 100g", calories: 77, note: "比米饭热量低很多，当主食很好" },
+                    { name: "红薯 100g", calories: 86, note: "膳食纤维丰富，优质主食" },
+                    { name: "紫薯 100g", calories: 70, note: "比红薯热量更低，花青素丰富" },
+                    { name: "山药 100g", calories: 57, note: "健脾养胃，热量低" },
+                    { name: "莲藕 100g", calories: 70, note: "淀粉含量不低，热量比土豆低" }
+                ]
+            },
+            grains: {
+                name: "🍚 主食谷物",
+                foods: [
+                    { name: "白米饭 一碗 (150g)", calories: 174, note: "精制碳水，提供快速能量" },
+                    { name: "糙米饭 一碗 (150g)", calories: 162, note: "膳食纤维丰富，升糖较慢" },
+                    { name: "面条 一碗 (150g)", calories: 165, note: "饱腹感强，热量适中" },
+                    { name: "馒头 一个 (100g)", calories: 223, note: "发酵面食热量比米饭高" },
+                    { name: "面包 一片 (50g)", calories: 150, note: "看添加糖，全麦面包更健康" },
+                    { name: "燕麦片 100g", calories: 367, note: "干重热量高，一次吃30g左右" },
+                    { name: "玉米 一根 (200g)", calories: 112, note: "优质粗粮，饱腹感强" },
+                    { name: "小米粥 一碗 (200g)", calories: 102, note: "好消化，热量不高" },
+                    { name: "燕麦饭 一碗 (150g)", calories: 159, note: "升糖指数低，适合控糖" },
+                    { name: "年糕 100g", calories: 154, note: "糯米制成，热量比米饭低" },
+                    { name: "荞麦面 100g", calories: 337, note: "干重，煮完膨胀，适合控糖" },
+                    { name: "意大利面 100g 干", calories: 350, note: "硬质小麦，升糖比白面低" },
+                    { name: "米粉 一份 (100g)", calories: 356, note: "大米制成，热量接近面粉" },
+                    { name: "粉丝 一份 (100g)", calories: 335, note: "淀粉纯度高，热量较高" },
+                    { name: "粽子 一个 (100g) 甜", calories: 230, note: "糯米加蜜枣，热量不低" },
+                    { name: "粽子 一个 (100g) 咸", calories: 260, note: "加了肥肉，热量更高" },
+                    { name: "青稞饭 100g", calories: 149, note: "β葡聚糖丰富，适合控糖" },
+                    { name: "藜麦 100g", calories: 360, note: "完全蛋白质，优质杂粮" },
+                    { name: "薏米 100g", calories: 357, note: "祛湿消水肿，杂粮热量都不低" }
+                ]
+            },
+            meat: {
+                name: "🥩 肉类",
+                foods: [
+                    { name: "鸡胸肉 100g", calories: 133, note: "健身首选，低脂高蛋白" },
+                    { name: "瘦猪肉 100g", calories: 143, note: "比鸡胸肉热量稍高" },
+                    { name: "瘦牛肉 100g", calories: 125, note: "红肉里热量较低，补铁" },
+                    { name: "羊肉 100g", calories: 203, note: "脂肪含量高，热量较高" },
+                    { name: "鸡腿 一个 (100g)", calories: 181, note: "去皮热量更低，非常不错" },
+                    { name: "鸡翅 一个 (50g)", calories: 190, note: "皮脂肪含量高，热量较高" },
+                    { name: "培根 100g", calories: 405, note: "烟熏腌制，高脂肪高热量" },
+                    { name: "香肠 100g", calories: 508, note: "肥肉多，热量非常高" },
+                    { name: "五花肉 100g", calories: 508, note: "脂肪一半以上，热量极高" },
+                    { name: "猪蹄 一只 (300g)", calories: 720, note: "胶原蛋白丰富，热量也很高" },
+                    { name: "牛腱子 100g", calories: 123, note: "瘦肉多，热量很低" },
+                    { name: "牛肋条 100g", calories: 243, note: "脂肪分布均匀，香气足热量较高" },
+                    { name: "猪里脊 100g", calories: 155, note: "瘦肉，热量较低" },
+                    { name: "猪后腿肉 100g", calories: 320, note: "比里脊脂肪多热量高" },
+                    { name: "鸭腿 一个 (200g)", calories: 360, note: "带皮鸭肉热量不低" },
+                    { name: "鸭胸肉 100g", calories: 133, note: "去皮鸭肉，低脂高蛋白" },
+                    { name: "牛肉馅 100g", calories: 260, note: "肥瘦混合，热量中等" },
+                    { name: "猪肉馅 100g", calories: 390, note: "通常偏肥，热量较高" }
+                ]
+            },
+            seafood: {
+                name: "🐟 海鲜水产",
+                foods: [
+                    { name: "虾仁 100g", calories: 93, note: "低脂高蛋白，非常健康" },
+                    { name: "三文鱼 100g", calories: 208, note: "omega-3丰富，热量中等" },
+                    { name: "鳕鱼 100g", calories: 83, note: "低脂高蛋白，热量很低" },
+                    { name: "草鱼 100g", calories: 112, note: "淡水鱼热量较低" },
+                    { name: "鲤鱼 100g", calories: 109, note: "淡水鱼热量适中" },
+                    { name: "鲈鱼 100g", calories: 105, note: "刺少肉嫩，热量低" },
+                    { name: "带鱼 100g", calories: 127, note: "比淡水鱼热量稍高" },
+                    { name: "鱿鱼 100g", calories: 75, note: "几乎不含脂肪，热量很低" },
+                    { name: "螃蟹 100g", calories: 103, note: "蛋白质丰富，热量不高" },
+                    { name: "虾 100g", calories: 93, note: "和虾仁热量差不多" },
+                    { name: "海带 100g", calories: 16, note: "膳食纤维丰富，热量极低" },
+                    { name: "紫菜 100g", calories: 246, note: "都是干重，一次吃不了那么多" },
+                    { name: "裙带菜 100g", calories: 49, note: "比海带热量稍高，还是很低" }
+                ]
+            },
+            fastfood: {
+                name: "🍔 快餐外卖",
+                foods: [
+                    { name: "汉堡 一个 吉士堡", calories: 490, note: "快餐标准化产品，热量准确" },
+                    { name: "薯条 一份 中份", calories: 340, note: "油炸土豆吸收大量油脂" },
+                    { name: "炸鸡 一块 (100g)", calories: 290, note: "油炸外皮吸油，热量比清蒸高很多" },
+                    { name: "披萨 一片 (100g)", calories: 260, note: "看配料，芝士越多热量越高" },
+                    { name: "三明治 一个", calories: 330, note: "相对健康，热量比汉堡低" },
+                    { name: "热狗 一个", calories: 290, note: "香肠加面包，热量中等" },
+                    { name: "劲脆鸡腿堡", calories: 520, note: "脆皮炸鸡排，热量比吉士堡高" },
+                    { name: "香辣鸡腿堡", calories: 490, note: "比劲脆堡稍低" },
+                    { name: "奥尔良烤鸡腿堡", calories: 430, note: "烤比炸热量低" },
+                    { name: "麦辣鸡腿堡", calories: 560, code: "辣味脆皮热量高" },
+                    { name: "板烧鸡腿堡", calories: 430, note: "烤制没有炸，热量更低" },
+                    { name: "巨无霸", calories: 560, note: "更大更重，热量更高" },
+                    { name: "麦香鱼", calories: 340, note: "鱼肉汉堡热量最低" },
+                    { name: "上校鸡块 一份 5块", calories: 250, note: "油炸鸡块，热量不低" },
+                    { name: "麦乐鸡 一份", calories: 390, note: "就是上校鸡块，不同份量" },
+                    { name: "鸡块 四块", calories: 200, note: "小块份量，热量适中" },
+                    { name: "玉米杯 小", calories: 110, note: "甜玉米，热量不高" },
+                    { name: "可乐 中杯", calories: 220, note: "都是糖，没有营养" },
+                    { name: "珍珠奶茶 中杯", calories: 350, name: "珍珠加糖热量很高" }
+                ]
+            },
+            snacks: {
+                name: "🍿 零食点心",
+                foods: [
+                    { name: "冰淇淋 一球 (100g)", calories: 207, note: "奶油加糖，热量不低" },
+                    { name: "巧克力 100g", calories: 546, note: "可可含量越高热量其实差不多，只是更苦" },
+                    { name: "蛋糕 100g", calories: 378, note: "奶油蛋糕热量很高" },
+                    { name: "饼干 100g", calories: 450, note: "油糖混合物，热量很高" },
+                    { name: "糖果 100g", calories: 440, note: "几乎都是糖，热量高" },
+                    { name: "薯片 一袋 (100g)", calories: 547, note: "油炸土豆片吸油，热量极高" },
+                    { name: "爆米花 一桶 (100g)", calories: 480, note: "黄油爆米花热量很高" },
+                    { name: "坚果 混合 100g", calories: 600, note: "脂肪含量高，热量很高，一次吃一把就好" },
+                    { name: "花生 100g", calories: 567, note: "坚果热量都很高，好吃不要多吃" },
+                    { name: "瓜子 100g", calories: 574, note: "比花生热量还高一点" },
+                    { name: "开心果 100g", calories: 586, note: "坚果中热量偏高" },
+                    { name: "碧根果 100g", calories: 690, note: "脂肪含量非常高，热量极高" },
+                    { name: "夏威夷果 100g", calories: 700, note: "热量最高的坚果之一" },
+                    { name: "巧克力曲奇 一块", calories: 80, note: "小块饼干，热量就还好" },
+                    { name: "奥利奥 一块", calories: 50, note: "夹心饼干糖油都多" },
+                    { name: "桃酥 一块", calories: 120, note: "重油重糖，热量很高" },
+                    { name: "鸡蛋仔 一份", calories: 450, note: "鸡蛋加面粉加油糖，热量高" },
+                    { name: "舒芙蕾 一份", calories: 380, note: "大部分是空气，热量没有看起来高" },
+                    { name: "提拉米苏 一块 (100g)", calories: 350, note: "马斯卡彭加咖啡，热量中等" },
+                    { name: "榴莲蛋糕 一块 (100g)", calories: 400, note: "榴莲+奶油，热量很高" }
+                ]
+            },
+            drinks: {
+                name: "🥤 饮料酒水",
+                foods: [
+                    { name: "可口可乐 一罐 (330ml)", calories: 142, note: "都是添加糖，热量全来自糖" },
+                    { name: "百事可乐 一罐 (330ml)", calories: 143, note: "和可口可乐差不多" },
+                    { name: "雪碧 一罐 (330ml)", calories: 143, note: "无糖雪碧零卡路里" },
+                    { name: "零度可乐 一罐", calories: 0, note: "甜味剂代替糖，零卡路里" },
+                    { name: "无糖雪碧 一罐", calories: 0, note: "零度可乐一样" },
+                    { name: "橙汁 一杯 (250ml)", calories: 112, note: "就算纯果汁也有很多糖" },
+                    { name: "苹果汁 一杯 (250ml)", calories: 117, note: "和橙汁差不多" },
+                    { name: "矿泉水 一瓶 (500ml)", calories: 0, note: "零卡路里，最健康" },
+                    { name: "珍珠奶茶 中杯", calories: 350, name: "珍珠加糖热量很高" },
+                    { name: "美式咖啡 一杯", calories: 5, note: "黑咖啡几乎零卡路里" },
+                    { name: "拿铁咖啡 一杯", calories: 150, name: "加了牛奶，热量不算高" },
+                    { name: "卡布奇诺 一杯", calories: 120, note: "奶泡多奶少，热量比拿铁低" },
+                    { name: "摩卡 一杯", calories: 190, note: "加了巧克力酱，热量更高" },
+                    { name: "冰红茶 一瓶", calories: 100, note: "茶加糖，热量不算低" },
+                    { name: "绿茶 一杯", calories: 2, note: "无糖茶几乎零卡路里" },
+                    { name: "啤酒 一瓶 (500ml)", calories: 160, note: "液体面包，热量不算低" },
+                    { name: "白酒 一杯 (50ml)", calories: 140, note: "酒精热量很高，接近油脂" },
+                    { name: "红酒 一杯 (150ml)", calories: 120, note: "酒精热量，比白酒稍低" },
+                    { name: "威士忌 一杯 (50ml)", calories: 110, note: "蒸馏酒度数高热量高" },
+                    { name: "气泡水 一瓶", calories: 0, note: "无糖零卡，健康" },
+                    { name: "柠檬水 一杯", calories: 120, note: "加了很多糖，热量不低" },
+                    { name: "无糖柠檬水 一杯", calories: 5, note: "几乎零卡路里" }
+                ]
+            }
+        };
+
+        let gameState = {
+            currentCategory: null,
+            currentFood: null,
+            guessed: [],
+            totalScore: 0,
+            questionCount: 0
+        };
+
+        const elements = {
+            categoryButtons: document.getElementById('category-buttons'),
+            categoryHighScore: document.getElementById('category-high-score'),
+            categorySelection: document.getElementById('category-selection'),
+            gameArea: document.getElementById('game-area'),
+            foodName: document.getElementById('food-name'),
+            foodImage: document.getElementById('food-image'),
+            currentScore: document.getElementById('current-score'),
+            progressBar: document.getElementById('progress-bar'),
+            calorieInput: document.getElementById('calorie-input'),
+            guessBtn: document.getElementById('guess-btn'),
+            guessHistory: document.getElementById('guess-history'),
+            hintText: document.getElementById('hint-text'),
+            resultCard: document.getElementById('result-card'),
+            resultName: document.getElementById('result-name'),
+            resultCalories: document.getElementById('result-calories'),
+            resultError: document.getElementById('result-error'),
+            resultScore: document.getElementById('result-score'),
+            resultNote: document.getElementById('result-note'),
+            hintBtn: document.getElementById('hint-btn'),
+            nextFoodBtn: document.getElementById('next-food-btn'),
+            modal: document.getElementById('modal'),
+            modalIcon: document.getElementById('modal-icon'),
+            modalTitle: document.getElementById('modal-title'),
+            modalMessage: document.getElementById('modal-message'),
+            modalNextFood: document.getElementById('modal-next-food')
+        };
+
+        // Load high score from localStorage
+        function loadHighScore(category) {
+            const key = 'calorie-guesser-' + category;
+            const saved = localStorage.getItem(key);
+            return saved ? parseInt(saved) : 0;
+        }
+
+        function saveHighScore(category, score) {
+            const key = 'calorie-guesser-' + category;
+            const current = loadHighScore(category);
+            if (score > current) {
+                localStorage.setItem(key, score.toString());
+                return true;
+            }
+            return false;
+        }
+
+        // Initialize category buttons
+        function initCategories() {
+            for (const key in foodDB) {
+                const btn = document.createElement('button');
+                btn.className = 'category-tag px-4 py-2 bg-white/15 border border-white/30 rounded-lg text-white font-semibold hover:bg-white/25 transition-colors';
+                btn.textContent = foodDB[key].name;
+                btn.dataset.category = key;
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.category-tag').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    startCategory(key);
+                });
+                elements.categoryButtons.appendChild(btn);
+            }
+            // Click first category by default
+            const firstBtn = elements.categoryButtons.querySelector('button');
+            if (firstBtn) {
+                firstBtn.click();
+            }
+        }
+
+        function startCategory(category) {
+            gameState.currentCategory = category;
+            gameState.totalScore = 0;
+            gameState.questionCount = 0;
+            const highScore = loadHighScore(category);
+            elements.categoryHighScore.textContent = highScore;
+            elements.categorySelection.style.display = 'block';
+            elements.gameArea.style.display = 'block';
+            nextQuestion();
+            updateUI();
+        }
+
+        function nextQuestion() {
+            const foods = foodDB[gameState.currentCategory].foods;
+            const randomIndex = Math.floor(Math.random() * foods.length);
+            gameState.currentFood = foods[randomIndex];
+            gameState.guessed = [];
+            elements.resultCard.classList.add('hidden');
+            elements.calorieInput.value = '';
+            elements.guessHistory.innerHTML = ''';
+            updateUI();
+            elements.calorieInput.focus();
+        }
+
+        function updateUI() {
+            elements.foodName.textContent = gameState.currentFood.name;
+            elements.currentScore.textContent = gameState.totalScore.toFixed(0);
+            const foods = foodDB[gameState.currentCategory].foods;
+            const progress = (gameState.questionCount / foods.length) * 100;
+            elements.progressBar.style.width = progress + '%';
+            // Fallback for image
+            elements.foodImage.onerror = function() {
+                this.style.display = 'none';
+                this.parentElement.style.backgroundColor = 'rgba(255,255,255,0.2)';
+                const text = document.createElement('div');
+                text.className = 'text-white text-5xl';
+                text.textContent = '🍽️';
+                this.parentElement.appendChild(text);
+            };
+        }
+
+        function addGuessToList(guess, actual) {
+            const error = Math.abs(guess - actual) / actual * 100;
+            let className = '';
+            let text = '';
+            if (guess > actual) {
+                className = 'bg-orange-500/20 border border-orange-500, 50];
+                text = '🔽 猜高了';
+            } else {
+                className = 'bg-blue-500/20 border border-blue-500/50';
+                text = '🔼 猜低了';
+            }
+            const guessDiv = document.createElement('div');
+            guessDiv.className = `guess-item px-4 py-3 rounded-lg flex items-center justify-between ${className}`;
+            guessDiv.innerHTML = `
+                <span class="font-semibold text-white">${guess} kcal</span>
+                <span class="text-sm ${text.includes('猜高') ? 'text-orange-300' : 'text-blue-300'}">${text}</span>
+            `;
+            elements.guessHistory.insertBefore(guessDiv, elements.guessHistory.firstChild);
+        }
+
+        function calculateScore(guess, actual) {
+            // 相对误差评分：误差 0% = 100分，误差 100% = 0分，误差 > 100% = 0分
+            const error = Math.abs(guess - actual) / actual;
+            const score = Math.max(0, 100 - error * 100);
+            return score;
+        }
+
+        function handleGuess() {
+            const inputVal = elements.calorieInput.value.trim();
+            if (!inputVal) {
+                elements.hintText.textContent = '⚠️ 请输入卡路里';
+                elements.hintText.className = 'text-yellow-300 text-sm mt-2 text-center';
+                return;
+            }
+
+            const guess = parseInt(inputVal);
+            if (isNaN(guess) || guess < 0 || guess > 5000) {
+                elements.hintText.textContent = '⚠️ 请输入有效的卡路里 (0-5000)';
+                elements.hintText.className = 'text-yellow-300 text-sm mt-2 text-center';
+                return;
+            }
+
+            // 检查是否已经猜过这个数字
+            if (gameState.guessed.includes(guess)) {
+                elements.hintText.textContent = '⚠️ 你已经猜过这个数字了';
+                elements.hintText.className = 'text-yellow-300 text-sm mt-2 text-center';
+                return;
+            }
+
+            gameState.guessed.push(guess);
+            const actual = gameState.currentFood.calories;
+            const actualScore = calculateScore(guess, actual);
+            gameState.totalScore += actualScore;
+            gameState.questionCount++;
+
+            if (guess === actual) {
+                elements.hintText.textContent = '🎉 完全猜对了！';
+                elements.hintText.className = 'text-green-300 text-sm mt-2 text-center';
+            } else if (guess > actual) {
+                elements.hintText.textContent = '🔽 太高了';
+                elements.hintText.className = 'text-orange-300 text-sm mt-2 text-center';
+                addGuessToList(guess, actual);
+            } else {
+                elements.hintText.textContent = '🔼 太低了';
+                elements.hintText.className = 'text-blue-300 text-sm mt-2 text-center';
+                addGuessToList(guess, actual);
+            }
+
+            // Show result card
+            showResult();
+        }
+
+        function showResult() {
+            const guess = parseInt(elements.calorieInput.value);
+            const actual = gameState.currentFood.calories;
+            const error = Math.abs(guess - actual) / actual * 100;
+            const score = calculateScore(guess, actual);
+
+            elements.resultName.textContent = gameState.currentFood.name;
+            elements.resultCalories.textContent = actual;
+            elements.resultError.textContent = error.toFixed(1);
+            elements.resultScore.textContent = score.toFixed(1);
+            if (gameState.currentFood.note) {
+                elements.resultNote.textContent = '💡 ' + gameState.currentFood.note;
+            } else {
+                elements.resultNote.textContent = '';
+            }
+            elements.resultCard.classList.remove('hidden');
+            elements.currentScore.textContent = gameState.totalScore.toFixed(0);
+        }
+
+        function showFinalModal() {
+            const foods = foodDB[gameState.currentCategory].foods;
+            if (gameState.questionCount >= foods.length) {
+                // All questions done
+                const finalScore = gameState.totalScore / foods.length;
+                const isNewHigh = saveHighScore(gameState.currentCategory, finalScore);
+                elements.modal.classList.remove('hidden');
+                elements.modalIcon.textContent = '🏆';
+                elements.modalTitle.textContent = '分类挑战完成！';
+                let message = `你总共答对了 ${gameState.questionCount} 题\n平均得分: ${finalScore.toFixed(1)} / 100`;
+                if (isNewHigh) {
+                    message += '\n🎉 恭喜！打破了你的最高分记录！';
+                    elements.categoryHighScore.textContent = finalScore.toFixed(0);
+                }
+                elements.modalMessage.textContent = message;
+            } else {
+                if (guess === actual) {
+                    elements.modal.classList.remove('hidden');
+                    elements.modalIcon.textContent = '🎉';
+                    elements.modalTitle.textContent = '完美答对！';
+                    elements.modalMessage.textContent = `完全命中正确答案 ${actual} kcal\n得分: ${score.toFixed(1)}`;
+                }
+            }
+        }
+
+        function giveHint() {
+            const actual = gameState.currentFood.calories;
+            // 提示：范围是 actual ± 25%
+            const min = Math.floor(actual * 0.75);
+            const max = Math.ceil(actual * 1.25);
+            alert(`💡 提示：卡路里在 ${min} - ${max} kcal 之间`);
+        }
+
+        // Event bindings
+        elements.guessBtn.addEventListener('click', handleGuess);
+        elements.calorieInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                handleGuess();
+            }
+        });
+        elements.hintBtn.addEventListener('click', giveHint);
+        elements.nextFoodBtn.addEventListener('click', () => {
+            nextQuestion();
+        });
+        elements.modalNextFood.addEventListener('click', () => {
+            elements.modal.classList.add('hidden');
+            nextQuestion();
+        });
+        elements.modal.addEventListener('click', (e) => {
+            if (e.target === elements.modal) {
+                elements.modal.classList.add('hidden');
+            }
+        });
+
+        // Start the game
+        initCategories();
+</script>
+</body>
+</html>
