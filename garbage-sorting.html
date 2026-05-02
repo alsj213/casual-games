@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>垃圾大分类 - Casual Games</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: white;
+            overflow: hidden;
+        }
+        .game-container {
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 20px;
+            background: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+        }
+        .score, .timer, .combo { font-size: 1.2rem; font-weight: bold; }
+        .score { color: #2ecc71; }
+        .timer { color: #e74c3c; }
+        .combo { color: #f39c12; }
+        .game-area {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+        }
+        .falling-item {
+            position: absolute;
+            padding: 10px 15px;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 12px;
+            cursor: grab;
+            user-select: none;
+            touch-action: none;
+            transition: transform 0.1s;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 1.1rem;
+            color: #333;
+        }
+        .falling-item:active { cursor: grabbing; transform: scale(1.1); }
+        .falling-item.dragging { 
+            z-index: 100; 
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+            transform: scale(1.15);
+        }
+        .falling-item .emoji { font-size: 1.5rem; }
+        .falling-item .name { font-weight: 600; }
+        .bins-container {
+            display: flex;
+            justify-content: space-around;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(10px);
+        }
+        .bin {
+            width: 22%;
+            height: 120px;
+            border-radius: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1rem;
+            transition: all 0.3s;
+            border: 3px dashed rgba(255, 255, 255, 0.3);
+        }
+        .bin.highlight {
+            transform: scale(1.05);
+            border-color: rgba(255, 255, 255, 0.8);
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+        }
+        .bin.correct {
+            animation: correctPulse 0.5s;
+        }
+        .bin.wrong {
+            animation: wrongShake 0.5s;
+        }
+        @keyframes correctPulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        @keyframes wrongShake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            75% { transform: translateX(10px); }
+        }
+        .bin-recyclable { background: linear-gradient(135deg, #3498db, #2980b9); }
+        .bin-hazardous { background: linear-gradient(135deg, #e74c3c, #c0392b); }
+        .bin-kitchen { background: linear-gradient(135deg, #2ecc71, #27ae60); }
+        .bin-other { background: linear-gradient(135deg, #95a5a6, #7f8c8d); }
+        .bin .icon { font-size: 2rem; margin-bottom: 5px; }
+        .feedback {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 2rem;
+            font-weight: bold;
+            padding: 20px 40px;
+            border-radius: 15px;
+            animation: feedbackPop 0.8s ease-out forwards;
+            z-index: 1000;
+            pointer-events: none;
+        }
+        .feedback.correct { background: rgba(46, 204, 113, 0.9); }
+        .feedback.wrong { background: rgba(231, 76, 60, 0.9); }
+        @keyframes feedbackPop {
+            0% { opacity: 1; transform: translate(-50%, -50%) scale(0.5); }
+            50% { transform: translate(-50%, -50%) scale(1.2); }
+            100% { opacity: 0; transform: translate(-50%, -80%) scale(1); }
+        }
+        .knowledge-popup {
+            position: fixed;
+            bottom: 150px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            padding: 15px 25px;
+            border-radius: 12px;
+            max-width: 80%;
+            text-align: center;
+            animation: knowledgeFade 3s ease-out forwards;
+            z-index: 1000;
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+        @keyframes knowledgeFade {
+            0%, 70% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+        .start-screen, .game-over {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            z-index: 2000;
+        }
+        .start-screen h1, .game-over h1 {
+            font-size: 3rem;
+            margin-bottom: 20px;
+            background: linear-gradient(45deg, #2ecc71, #3498db);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .btn {
+            padding: 15px 40px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin: 10px;
+        }
+        .btn-start { background: linear-gradient(45deg, #2ecc71, #27ae60); color: white; }
+        .btn-start:hover { transform: scale(1.05); }
+        .btn-restart { background: linear-gradient(45deg, #3498db, #2980b9); color: white; }
+        .btn-restart:hover { transform: scale(1.05); }
+        .difficulty-select {
+            margin: 20px 0;
+            display: flex;
+            gap: 15px;
+        }
+        .difficulty-btn {
+            padding: 10px 25px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            background: transparent;
+            color: white;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .difficulty-btn.active {
+            border-color: #2ecc71;
+            background: rgba(46, 204, 113, 0.2);
+        }
+        .stats {
+            margin: 20px 0;
+            text-align: center;
+        }
+        .stats div { margin: 10px 0; font-size: 1.2rem; }
+        .stats .label { color: #a0a0a0; }
+        .stats .value { font-weight: bold; font-size: 1.5rem; }
+        .combo-display {
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #f39c12;
+            animation: comboPulse 0.5s infinite alternate;
+        }
+        @keyframes comboPulse {
+            0% { transform: scale(1); }
+            100% { transform: scale(1.1); }
+        }
+    </style>
+</head>
+<body>
+    <div class="start-screen" id="startScreen">
+        <h1>♻️ 垃圾大分类</h1>
+        <p style="color: #a0a0a0; margin-bottom: 30px; font-size: 1.1rem;">将垃圾拖拽到正确的分类桶中！</p>
+        <div class="difficulty-select">
+            <button class="difficulty-btn active" data-difficulty="easy">简单</button>
+            <button class="difficulty-btn" data-difficulty="medium">中等</button>
+            <button class="difficulty-btn" data-difficulty="hard">困难</button>
+        </div>
+        <button class="btn btn-start" id="startBtn">开始游戏</button>
+    </div>
+
+    <div class="game-container" id="gameContainer" style="display: none;">
+        <div class="header">
+            <div class="score">得分: <span id="score">0</span></div>
+            <div class="timer">时间: <span id="timer">60</span>s</div>
+            <div class="combo">连击: <span id="combo">0</span></div>
+        </div>
+        <div class="game-area" id="gameArea"></div>
+        <div class="bins-container">
+            <div class="bin bin-recyclable" data-type="recyclable">
+                <div class="icon">♻️</div>
+                <div>可回收物</div>
+            </div>
+            <div class="bin bin-hazardous" data-type="hazardous">
+                <div class="icon">☠️</div>
+                <div>有害垃圾</div>
+            </div>
+            <div class="bin bin-kitchen" data-type="kitchen">
+                <div class="icon">🥬</div>
+                <div>厨余垃圾</div>
+            </div>
+            <div class="bin bin-other" data-type="other">
+                <div class="icon">🗑️</div>
+                <div>其他垃圾</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="game-over" id="gameOver" style="display: none;">
+        <h1>游戏结束</h1>
+        <div class="stats">
+            <div><span class="label">最终得分:</span> <span class="value" id="finalScore">0</span></div>
+            <div><span class="label">正确分类:</span> <span class="value" id="correctCount">0</span></div>
+            <div><span class="label">错误分类:</span> <span class="value" id="wrongCount">0</span></div>
+            <div><span class="label">最高连击:</span> <span class="value" id="maxCombo">0</span></div>
+        </div>
+        <button class="btn btn-restart" id="restartBtn">再来一局</button>
+    </div>
+
+    <script>
+        // 垃圾数据库
+        const garbageData = [
+            // 可回收物
+            { name: '塑料瓶', emoji: '🧴', type: 'recyclable', knowledge: '塑料瓶属于可回收物，清洗干净后可回收再利用。' },
+            { name: '报纸', emoji: '📰', type: 'recyclable', knowledge: '报纸属于可回收物，可以回收再造纸。' },
+            { name: '纸箱', emoji: '📦', type: 'recyclable', knowledge: '纸箱属于可回收物，压扁后可回收。' },
+            { name: '易拉罐', emoji: '🥫', type: 'recyclable', knowledge: '易拉罐属于可回收物，铝罐可以无限次回收。' },
+            { name: '玻璃瓶', emoji: '🍾', type: 'recyclable', knowledge: '玻璃瓶属于可回收物，可以回收再制造玻璃制品。' },
+            { name: '旧衣服', emoji: '👕', type: 'recyclable', knowledge: '旧衣服属于可回收物，可以捐赠或回收再利用。' },
+            { name: '金属罐', emoji: '🫙', type: 'recyclable', knowledge: '金属罐属于可回收物，可以回收再利用。' },
+            { name: '快递盒', emoji: '📦', type: 'recyclable', knowledge: '快递盒属于可回收物，拆开压扁后可回收。' },
+            { name: '旧书', emoji: '📚', type: 'recyclable', knowledge: '旧书属于可回收物，可以捐赠或回收。' },
+            { name: '塑料盆', emoji: '🪣', type: 'recyclable', knowledge: '塑料盆属于可回收物，清洗后可回收。' },
+            { name: '铁钉', emoji: '🔩', type: 'recyclable', knowledge: '铁钉属于可回收物，金属制品都可以回收。' },
+            { name: '铝箔', emoji: '📄', type: 'recyclable', knowledge: '铝箔属于可回收物，清洗干净后可回收。' },
+            { name: '旧手机', emoji: '📱', type: 'recyclable', knowledge: '旧手机属于可回收物，含有可回收的贵金属。' },
+            { name: '旧电脑', emoji: '💻', type: 'recyclable', knowledge: '旧电脑属于可回收物，电子设备需要专业回收。' },
+            { name: '旧电视', emoji: '📺', type: 'recyclable', knowledge: '旧电视属于可回收物，需要专业回收处理。' },
+            { name: '废纸', emoji: '📝', type: 'recyclable', knowledge: '废纸属于可回收物，可以回收再造纸。' },
+            { name: '塑料袋', emoji: '🛍️', type: 'recyclable', knowledge: '干净的塑料袋属于可回收物，但污染的属于其他垃圾。' },
+            { name: '泡沫箱', emoji: '📦', type: 'recyclable', knowledge: '泡沫箱属于可回收物，但回收价值较低。' },
+            { name: '旧轮胎', emoji: '🛞', type: 'recyclable', knowledge: '旧轮胎属于可回收物，可以回收再利用。' },
+            { name: '废金属', emoji: '⚙️', type: 'recyclable', knowledge: '废金属属于可回收物，可以回炉再造成新的金属制品。' },
+            
+            // 有害垃圾
+            { name: '电池', emoji: '🔋', type: 'hazardous', knowledge: '电池属于有害垃圾，含有重金属，会污染环境。' },
+            { name: '灯泡', emoji: '💡', type: 'hazardous', knowledge: '灯泡属于有害垃圾，含有汞等有害物质。' },
+            { name: '药品', emoji: '💊', type: 'hazardous', knowledge: '过期药品属于有害垃圾，不能随意丢弃。' },
+            { name: '油漆桶', emoji: '🪣', type: 'hazardous', knowledge: '油漆桶属于有害垃圾，含有化学物质。' },
+            { name: '农药瓶', emoji: '🧴', type: 'hazardous', knowledge: '农药瓶属于有害垃圾，残留农药会污染环境。' },
+            { name: '水银温度计', emoji: '🌡️', type: 'hazardous', knowledge: '水银温度计属于有害垃圾，水银有毒需要特殊处理。' },
+            { name: '指甲油', emoji: '💅', type: 'hazardous', knowledge: '指甲油属于有害垃圾，含有化学溶剂。' },
+            { name: '杀虫剂', emoji: '🐛', type: 'hazardous', knowledge: '杀虫剂属于有害垃圾，含有有毒化学物质。' },
+            { name: '消毒液', emoji: '🧴', type: 'hazardous', knowledge: '消毒液属于有害垃圾，不能随意倒入下水道。' },
+            { name: '废油漆', emoji: '🎨', type: 'hazardous', knowledge: '废油漆属于有害垃圾，需要专业处理。' },
+            { name: '废电池', emoji: '🔋', type: 'hazardous', knowledge: '废电池属于有害垃圾，含有重金属会污染土壤和水源。' },
+            { name: '废灯管', emoji: '💡', type: 'hazardous', knowledge: '废灯管属于有害垃圾，含有汞蒸气。' },
+            { name: '过期化妆品', emoji: '💄', type: 'hazardous', knowledge: '过期化妆品属于有害垃圾，含有化学物质。' },
+            { name: '废墨盒', emoji: '🖨️', type: 'hazardous', knowledge: '废墨盒属于有害垃圾，含有墨水和化学物质。' },
+            { name: '废胶片', emoji: '🎞️', type: 'hazardous', knowledge: '废胶片属于有害垃圾，含有银等重金属。' },
+            { name: '废血压计', emoji: '🩺', type: 'hazardous', knowledge: '废血压计属于有害垃圾，含有水银。' },
+            { name: '废杀虫剂罐', emoji: '🐛', type: 'hazardous', knowledge: '废杀虫剂罐属于有害垃圾，残留有毒物质。' },
+            { name: '废消毒剂', emoji: '🧴', type: 'hazardous', knowledge: '废消毒剂属于有害垃圾，不能随意丢弃。' },
+            { name: '废染发剂', emoji: '💇', type: 'hazardous', knowledge: '废染发剂属于有害垃圾，含有化学成分。' },
+            { name: '废蓄电池', emoji: '🔋', type: 'hazardous', knowledge: '废蓄电池属于有害垃圾，含有铅和硫酸。' },
+            
+            // 厨余垃圾
+            { name: '剩饭', emoji: '🍚', type: 'kitchen', knowledge: '剩饭属于厨余垃圾，可以堆肥处理。' },
+            { name: '果皮', emoji: '🍊', type: 'kitchen', knowledge: '果皮属于厨余垃圾，可以堆肥或发酵做肥料。' },
+            { name: '菜叶', emoji: '🥬', type: 'kitchen', knowledge: '菜叶属于厨余垃圾，可以堆肥处理。' },
+            { name: '蛋壳', emoji: '🥚', type: 'kitchen', knowledge: '蛋壳属于厨余垃圾，可以堆肥，富含钙质。' },
+            { name: '茶渣', emoji: '🍵', type: 'kitchen', knowledge: '茶渣属于厨余垃圾，可以堆肥或做花肥。' },
+            { name: '骨头', emoji: '🦴', type: 'kitchen', knowledge: '骨头属于厨余垃圾，大骨头需要分开处理。' },
+            { name: '鱼刺', emoji: '🐟', type: 'kitchen', knowledge: '鱼刺属于厨余垃圾，可以堆肥处理。' },
+            { name: '瓜子壳', emoji: '🌻', type: 'kitchen', knowledge: '瓜子壳属于厨余垃圾，可以堆肥处理。' },
+            { name: '花生壳', emoji: '🥜', type: 'kitchen', knowledge: '花生壳属于厨余垃圾，可以堆肥处理。' },
+            { name: '玉米芯', emoji: '🌽', type: 'kitchen', knowledge: '玉米芯属于厨余垃圾，可以堆肥处理。' },
+            { name: '面包', emoji: '🍞', type: 'kitchen', knowledge: '过期面包属于厨余垃圾，可以堆肥处理。' },
+            { name: '蛋糕', emoji: '🎂', type: 'kitchen', knowledge: '过期蛋糕属于厨余垃圾，可以堆肥处理。' },
+            { name: '糖果', emoji: '🍬', type: 'kitchen', knowledge: '过期糖果属于厨余垃圾，可以堆肥处理。' },
+            { name: '坚果壳', emoji: '🌰', type: 'kitchen', knowledge: '坚果壳属于厨余垃圾，可以堆肥处理。' },
+            { name: '水果核', emoji: '🍑', type: 'kitchen', knowledge: '水果核属于厨余垃圾，可以堆肥处理。' },
+            { name: '蔬菜根', emoji: '🥕', type: 'kitchen', knowledge: '蔬菜根属于厨余垃圾，可以堆肥处理。' },
+            { name: '蛋壳', emoji: '🥚', type: 'kitchen', knowledge: '蛋壳属于厨余垃圾，可以堆肥，富含钙质。' },
+            { name: '咖啡渣', emoji: '☕', type: 'kitchen', knowledge: '咖啡渣属于厨余垃圾，可以堆肥或除味。' },
+            { name: '中药渣', emoji: '💊', type: 'kitchen', knowledge: '中药渣属于厨余垃圾，可以堆肥处理。' },
+            { name: '过期食品', emoji: '🥫', type: 'kitchen', knowledge: '过期食品属于厨余垃圾，需要分类处理。' },
+            
+            // 其他垃圾
+            { name: '烟蒂', emoji: '🚬', type: 'other', knowledge: '烟蒂属于其他垃圾，含有多种有害物质。' },
+            { name: '陶瓷', emoji: '🏺', type: 'other', knowledge: '陶瓷属于其他垃圾，无法回收再利用。' },
+            { name: '尘土', emoji: '🧹', type: 'other', knowledge: '尘土属于其他垃圾，无法回收。' },
+            { name: '一次性餐具', emoji: '🥢', type: 'other', knowledge: '污染的一次性餐具属于其他垃圾。' },
+            { name: '纸巾', emoji: '🧻', type: 'other', knowledge: '用过的纸巾属于其他垃圾，无法回收。' },
+            { name: '湿巾', emoji: '🧻', type: 'other', knowledge: '湿巾属于其他垃圾，无法回收。' },
+            { name: '创可贴', emoji: '🩹', type: 'other', knowledge: '创可贴属于其他垃圾，使用后无法回收。' },
+            { name: '猫砂', emoji: '🐱', type: 'other', knowledge: '猫砂属于其他垃圾，无法回收。' },
+            { name: '扫地灰', emoji: '🧹', type: 'other', knowledge: '扫地灰属于其他垃圾，无法回收。' },
+            { name: '一次性尿布', emoji: '👶', type: 'other', knowledge: '一次性尿布属于其他垃圾，无法回收。' },
+            { name: '污染纸张', emoji: '📄', type: 'other', knowledge: '被污染的纸张属于其他垃圾，无法回收。' },
+            { name: '破旧毛巾', emoji: '🧣', type: 'other', knowledge: '破旧毛巾属于其他垃圾，无法回收。' },
+            { name: '橡皮泥', emoji: '🎨', type: 'other', knowledge: '橡皮泥属于其他垃圾，无法回收。' },
+            { name: '胶带', emoji: '📎', type: 'other', knowledge: '胶带属于其他垃圾，无法回收。' },
+            { name: '蜡烛', emoji: '🕯️', type: 'other', knowledge: '蜡烛属于其他垃圾，无法回收。' },
+            { name: '竹筷', emoji: '🥢', type: 'other', knowledge: '一次性竹筷属于其他垃圾，无法回收。' },
+            { name: '花盆', emoji: '🪴', type: 'other', knowledge: '破旧花盆属于其他垃圾，陶瓷无法回收。' },
+            { name: '扫把', emoji: '🧹', type: 'other', knowledge: '破旧扫把属于其他垃圾，无法回收。' },
+            { name: '拖把', emoji: '🧹', type: 'other', knowledge: '破旧拖把属于其他垃圾，无法回收。' },
+            { name: '旧镜子', emoji: '🪞', type: 'other', knowledge: '破旧镜子属于其他垃圾，无法回收。' }
+        ];
+
+        // 游戏状态
+        let gameState = {
+            running: false,
+            score: 0,
+            timer: 60,
+            combo: 0,
+            maxCombo: 0,
+            correctCount: 0,
+            wrongCount: 0,
+            difficulty: 'easy',
+            fallingItems: [],
+            spawnInterval: null,
+            timerInterval: null,
+            draggedItem: null,
+            dragOffsetX: 0,
+            dragOffsetY: 0
+        };
+
+        // 难度设置
+        const difficultySettings = {
+            easy: { spawnRate: 2000, fallSpeed: 1, timeLimit: 90 },
+            medium: { spawnRate: 1500, fallSpeed: 1.5, timeLimit: 60 },
+            hard: { spawnRate: 1000, fallSpeed: 2, timeLimit: 45 }
+        };
+
+        // DOM元素
+        const startScreen = document.getElementById('startScreen');
+        const gameContainer = document.getElementById('gameContainer');
+        const gameOver = document.getElementById('gameOver');
+        const gameArea = document.getElementById('gameArea');
+        const scoreDisplay = document.getElementById('score');
+        const timerDisplay = document.getElementById('timer');
+        const comboDisplay = document.getElementById('combo');
+        const finalScore = document.getElementById('finalScore');
+        const correctCountDisplay = document.getElementById('correctCount');
+        const wrongCountDisplay = document.getElementById('wrongCount');
+        const maxComboDisplay = document.getElementById('maxCombo');
+
+        // 初始化
+        function init() {
+            // 难度选择
+            document.querySelectorAll('.difficulty-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.difficulty-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    gameState.difficulty = btn.dataset.difficulty;
+                });
+            });
+
+            // 开始按钮
+            document.getElementById('startBtn').addEventListener('click', startGame);
+            document.getElementById('restartBtn').addEventListener('click', () => {
+                gameOver.style.display = 'none';
+                startScreen.style.display = 'flex';
+            });
+        }
+
+        // 开始游戏
+        function startGame() {
+            const settings = difficultySettings[gameState.difficulty];
+            
+            // 重置状态
+            gameState.running = true;
+            gameState.score = 0;
+            gameState.timer = settings.timeLimit;
+            gameState.combo = 0;
+            gameState.maxCombo = 0;
+            gameState.correctCount = 0;
+            gameState.wrongCount = 0;
+            gameState.fallingItems = [];
+            
+            // 更新UI
+            scoreDisplay.textContent = '0';
+            timerDisplay.textContent = settings.timeLimit;
+            comboDisplay.textContent = '0';
+            
+            // 切换界面
+            startScreen.style.display = 'none';
+            gameContainer.style.display = 'flex';
+            gameOver.style.display = 'none';
+            
+            // 清空游戏区域
+            gameArea.innerHTML = '';
+            
+            // 开始生成垃圾
+            spawnGarbage();
+            gameState.spawnInterval = setInterval(spawnGarbage, settings.spawnRate);
+            
+            // 开始计时
+            gameState.timerInterval = setInterval(() => {
+                gameState.timer--;
+                timerDisplay.textContent = gameState.timer;
+                
+                if (gameState.timer <= 0) {
+                    endGame();
+                }
+            }, 1000);
+            
+            // 开始动画循环
+            requestAnimationFrame(gameLoop);
+        }
+
+        // 生成垃圾
+        function spawnGarbage() {
+            if (!gameState.running) return;
+            
+            const garbage = garbageData[Math.floor(Math.random() * garbageData.length)];
+            const item = document.createElement('div');
+            item.className = 'falling-item';
+            item.innerHTML = `<span class="emoji">${garbage.emoji}</span><span class="name">${garbage.name}</span>`;
+            item.dataset.type = garbage.type;
+            item.dataset.knowledge = garbage.knowledge;
+            item.dataset.name = garbage.name;
+            
+            // 随机位置
+            const maxX = gameArea.offsetWidth - 150;
+            item.style.left = Math.random() * maxX + 'px';
+            item.style.top = '-60px';
+            
+            gameArea.appendChild(item);
+            gameState.fallingItems.push({
+                element: item,
+                y: -60,
+                speed: difficultySettings[gameState.difficulty].fallSpeed
+            });
+            
+            // 添加拖拽事件
+            addDragListeners(item);
+        }
+
+        // 添加拖拽监听
+        function addDragListeners(item) {
+            // 鼠标事件
+            item.addEventListener('mousedown', startDrag);
+            document.addEventListener('mousemove', drag);
+            document.addEventListener('mouseup', endDrag);
+            
+            // 触摸事件
+            item.addEventListener('touchstart', startDragTouch);
+            document.addEventListener('touchmove', dragTouch);
+            document.addEventListener('touchend', endDragTouch);
+        }
+
+        function startDrag(e) {
+            if (!gameState.running) return;
+            e.preventDefault();
+            const item = e.target.closest('.falling-item');
+            if (!item) return;
+            
+            gameState.draggedItem = item;
+            item.classList.add('dragging');
+            
+            const rect = item.getBoundingClientRect();
+            gameState.dragOffsetX = e.clientX - rect.left;
+            gameState.dragOffsetY = e.clientY - rect.top;
+        }
+
+        function drag(e) {
+            if (!gameState.draggedItem) return;
+            e.preventDefault();
+            
+            const x = e.clientX - gameState.dragOffsetX;
+            const y = e.clientY - gameState.dragOffsetY;
+            
+            gameState.draggedItem.style.left = x + 'px';
+            gameState.draggedItem.style.top = y + 'px';
+            
+            // 检查是否在垃圾桶上方
+            checkBinHighlight(e.clientX, e.clientY);
+        }
+
+        function endDrag(e) {
+            if (!gameState.draggedItem) return;
+            
+            const item = gameState.draggedItem;
+            item.classList.remove('dragging');
+            
+            // 检查是否放入垃圾桶
+            const bin = getBinAtPosition(e.clientX, e.clientY);
+            if (bin) {
+                checkAnswer(item, bin);
+            }
+            
+            gameState.draggedItem = null;
+            clearBinHighlights();
+        }
+
+        function startDragTouch(e) {
+            if (!gameState.running) return;
+            e.preventDefault();
+            const touch = e.touches[0];
+            const item = e.target.closest('.falling-item');
+            if (!item) return;
+            
+            gameState.draggedItem = item;
+            item.classList.add('dragging');
+            
+            const rect = item.getBoundingClientRect();
+            gameState.dragOffsetX = touch.clientX - rect.left;
+            gameState.dragOffsetY = touch.clientY - rect.top;
+        }
+
+        function dragTouch(e) {
+            if (!gameState.draggedItem) return;
+            e.preventDefault();
+            
+            const touch = e.touches[0];
+            const x = touch.clientX - gameState.dragOffsetX;
+            const y = touch.clientY - gameState.dragOffsetY;
+            
+            gameState.draggedItem.style.left = x + 'px';
+            gameState.draggedItem.style.top = y + 'px';
+            
+            checkBinHighlight(touch.clientX, touch.clientY);
+        }
+
+        function endDragTouch(e) {
+            if (!gameState.draggedItem) return;
+            
+            const item = gameState.draggedItem;
+            item.classList.remove('dragging');
+            
+            const touch = e.changedTouches[0];
+            const bin = getBinAtPosition(touch.clientX, touch.clientY);
+            if (bin) {
+                checkAnswer(item, bin);
+            }
+            
+            gameState.draggedItem = null;
+            clearBinHighlights();
+        }
+
+        // 检查垃圾桶高亮
+        function checkBinHighlight(x, y) {
+            document.querySelectorAll('.bin').forEach(bin => {
+                const rect = bin.getBoundingClientRect();
+                if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) {
+                    bin.classList.add('highlight');
+                } else {
+                    bin.classList.remove('highlight');
+                }
+            });
+        }
+
+        function clearBinHighlights() {
+            document.querySelectorAll('.bin').forEach(bin => {
+                bin.classList.remove('highlight');
+            });
+        }
+
+        // 获取点击位置的垃圾桶
+        function getBinAtPosition(x, y) {
+            const bins = document.querySelectorAll('.bin');
+            for (const bin of bins) {
+                const rect = bin.getBoundingClientRect();
+                if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) {
+                    return bin;
+                }
+            }
+            return null;
+        }
+
+        // 检查答案
+        function checkAnswer(item, bin) {
+            const itemType = item.dataset.type;
+            const binType = bin.dataset.type;
+            const knowledge = item.dataset.knowledge;
+            const name = item.dataset.name;
+            
+            if (itemType === binType) {
+                // 正确
+                gameState.correctCount++;
+                gameState.combo++;
+                if (gameState.combo > gameState.maxCombo) {
+                    gameState.maxCombo = gameState.combo;
+                }
+                
+                // 计分：基础分 + 连击加分
+                const baseScore = 10;
+                const comboBonus = Math.min(gameState.combo * 2, 20);
+                const points = baseScore + comboBonus;
+                gameState.score += points;
+                
+                // 更新UI
+                scoreDisplay.textContent = gameState.score;
+                comboDisplay.textContent = gameState.combo;
+                
+                // 显示反馈
+                showFeedback(`+${points}`, 'correct');
+                showKnowledge(knowledge);
+                
+                // 播放正确动画
+                bin.classList.add('correct');
+                setTimeout(() => bin.classList.remove('correct'), 500);
+                
+                // 移除垃圾
+                removeItem(item);
+            } else {
+                // 错误
+                gameState.wrongCount++;
+                gameState.combo = 0;
+                gameState.score = Math.max(0, gameState.score - 5);
+                
+                // 更新UI
+                scoreDisplay.textContent = gameState.score;
+                comboDisplay.textContent = '0';
+                
+                // 显示反馈
+                showFeedback('-5', 'wrong');
+                showKnowledge(`正确答案：${name}属于${getTypeName(itemType)}。${knowledge}`);
+                
+                // 播放错误动画
+                bin.classList.add('wrong');
+                setTimeout(() => bin.classList.remove('wrong'), 500);
+                
+                // 移除垃圾
+                removeItem(item);
+            }
+        }
+
+        // 获取分类名称
+        function getTypeName(type) {
+            const names = {
+                recyclable: '可回收物',
+                hazardous: '有害垃圾',
+                kitchen: '厨余垃圾',
+                other: '其他垃圾'
+            };
+            return names[type] || type;
+        }
+
+        // 显示反馈
+        function showFeedback(text, type) {
+            const feedback = document.createElement('div');
+            feedback.className = `feedback ${type}`;
+            feedback.textContent = text;
+            document.body.appendChild(feedback);
+            
+            setTimeout(() => feedback.remove(), 800);
+        }
+
+        // 显示知识
+        function showKnowledge(text) {
+            const popup = document.createElement('div');
+            popup.className = 'knowledge-popup';
+            popup.textContent = text;
+            document.body.appendChild(popup);
+            
+            setTimeout(() => popup.remove(), 3000);
+        }
+
+        // 移除垃圾
+        function removeItem(item) {
+            const index = gameState.fallingItems.findIndex(i => i.element === item);
+            if (index > -1) {
+                gameState.fallingItems.splice(index, 1);
+            }
+            item.remove();
+        }
+
+        // 游戏循环
+        function gameLoop() {
+            if (!gameState.running) return;
+            
+            const settings = difficultySettings[gameState.difficulty];
+            
+            // 更新所有掉落物品
+            gameState.fallingItems.forEach((item, index) => {
+                item.y += item.speed;
+                item.element.style.top = item.y + 'px';
+                
+                // 如果掉出屏幕，算作错误
+                if (item.y > gameArea.offsetHeight) {
+                    gameState.wrongCount++;
+                    gameState.combo = 0;
+                    comboDisplay.textContent = '0';
+                    removeItem(item.element);
+                }
+            });
+            
+            requestAnimationFrame(gameLoop);
+        }
+
+        // 结束游戏
+        function endGame() {
+            gameState.running = false;
+            clearInterval(gameState.spawnInterval);
+            clearInterval(gameState.timerInterval);
+            
+            // 显示游戏结束界面
+            finalScore.textContent = gameState.score;
+            correctCountDisplay.textContent = gameState.correctCount;
+            wrongCountDisplay.textContent = gameState.wrongCount;
+            maxComboDisplay.textContent = gameState.maxCombo;
+            
+            gameContainer.style.display = 'none';
+            gameOver.style.display = 'flex';
+        }
+
+        // 初始化游戏
+        init();
+    </script>
+</body>
+</html>
